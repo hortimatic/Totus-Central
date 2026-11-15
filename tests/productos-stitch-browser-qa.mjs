@@ -70,7 +70,7 @@ try{
   for(const section of ['contenido','precios','variaciones','imagenes','seo','transporte','inventario','organizacion','general']){
    if(section==='variaciones'){assert.ok(!(await page.locator('#sub-variaciones').textContent()).includes('69,95'));assert.ok((await page.locator('#sub-variaciones').textContent()).includes('precio base sin IVA'));}
    await page.locator('[data-pr-action="editor-section"][data-pr-section="'+section+'"]').click();
-   assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.map(n=>n.textContent.trim())),[],'Every visible fiche button has a real action: '+section);
+   assert.deepEqual(await page.locator('#productosRoot button:visible:not([data-pr-action])').evaluateAll(ns=>ns.filter(n=>!(n.matches('.prd-select-trigger')&&typeof n.onclick==='function')).map(n=>n.textContent.trim())),[],'Every visible fiche button has a real action: '+section);
    await page.screenshot({path:'qa-artifacts/productos-stitch-'+section+'-'+width+'.png',fullPage:true});
    const ids={general:'sub-info',contenido:'sub-desc',precios:'sub-precios',variaciones:'sub-variaciones',imagenes:'sub-imagenes',seo:'sub-seo',transporte:'sub-envio',inventario:'sub-stock',organizacion:'sub-organizacion'};
    await reference.evaluate(id=>{document.querySelectorAll('.master-tab-view,.subtab-content').forEach(n=>n.style.removeProperty('display'));window.totusOpenMasterTab('tab-ficha',document.querySelectorAll('.master-tab-btn')[1]);const ids=['sub-info','sub-desc','sub-precios','sub-variaciones','sub-imagenes','sub-seo','sub-envio','sub-stock','sub-organizacion'];window.totusOpenSubTab(id,document.querySelectorAll('.subtab-btn')[ids.indexOf(id)]);},ids[section]);
