@@ -170,15 +170,14 @@ function prestashopChart(w,read){
 }
 function psSummary(w,data,catalog){
  const shop=safeStore(w.scope.store),r=data?.[shop];
- if(!r)return periodControls(w)+psPlaceholder(w);
- if(r.error)return periodControls(w)+'<div class="home-ps-message" role="alert">'+esc(r.error)+' <button data-home-command="fetch" data-id="'+esc(w.id)+'">Reintentar</button></div>';
+ if(!r||r.error){const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;return '<div class="home-ps-content" aria-busy="'+!r+'">'+periodControls(w)+(w.filters.showMetrics!==false?'<div class="home-ps-metrics">'+['Ventas','Pedidos válidos','Ticket medio','Calidad del catálogo','Margen comercial'].map(label=>metric(label,'—')).join('')+'</div>':'')+'<p class="home-ps-message" role="'+(r?.error?'alert':'status')+'">'+esc(r?.error||'Consultando los datos de esta tienda…')+'</p><div class="home-ps-panels has-chart-and-top">'+(w.filters.chartMode!=='off'?'<div class="home-summary-chart-placeholder" aria-hidden="true"></div>':'')+(w.filters.showTop!==false?'<section class="home-ps-products"><h4>Productos más vendidos</h4><div style="min-height:'+topLimit*66+'px" aria-hidden="true"></div></section>':'')+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">'+(r?.error?'Reintentar':'Actualizar')+'</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';}
  const {count,total,ticket,complete}=orderStats(r.rows,r.currencies,r.complete);
  const countText=complete?count:'Parcial: '+count;
  const showMetrics=w.filters.showMetrics!==false,showTop=w.filters.showTop!==false;
  const topLimit=[4,8,12].includes(Number(w.filters.topLimit))?Number(w.filters.topLimit):4;
  const metrics=showMetrics?'<div class="home-ps-metrics">'+metric('Ventas',complete?money(total):'Sin total fiable')+metric('Pedidos válidos',countText)+metric('Ticket medio',ticket!==null?money(ticket):'—')+'<div class="home-ps-metric"><small>Calidad del catálogo</small><strong>'+esc(catalog?(catalog.complete?'':'Parcial · ')+catalog.issues.filter(x=>x.issues.length).length+' avisos':'Sin consulta')+'</strong><button type="button" data-home-command="catalog-quality" data-id="'+esc(w.id)+'">'+(catalog?'Actualizar calidad':'Consultar calidad')+'</button></div>'+metric('Margen comercial',marginText(r.rows,r.complete))+'</div>':'';
  const chart=prestashopChart(w,r);
- const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span>'+esc(p.name)+'<small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
+ const top=showTop?'<section class="home-ps-products"><h4>Productos más vendidos</h4>'+(r.top?.length?'<ol class="home-ps-top">'+r.top.slice(0,topLimit).map(p=>'<li><span class="home-top-item">'+(p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'')+'<span><span class="home-top-name" title="'+esc(p.name)+'">'+esc(p.name)+'</span><small>'+esc(p.reference||'Sin referencia')+'</small></span></span> <b>'+esc(String(p.qty))+' uds</b></li>').join('')+'</ol>':'<p class="small muted">Líneas sin cobertura completa. Abre PrestaShop para verificar.</p>')+'</section>':'';
  return '<div class="home-ps-content">'+periodControls(w)+metrics+'<p class="small muted">'+esc(labelStore(shop))+' · '+esc(r.from)+' → '+esc(r.to)+' · '+(r.complete?'lectura completa':'lectura parcial')+' · '+esc(r.checked||'')+(r.refreshing?' · Última lectura guardada; actualizando…':'')+'</p><div class="home-ps-panels '+(chart&&top?'has-chart-and-top':'')+'">'+chart+top+'</div><div class="home-widget-actions"><button type="button" class="btn secondary" data-home-command="fetch" data-id="'+esc(w.id)+'">Actualizar</button><button type="button" class="btn secondary" data-route="prestashop">Abrir PrestaShop</button></div></div>';
 }
 function prestashopProductsTable(w,data){
@@ -338,7 +337,6 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(w.type==='cash.openings'){
    const summary=content.querySelector('.home-opening-summary');if(summary)summary.remove();content.insertAdjacentHTML('beforeend',openingStatus());
   }
-  if(w.type==='home.result'&&can('prestashop','view')){content.querySelector('[data-financial-margin]')?.remove();const slot=document.createElement('div');slot.dataset.financialMargin='';const fw=financialWidget();slot.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));content.append(slot);}
   return content;
  };
  function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
@@ -359,6 +357,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    }else body.append(content);
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);const calendarHost=body.querySelector('[data-home-task-calendar]');if(calendarHost)taskCalendar.mount(calendarHost);
   }
+  const financialCards=[...grid.querySelectorAll('[data-home-widget]')].filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType));
+  if(financialCards.length&&can('prestashop','view')){const summary=document.createElement('section');summary.className='home-margin-strip';summary.dataset.financialMargin='';summary.setAttribute('aria-label','Margen comercial del periodo');const fw=financialWidget();summary.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));financialCards.at(-1).after(summary);}
   root.classList.toggle('home-edit-mode',edit);
   root.classList.toggle('home-widgets-dirty',changed());
   const settings=homeCanvasSettings(model.settings);
