@@ -1,0 +1,44 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {versionEntryAssets} from '../tools/version-entry-assets.mjs';
+import {buildModuleRoutes} from '../tools/build-module-routes.mjs';
+import {permissionsFor,canUser,setRolePermissions} from '../src/permissions.js';
+import {MODULE_PATHS,moduleUrl,requestedModule,moduleReads} from '../src/module-navigation.js';
+import {ROUTES} from '../src/config.js';
+const user={email:'fixture@example.invalid',role:'encargado'};
+const grant=(module,create=false)=>({email:user.email,module,can_view:true,can_create:create});
+setRolePermissions([]);
+assert.equal(MODULE_PATHS.totustpv,'tpv');
+assert.equal(ROUTES.filter(route=>route.id==='totustpv').length,1);
+assert.equal(moduleUrl('https://example.invalid/ventas?ps_order=7','totustpv'),'https://example.invalid/tpv');
+assert.equal(requestedModule('https://example.invalid/tpv',ROUTES),'totustpv');
+assert.equal(canUser(user,'totustpv','view'),false);
+assert.equal(canUser(user,'totustpv','create',[grant('ventas',true)]),false,'Ventas alone cannot permit cash operations');
+assert.equal(canUser(user,'totustpv','create',[grant('ventas',true),grant('cajas',true)]),true);
+assert.equal(canUser(user,'totustpv','create',[grant('ventas'),grant('cajas',true)]),false);
+assert.equal(canUser(user,'totustpv','view',[grant('ventas'),grant('cajas')]),true);
+assert.equal(canUser(user,'totustpv','view',[grant('ventas'),{...grant('cajas'),can_view:false}]),false);
+assert.equal(permissionsFor({role:'admin'},'totustpv').create,true);
+const reads=moduleReads([['stores'],['drawers'],['profiles'],['products'],['invoices'],['expenses']],'totustpv');
+assert.deepEqual(reads,[['stores'],['drawers'],['profiles']],'TPV startup does not load unrelated financial/catalogue rows');
+const source=fs.readFileSync('src/app.js','utf8');
+assert(source.includes("if(state.route==='totustpv')totusTpvUI.mount"));
+assert(source.includes("state.route==='totustpv'&&totusTpvUI.hasDraft()"));
+assert(source.includes('totusTpvUI.dispose();directoryUI.reset();'),'Sign out must invalidate the TPV');
+const artifactRoot=path.resolve('artifacts');fs.mkdirSync(artifactRoot,{recursive:true});
+const built=fs.mkdtempSync(path.join(artifactRoot,'totustpv-route-'));
+try{
+ const revision='b'.repeat(40);
+ fs.writeFileSync(path.join(built,'index.html'),versionEntryAssets(fs.readFileSync('index.html','utf8'),revision));
+ buildModuleRoutes(built);
+ const html=fs.readFileSync(path.join(built,'tpv','index.html'),'utf8');
+ assert(html.includes('moduleBase'),'Direct /tpv entry retains the shared asset base');
+ assert(html.includes('src/totustpv/workspace.css?v='+revision),'New styles are versioned before route generation');
+ assert(html.includes('src/bootstrap.js?v='+revision),'Direct entry uses the same versioned application');
+}finally{
+ const target=fs.realpathSync(built);
+ if(!target.startsWith(fs.realpathSync(artifactRoot)+path.sep))throw new Error('Refusing cleanup outside the test artifact root');
+ fs.rmSync(target,{recursive:true});
+}
+console.log('PASS Central TPV integration: existing permissions intersect, clean route, bounded reads and lifecycle guards. No server or remote data.');

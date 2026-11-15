@@ -17,7 +17,7 @@
 | `operator-payments.js` | Confirmación explícita del cajero, nueva autorización, revisión de configuración y reparto efectivo/tarjeta | No cobra ni reintegra dinero en un banco; datáfono independiente |
 | `payment-readback.js` | Contrasta cada forma e importe contra los pagos nativos; un total correcto con métodos intercambiados falla | Necesita lecturas autenticadas de la instalación seleccionada |
 | `quote-contract.js` y `quote-verifier.js` | Consume cálculo nativo de carrito propio, verifica alcance, caducidad, seis decimales, totales y cambios antes de enviar | Proveedores persistentes y endpoint todavía sin publicar |
-| Interfaz de trabajo | Venta, caja, historial, pagos, recuperación y devoluciones en un recorrido de práctica aislado, con móvil y escritorio | No hay ruta de TPV habilitada en Central ni adaptador HTTP de venta real |
+| Interfaz de trabajo | Ruta `/tpv` dentro de Central, navegación Comercio, sesión y permisos existentes; venta, caja, historial, pagos, recuperación y devoluciones en práctica explícita | Código local sin publicar; falta adaptador HTTP de venta real y activación verificada |
 | Capacidad nativa propia | Protocolo, reclamación durable y cálculo de carrito; registro comprobado también en MariaDB | Sin paquete instalable, controlador HTTP ni activación remota |
 | `PdoNativeEffect` y `NativeEffectHandler` | Exigen reclamación previa, guardan recibo y efectos SQL en el mismo PDO nativo, y recuperan sólo tras relectura coincidente | No vuelven transaccionales el correo ni efectos externos de hooks; todavía sin endpoint |
 
@@ -48,6 +48,40 @@ Los abonos nativos no confirman un reintegro externo ni descuentan efectivo de u
 El coordinador transaccional tiene además 21 comprobaciones SQLite con manejador de negocio simulado: exige una reclamación válida, rechaza relecturas que cambien referencia o importe, bloquea reenvío después de rollback y mantiene incertidumbre si un hook interrumpe la transacción. Estas pruebas no sustituyen la ejecución nativa anterior.
 
 ## Diagnóstico sin atribuciones falsas
+
+### Recorrido de interfaz integrado
+
+`/tpv` utiliza el mismo marco, cabecera, botones, campos, pestañas y preferencias
+de Central. No incorpora otro acceso ni permisos independientes: necesita Ver
+en Ventas y Cajas; operar requiere Crear en ambos, además de los controles reales
+de servidor cuando se habiliten. La entrada sólo carga el contexto común necesario,
+sin descargar facturas, gastos o catálogos completos.
+
+La práctica presenta tienda, caja y operador de forma explícita. Protege el ticket,
+devolución y recuento al navegar; una búsqueda no provoca avisos de edición.
+Conserva los campos después de errores y descarta confirmaciones pendientes de otra
+cuenta. Cerrar sesión elimina la vista y sus escuchadores. Los resultados tardíos
+de búsquedas no deben sustituir una búsqueda más reciente.
+Cerrar la caja exige terminar o descartar antes el ticket o la devolución abiertos;
+no se borran como efecto secundario del recuento. Ver no concede permiso de operar.
+
+El catálogo y el ticket comparten fila cuando el espacio real del módulo lo permite;
+con menos de 680 px pasan a una columna. Los selectores de tienda y caja conservan
+una distribución compacta en móvil. No existe altura mínima artificial para llenar
+la pantalla. Los controles de práctica no llaman al servidor de ventas.
+
+La pantalla inicial bloquea ventas reales y ofrece práctica identificada como tal.
+El acceso a Conexiones sólo se muestra a quien ya puede entrar en APIs. No permite
+activar ventas ni instalar componentes desde un botón de demostración.
+
+La integración se ha comprobado dentro del marco completo con sesión simulada:
+acceso directo, permiso denegado y de sólo lectura, enlace administrativo,
+validación sin pérdida de campos, salida cancelada/aceptada, búsqueda sin aviso
+de edición y cierre de sesión. Las anchuras verificadas son 390, 768, 1024 y
+1440 px. El circuito completo afectado terminó con 88 recorridos locales y cero
+fallos. Esto no acredita publicación ni una venta remota desde esa interfaz.
+
+### Incidencia nativa anterior
 
 El log `var/logs/20261115_exception.log` de 8.2.8 muestra un fallo de plantilla a las 09:07. No corresponde al momento de creación del pedido 46542. El registro general de cPanel contiene errores de la instalación antigua; no se utilizan para culpar al TPV de 8.2.8. El error original de creación continúa sin evidencia concluyente.
 

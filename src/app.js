@@ -18,6 +18,7 @@ import {createHomeWidgetsUI} from './home-widgets-ui.js';
 import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
+import {createTpvWorkspace} from './totustpv/workspace.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
 import {createAppearanceUI,applyInterfaceAppearance,applyLoginAppearance} from './appearance-ui.js';
@@ -81,6 +82,9 @@ import {renderPdfPreview} from './pdf-preview.js';
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
 const mobileNavigation=createMobileNavigation();
+const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),
+ confirm:message=>confirmAction(message,{title:'TotusTPV',acceptLabel:'Salir'}),
+ onConfigure:()=>can('apis','view')?navigateModule('apis'):false,canConfigure:()=>can('apis','view')});
 // A delayed preview belongs to the account and rendered page that requested it.
 function activeActor(){
  const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
@@ -114,7 +118,7 @@ const chatNotifier=createChatNotifier({rpc,can:()=>can('equipo','view'),actor:()
 const titles={
  clientes:['Contactos','Clientes'],proveedores:['Contactos','Proveedores'],marcas:['Contactos','Marcas'],
  equipo:['Inicio y equipo','Chat'],tareas:['Inicio y equipo','Tareas'],
- inicio:['Inicio y equipo','Inicio'],pricing:['Comercio','Precio'],ventas:['Comercio','Ventas'],cajas:['Gestión y análisis','Cajas'],gastos:['Gestión y análisis','Gastos'],
+ inicio:['Inicio y equipo','Inicio'],pricing:['Comercio','Precio'],ventas:['Comercio','Ventas'],totustpv:['Comercio','TotusTPV'],cajas:['Gestión y análisis','Cajas'],gastos:['Gestión y análisis','Gastos'],
  cotejos:['Gestión y análisis','Recepciones de mercancía'],facturacion:['Gestión y análisis','Facturación'],documentos:['Gestión y análisis','Documentos'],fiscalidad:['Gestión y análisis','Fiscalidad'],
  informes:['Gestión y análisis','Informes'],administracion:['Sistema','Administración'],automatizaciones:['Sistema','Automatizaciones'],prestashop:['Comercio','PrestaShop'],productos:['Comercio','Productos'],configuracion:['Sistema','Configuración'],apis:['Sistema','APIs']
 };
@@ -301,8 +305,8 @@ function render(){
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
- activityLog.navigate(state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
+ activityLog.navigate(state.route==='totustpv'?'ventas':state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='totustpv'?'tpv':state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -329,6 +333,7 @@ function render(){
  if(state.route==='inicio')homeUI.mount($('#content'));
  if(state.route==='prestashop')void prestashopUI.mount($('#prestashopRoot'));
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
+ if(state.route==='totustpv')totusTpvUI.mount($('#totusTpvRoot'));
  if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
  if(state.route==='pricing'&&$('#productosRoot')){
@@ -345,9 +350,10 @@ function render(){
  }).catch(error=>toast(error.message,'bad'));
 }
 let discardPromptActive=false,preserveMainDraftOnRefresh=false,writeInProgress=false;
-const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!(['equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||state.route==='pricing'&&getView('pricing').section==='prestashop')||root!==$('#content')));
+const draftRoots=()=>[$('#content'),$('#modalHost [data-modal-content]')].filter(root=>root&&(!(['totustpv','equipo','configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)||state.route==='pricing'&&getView('pricing').section==='prestashop')||root!==$('#content')));
 async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  if(discardPromptActive)return false;
+ if(!modalOnly&&state.route==='totustpv'&&totusTpvUI.hasDraft()&&!await totusTpvUI.requestLeave())return false;
  if(!modalOnly&&(directoryUI.isPublishing()||productosUI.isPublishing())){toast('Espera a que termine la publicación en la tienda.','bad');return false;}
  if(!modalOnly&&directoryUI.hasDraft()){if(!await confirmAction('¿Salir sin publicar los cambios de la ficha?',{title:'Cambios sin publicar',acceptLabel:'Descartar y salir'}))return false;directoryUI.discardDraft();}
  if(!modalOnly&&state.route==='automatizaciones'&&automationsUI.hasDraft()){if(!await confirmAction('¿Salir sin guardar la regla?',{title:'Cambios sin guardar',acceptLabel:'Descartar y salir'}))return false;automationsUI.discardDraft();}
@@ -375,7 +381,7 @@ async function allowDiscardDrafts({modalOnly=false,ignore=[]}={}){
  }
 }
 window.addEventListener('beforeunload',e=>{
- if(writeInProgress||discardPromptActive||productosUI.isPublishing()||directoryUI.isPublishing()||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||directoryUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
+ if(writeInProgress||discardPromptActive||totusTpvUI.hasDraft()||productosUI.isPublishing()||directoryUI.isPublishing()||appearanceUI.hasDraft()||apiManager.hasDraft()||prestashopUI.hasDraft()||productosUI.hasDraft()||directoryUI.hasDraft()||automationsUI.hasDraft()||tasks.hasDraft()||homeUI.hasUnsaved()||draftRoots().some(root=>hasFormDraft(root))){e.preventDefault();e.returnValue=''}
 });
 let storageRequest=null,storagePanelRequest=null,storageUiGeneration=0;
 function isStoragePanelVisible(){
@@ -494,7 +500,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(moduleNavigationState(location.href,route,{...history.state,totusModuleNavigation:true}),'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -3342,7 +3348,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();totusTpvUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

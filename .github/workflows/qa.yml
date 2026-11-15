@@ -19,9 +19,11 @@ jobs:
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs tests/totustpv-cart-qa.mjs
       - run: node --test tests/totustpv-operator-payments-qa.mjs tests/totustpv-payment-readback-qa.mjs tests/totustpv-quote-contract-qa.mjs tests/totustpv-practice-qa.mjs
+      - run: node tests/totustpv-central-qa.mjs
       - run: node tests/totustpv-php-boundary-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: node tests/totustpv-workspace-browser-qa.mjs
+      - run: node tests/totustpv-central-browser-qa.mjs
   conventional-assistant:
     runs-on: ubuntu-24.04
     steps:
