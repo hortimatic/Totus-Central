@@ -8,6 +8,8 @@ const expected={storeId:scope.storeId,shopId:2,cartId:701,customerId:501,invoice
  currencyId:1,languageId:1,carrierId:5,paymentModule:'ps_cashondelivery',paymentLabel:'TotusTPV · efectivo',
  totalCents:801,totalTaxExclCents:662,productsTaxInclCents:801,productsTaxExclCents:662,
  lines:[{productId:101,attributeId:5,qty:1}]};
+const priceContext={productId:101,attributeId:5,quantity:3,countryId:6,stateId:373,postcode:'28001',
+ currencyId:2,groupId:3,useEcotax:true};
 function fixture(options={}) {
  const requests=[];
  const transport=createTpvNativeTransport({...connection,...options.connection},{...scope,...options.scope},{
@@ -69,5 +71,31 @@ test('XML order identifiers are accepted, HTML and entity-bearing XML are reject
  for(const [type,body] of [['text/html','<html>login</html>'],['application/xml','<!DOCTYPE x><order><id>901</id></order>']]) {
   const invalid=fixture({enabled:true,response:()=>new Response(body,{headers:{'content-type':type}})});
   await assert.rejects(invalid.transport.createOrderOnce(expected));
+ }
+});
+test('native price preview preserves precision, quantity, address and explicit ecotax; no payment claim',async()=>{
+ const f=fixture({response:()=>new Response(JSON.stringify({product:{id:'101',totus_incl:'8.010000',totus_excl:'6.619835'}}),
+  {headers:{'content-type':'application/json'}})});
+ const preview=await f.transport.readProductPricePreview(priceContext);
+ assert.equal(preview.unitTaxExclDecimal,'6.619835');assert.equal(preview.payableCartQuote,false);
+ const {url,init}=f.requests[0],query=new URL(url).searchParams;
+ assert.equal(init.method,'GET');assert.equal(query.get('id_shop'),'2');
+ assert.equal(query.get('price[totus_incl][county]'),'28001');
+ assert.equal(query.get('price[totus_incl][quantity]'),'3');
+ assert.equal(query.get('price[totus_incl][decimals]'),'6');
+ assert.equal(query.get('price[totus_excl][use_tax]'),'0');
+ assert.equal(query.get('price[totus_incl][use_ecotax]'),'1');
+});
+test('generic queries cannot inject price context; unsupported customer/cart context is rejected',async()=>{
+ const f=fixture();await assert.rejects(f.transport.read('products/101',{'price[other][use_tax]':'1'}),/QUERY_INVALID/);
+ for(const patch of [{customerId:501},{cartId:701},{quantity:0},{postcode:'x&ws_key=bad'},{useEcotax:1},{groupId:null}])
+  await assert.rejects(f.transport.readProductPricePreview({...priceContext,...patch}),/CONTEXT_INVALID/);
+ assert.equal(f.requests.length,0);
+});
+test('missing native aliases and float prices are rejected instead of silently using catalogue prices',async()=>{
+ for(const product of [{id:101,price:'8.01'},{id:102,totus_incl:'8.01',totus_excl:'6.62'},
+  {id:101,totus_incl:8.01,totus_excl:'6.62'},{id:101,totus_incl:'NaN',totus_excl:'6.62'}]) {
+  const f=fixture({response:()=>new Response(JSON.stringify({product}),{headers:{'content-type':'application/json'}})});
+  await assert.rejects(f.transport.readProductPricePreview(priceContext),/PRICE_RESPONSE_INVALID/);
  }
 });

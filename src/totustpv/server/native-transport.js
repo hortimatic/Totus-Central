@@ -39,6 +39,8 @@ export function nativePaidOrderXml(expected, allowedPaymentModules) {
 export function createTpvNativeTransport(connection, scope, {
   request=fetch,resolve,allowOrderCreation=async()=>false,allowedPaymentModules=[]
 }={}) {
+  connection=structuredClone(connection);scope=structuredClone(scope);
+  allowedPaymentModules=structuredClone(allowedPaymentModules);
   requireValue(connection && connection.id === scope?.connectionId && connection.revision === scope.connectionRevision &&
     connection.enabled === true && connection.verified_revision === connection.revision &&
     connection.real_data_authorized === true && connection.protocol === 'prestashop' && positive(scope.shopId),
@@ -48,12 +50,15 @@ export function createTpvNativeTransport(connection, scope, {
     !base.search && !base.hash, 'TPV_NATIVE_ORIGIN_MISMATCH');
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
-  async function call(resource,method,query={},body) {
+  async function call(resource,method,query={},body,nativePrices=false) {
     requireValue(resources.test(resource), 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
     for(const [key,value] of Object.entries(query)) {
-      requireValue(/^(?:display|limit|sort|filter\[[a-z_]+\])$/.test(key) && typeof value==='string' &&
+      const ordinary=/^(?:display|limit|sort|filter\[[a-z_]+\])$/.test(key);
+      const price=nativePrices && /^products\/[1-9][0-9]*$/.test(resource) &&
+        /^price\[totus_(?:incl|excl)\]\[(?:country|state|county|currency|group|quantity|product_attribute|decimals|use_tax|use_reduction|only_reduction|use_ecotax)\]$/.test(key);
+      requireValue((ordinary || price) && typeof value==='string' &&
         value.length<=1000 && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
       url.searchParams.set(key,value);
     }
@@ -77,6 +82,36 @@ export function createTpvNativeTransport(connection, scope, {
   }
   return Object.freeze({
     read:(resource,query={})=>call(resource,'GET',query),
+    /** Native product-price preview, not a payable cart quote. In 8.2.8 this
+     * engine has no customer/cart input and does not apply cart-rule totals.
+     * Keep all six decimals; never round the unit here to derive a sale total.
+     * Context values must be resolved by the authenticated server.
+     */
+    async readProductPricePreview(context) {
+      context=structuredClone(context);
+      const allowed=['productId','attributeId','quantity','countryId','stateId','postcode','currencyId','groupId','useEcotax'];
+      requireValue(context && Object.keys(context).every(key=>allowed.includes(key)) &&
+        ['productId','quantity','countryId','currencyId','groupId'].every(key=>positive(context[key])) &&
+        context.quantity<=10000 && ['attributeId','stateId'].every(key=>Number.isSafeInteger(context[key]) && context[key]>=0) &&
+        typeof context.postcode==='string' && /^[A-Za-z0-9 -]{0,12}$/.test(context.postcode) &&
+        typeof context.useEcotax==='boolean','TPV_NATIVE_PRICE_CONTEXT_INVALID');
+      const query={};
+      for(const [alias,tax] of [['totus_incl','1'],['totus_excl','0']]) {
+        // The pinned 8.2.8 implementation reads `county` as the postcode,
+        // despite the tutorial naming this parameter `postcode`.
+        const fields={country:context.countryId,state:context.stateId,county:context.postcode,currency:context.currencyId,
+          group:context.groupId,quantity:context.quantity,product_attribute:context.attributeId,decimals:6,
+          use_tax:tax,use_reduction:1,only_reduction:0,use_ecotax:context.useEcotax?1:0};
+        for(const [key,value] of Object.entries(fields))query[`price[${alias}][${key}]`]=String(value);
+      }
+      const product=(await call(`products/${context.productId}`,'GET',query,undefined,true))?.product;
+      requireValue(Number(product?.id)===context.productId && ['totus_incl','totus_excl'].every(key=>
+        typeof product[key]==='string' && /^(0|[1-9][0-9]{0,9})(?:\.[0-9]{1,6})?$/.test(product[key])),
+        'TPV_NATIVE_PRICE_RESPONSE_INVALID');
+      return {productId:context.productId,attributeId:context.attributeId,quantity:context.quantity,
+        unitTaxInclDecimal:product.totus_incl,unitTaxExclDecimal:product.totus_excl,
+        source:'native-product-price',payableCartQuote:false};
+    },
     async createOrderOnce(expected) {
       requireValue(expected?.shopId===scope.shopId && expected?.storeId===scope.storeId,
         'TPV_NATIVE_ORDER_SCOPE_MISMATCH');

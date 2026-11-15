@@ -2,6 +2,7 @@
  * Quote and attributed inventory evidence are separate verified server adapters.
  * A raw quantity difference alone cannot attribute a concurrent stock movement.
  */
+import {createNativeCartPreflight} from './cart-preflight.js';
 const requireValue=(condition,code)=>{if(!condition)throw new Error(code);};
 const positive=value=>Number.isSafeInteger(value)&&value>0;
 const nativeId=value=>/^[1-9][0-9]*$/.test(String(value))&&positive(Number(value))?Number(value):null;
@@ -25,8 +26,10 @@ function rows(payload,key) {
   return value;
 }
 export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInventoryEvidence}) {
+  scope=structuredClone(scope);
   requireValue(transport && typeof transport.read==='function' && typeof transport.createOrderOnce==='function' &&
     typeof verifyPrepared==='function' && typeof readInventoryEvidence==='function','TPV_NATIVE_ADAPTER_REQUIRED');
+  const inspectCart=createNativeCartPreflight({scope,transport});
   function sameScope(requested) {
     requireValue(requested && ['connectionId','connectionRevision','storeId','shopId','currency'].every(key=>requested[key]===scope[key]),
       'TPV_NATIVE_ORDER_SCOPE_MISMATCH');
@@ -76,7 +79,10 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
   }
   return Object.freeze({ordersForCart,readSale,
     async revalidatePrepared({scope:requested,record}) {
-      sameScope(requested);return verifyPrepared({scope:structuredClone(scope),record:structuredClone(record)});
+      sameScope(requested);
+      const prepared=structuredClone(record);
+      await inspectCart({scope:requested,expected:prepared.expected});
+      return verifyPrepared({scope:structuredClone(scope),record:prepared});
     },
     async submitOrderOnce({scope:requested,expected}) {
       sameScope(requested);return transport.createOrderOnce(expected);

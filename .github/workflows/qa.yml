@@ -17,7 +17,7 @@ jobs:
       - run: node --test tests/totustpv-checkout-qa.mjs
       - run: node tests/totustpv-journal-db-qa.mjs
       - run: node --test tests/totustpv-transport-qa.mjs
-      - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs
+      - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs tests/totustpv-cart-qa.mjs
   conventional-assistant:
     runs-on: ubuntu-24.04
     steps:

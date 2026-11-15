@@ -43,6 +43,6 @@ test('wrong detail/payment filters, absent state and another connection cannot b
  await assert.rejects(fixture().adapter.readSale({scope:{...scope,connectionId:'another'},orderId:901,expected}),/SCOPE_MISMATCH/);
 });
 test('read and revalidation paths never create orders',async()=>{
- const f=fixture();await f.adapter.revalidatePrepared({scope,record:{expected}});
+ const f=fixture();await assert.rejects(f.adapter.revalidatePrepared({scope,record:{expected}}),/CART_IDENTITIES_INVALID/);
  await f.adapter.readSale({scope,orderId:901,expected});assert.equal(f.count(),0);
 });

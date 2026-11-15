@@ -11,6 +11,8 @@
 | Migración del registro | Asignaciones, sesiones, operaciones y pagos; permisos de servidor; unicidad por carrito/pedido; confirmación y pagos atómicos | Sin habilitaciones ni asignaciones comerciales por defecto; no sustituye los cierres actuales |
 | `native-transport.js` | URL verificada, clave sólo en servidor, tienda nativa explícita, respuestas acotadas y POST único sin reintentos | Creación deshabilitada por defecto; no controlador HTTP publicado |
 | `native-adapter.js` | Lectura nativa de pedido, detalles, estado, moneda y pagos, con filtros comprobados | Evidencia de PrestaShop simulada en sus pruebas locales |
+| `cart-preflight.js` | Relectura obligatoria del carrito antes del adaptador de precios; identidades, líneas, variantes, stock, mínimos y ausencia de pedido | Sólo comprobación estructural; no reserva existencias ni sustituye cálculo de totales |
+| Precio nativo por producto | Parámetros explícitos de tienda, variante, cantidad, grupo, dirección fiscal, moneda y ecotasa; conserva seis decimales | Es una vista previa, no el total pagable de carrito ni descuentos por cliente/carrito |
 | `inventory-evidence.js` | Movimientos negativos vinculados al pedido y registro de stock, resistentes a cambios concurrentes de cantidad global | Requiere acceso nativo a movimientos; stock avanzado/compartido necesita perfil propio |
 | Interfaz y configuración autónoma | Especificadas en la memoria y alcance | Todavía no implementadas como módulo de venta dentro de Central |
 
@@ -18,7 +20,8 @@
 
 - Reglas del modelo: pruebas locales pasadas.
 - Controlador de venta: 11 casos simulados pasados.
-- Transporte: 6 casos con respuestas simuladas pasados.
+- Transporte: 9 casos con respuestas simuladas pasados.
+- Carrito: 8 casos con respuestas simuladas pasados, incluyendo su integración obligatoria en el adaptador de venta.
 - Adaptador nativo: 5 casos con respuestas simuladas pasados.
 - Evidencia de existencias: 3 casos con respuestas simuladas pasados.
 - Registro PostgreSQL: 54 comprobaciones pasadas en PGlite, incluyendo conexión del controlador con el RPC SQL real, rollback de confirmación/pagos y permisos denegados.
@@ -34,4 +37,4 @@ Se descartó crear un archivo temporal de credenciales cuando la revisión autom
 
 ## Siguiente entrega
 
-Resolver la elección del adaptador nativo contrastando las alternativas de API y conector mínimo. Completar preparación/cálculo nativos, autorización HTTP normal de Central, interfaz, configuración y una venta de prueba autorizada sin reparación manual. No retirar POSTPV ni la instalación 1.7 hasta validar todos los recorridos acordados.
+La vía elegida es la API nativa de PrestaShop 8.2.8, sin conector instalado ni actualización a 9. Completar preparación/cálculo nativos, autorización HTTP normal de Central, interfaz, configuración y una venta de prueba autorizada sin reparación manual. No retirar POSTPV ni la instalación 1.7 hasta validar todos los recorridos acordados. La alternativa local bajo `connectors/` es investigación aislada, no un componente publicado ni una dependencia de Central.

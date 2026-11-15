@@ -1,4 +1,4 @@
-# TotusTPV: límites comprobados de la API y decisiones pendientes
+# TotusTPV: decisión API nativa y límites comprobados
 
 15/11/2026. Este documento evita prometer equivalencia completa con POSTPV sobre operaciones que el Webservice no representa del mismo modo. No autoriza instalar módulos, modificar PrestaShop ni habilitar cobros.
 
@@ -34,7 +34,25 @@ Se consultaron el registro nativo de PrestaShop, el extracto Apache de cPanel y 
 
 Antes de habilitar ventas ordinarias debe conservarse el error original del envío y completarse una prueba autorizada de todo el recorrido, sin corrección manual ni dependencia de POSTPV. Un procedimiento de recuperación es necesario, pero no sustituye descubrir la causa de una interrupción sistemática.
 
+## Cálculo nativo de precios: capacidad y límite
+
+El Webservice ofrece campos calculados de precio para productos y combinaciones mediante `price[alias][parámetro]`. Se ha incorporado una consulta acotada de vista previa con impuestos y sin impuestos, cantidad, variante, país, provincia, código postal, moneda, grupo y ecotasa explícitos. Conserva los seis decimales; no calcula el total multiplicando precios unitarios ya redondeados.
+
+La implementación fijada de 8.2.8 lee el código postal bajo `county`, aunque el tutorial lo llama `postcode`. El transporte usa el nombre realmente leído por ese núcleo. No se aceptan parámetros arbitrarios ni claves o contexto de otra tienda.
+
+Este cálculo no recibe ID de cliente ni carrito y no equivale a `Cart::getOrderTotal`. No demuestra descuentos individualizados, vales, promociones de carrito, portes ni sus reglas de redondeo. Por eso su respuesta indica `payableCartQuote:false`; no permite confirmar una venta por sí sola. La comprobación estructural del carrito tampoco asegura stock reservado frente a ventas posteriores.
+
+Fuentes: [tutorial oficial de precios calculados](https://devdocs.prestashop-project.org/8/webservice/tutorials/advanced-use/specific-price/), [`specificPriceCalculation` de 8.2.8](https://github.com/PrestaShop/PrestaShop/blob/8.2.8/classes/webservice/WebserviceRequest.php).
+
 ## 4. Decisión de arquitectura
+
+Decisión actual del responsable técnico, tras la delegación del propietario: desarrollar TotusTPV dentro de Totus Central sobre la API nativa autorizada de PrestaShop **8.2.8**, sin instalar conector. No se plantea actualizar a 9. La preferencia por no instalar componentes no permite declarar resueltas las limitaciones descritas en este documento.
+
+Central conserva usuarios, permisos, tiendas físicas, cajas, sesiones y el registro durable de operaciones. PrestaShop conserva sus pedidos y sus referencias nativas. Cada envío queda ligado a una instalación, tienda nativa, carrito y operación únicos; una respuesta incierta se recupera mediante lectura, sin volver a cobrar ni crear otro pedido a ciegas.
+
+El alcance inicial habilitable exige ventas completamente cobradas, cálculo contrastado y verificación de pedido, pago, estado y movimiento de stock. Las reposiciones concurrentes, crédito, anticipos y devoluciones no se anuncian disponibles hasta demostrar su circuito nativo. La incidencia del pedido 46542 sigue pendiente de explicación; la recuperación manual anterior no acredita que el checkout esté listo para explotación.
+
+El código bajo `connectors/prestashop/` es exclusivamente una alternativa local de investigación. No tiene módulo instalable ni se importa desde Central. No forma parte de la solución elegida ni autoriza instalar nada. Si un requisito imprescindible resulta imposible con la API existente, debe documentarse la operación exacta y su evidencia antes de reconsiderar esa alternativa; no se traslada de nuevo al propietario una elección técnica abstracta.
 
 La restricción vigente en `AGENTS.md` indica: «No instalar ni actualizar complementos propios ni de terceros en PrestaShop para cumplir objetivos de Totus» y «Si la API de la versión instalada no admite una operación, comprobarlo y explicarlo».
 
@@ -45,7 +63,7 @@ Hay dos alcances distintos:
 
 La segunda opción no es una propuesta de instalar POSTPV ni de basar Central en su código. Tampoco garantiza automáticamente compatibilidad: exigiría código propio auditable, versionado, permisos por comando, identidad estable de operación, verificación y recuperación, actualizaciones compatibles, instalación autónoma y pruebas con POSTPV ausente. No se ha construido ni instalado ese componente.
 
-Hasta que se decida el alcance se continúa con lo independiente: dominio, almacenamiento propio, autorización, lectura nativa, conciliación, interfaz compartida y evidencia. No se publican botones que aparenten completar operaciones no implementadas.
+Se continúa con dominio, almacenamiento propio, autorización, lectura nativa, conciliación, interfaz compartida y preparación de carrito sobre la vía elegida. No se publican botones que aparenten completar operaciones no implementadas.
 
 Actualización del propietario, 15/11: delega estudiar todas las alternativas y elegir la de menor dependencia y problemas futuros. Se puede preparar y comparar una alternativa propia; esta decisión no acredita pruebas ni instalación. Debe evitarse volver a trasladar al propietario la elección técnica.
 
