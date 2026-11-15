@@ -934,6 +934,8 @@ function adminLogHtml(){
 
 export function pricing(){
  const view=getView('pricing');
+ const native=view.section==='prestashop',sources='<nav class="module-tabs" aria-label="Origen de precios"><button type="button" class="tab '+(!native?'active':'')+'" data-action="pricing-source" data-source="local" aria-pressed="'+!native+'">Estudios de Totus</button><button type="button" class="tab '+(native?'active':'')+'" data-action="pricing-source" data-source="prestashop" aria-pressed="'+native+'">Catálogo PrestaShop</button></nav>';
+ if(native)return '<div class="page pricing-page">'+sources+'<p class="note">Precios conectados a la tienda. Filtra por marca y categoría para trabajar una familia; los cambios se revisan y guardan mediante el mismo circuito de Productos. El precio base no incluye IVA ni ofertas.</p>'+productosWorkspacePage()+'</div>';
  if(view.mode==='record'){
    const row=view.id?state.data.products.find(x=>x.id===view.id):null;
    return productRecordHtml(row);
@@ -959,6 +961,7 @@ export function pricing(){
  ];
  const consultations=state.data.consultations;
  return `<div class="page pricing-page">
+ ${sources}
  <div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
  <section class="card table-card"><div class="section-head card-pad"><div><h2>Precio</h2><p>Costes, PVP, margen, proveedores, variantes y competencia.</p></div><div class="inline-actions">${btn('Marcas y familias','families-manage','secondary')}${btn('Proveedores','providers-manage','secondary')}${btn('+ Nuevo producto','product-new','primary')}</div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" data-draft-ignore value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
  <section class="card card-pad"><div class="section-head"><div><h2>Consulta rápida</h2><p>Calcula y guarda consultas reutilizables.</p></div></div><div class="form-grid" style="margin-top:14px">
