@@ -290,7 +290,7 @@ function configureOrderColumns(host,w){
 export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=()=>{},onOpenProduct=null,onOpenTasks=()=>{},onOpenExpense=()=>{}}){
  let root=null,grid=null,model=null,original=null,sources=new Map(),edit=false,selected=null,panelView='closed',advancedOpen=false,styleItems=[],stylesBusy=false,stylesError='',owner=null,token=0,remoteReady=false,busy=false,connections=null,connectionsTask=null;
  const ordersData=new Map(),queries=new Map(),catalogData=new Map(),catalogQueries=new Map();let activeDrag=null,activeResize=null;
- let financialObserver=null;
+ let financialObserver=null;const readProgress=new Map();
  const financialWidget=()=>{const f=getFilters('inicio'),name=state.data.stores.find(s=>s.id===f.store)?.name?.toLowerCase();return {id:'financial-margin',type:'home.gain',scope:{store:PRESTASHOP_STORES.some(s=>s.key===name)?name:'all'},filters:{from:f.from,to:f.to}};};
  const completedOrders=new Map();let completedOwner='';
  const live=()=>root?.isConnected&&state.route==='inicio'&&state.user?.id===owner;
@@ -301,6 +301,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  const status=(message,warning=false)=>{const el=root?.querySelector('[data-home-status]');if(el){el.textContent=message;el.classList.toggle('home-error',warning)}};
  const layoutKey=w=>[safeStore(w.scope.store),...Object.values(dateRange(w))].join('|');
  const dataFor=w=>Object.fromEntries(PRESTA_SHOPS(w).map(k=>[k,ordersData.get(k+'|'+Object.values(dateRange(w)).join('|'))]));
+ const financialData=w=>Object.fromEntries(Object.entries(dataFor(w)).map(([shop,read])=>{const progress=readProgress.get(shop+'|'+Object.values(dateRange(w)).join('|'));return [shop,progress?{rows:[],...read,loading:true,progress}:read];}));
  function PRESTA_SHOPS(w){return safeStore(w.scope.store)==='all'?PRESTASHOP_STORES.map(x=>x.key):[safeStore(w.scope.store)]}
  const freshWidget=(w)=>{
   if(w.type==='cash.openings'&&safeStore(w.scope.store)!=='all')return storeOpeningWidget(w);
@@ -337,7 +338,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(w.type==='cash.openings'){
    const summary=content.querySelector('.home-opening-summary');if(summary)summary.remove();content.insertAdjacentHTML('beforeend',openingStatus());
   }
-  if(w.type==='home.result'&&can('prestashop','view')){content.querySelector('[data-financial-margin]')?.remove();const slot=document.createElement('div');slot.dataset.financialMargin='';const fw=financialWidget();slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));content.append(slot);}
+  if(w.type==='home.result'&&can('prestashop','view')){content.querySelector('[data-financial-margin]')?.remove();const slot=document.createElement('div');slot.dataset.financialMargin='';const fw=financialWidget();slot.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));content.append(slot);}
   return content;
  };
  function visibleOrder(){return model.widgets.filter(w=>!w.hidden&&(w.id==='tasks'&&sources.has('tasks')||permitted(w,can)))}
@@ -630,9 +631,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
    return false;
   }finally{busy=false}
  }
+ function refreshFinancialMargin(){
+  if(!live())return;const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(financialData(fw),dateRange(fw));
+ }
  function refreshShopWidgets(){
   if(!live()||!model)return;
-  const fw=financialWidget();for(const slot of grid?.querySelectorAll('[data-financial-margin]')||[])slot.innerHTML=commercialMarginCompact(dataFor(fw),dateRange(fw));
+  refreshFinancialMargin();
   for(const w of visibleOrder().filter(usesShopData)){
    const body=grid?.querySelector('[data-home-widget="'+CSS.escape(w.id)+'"] .home-widget-body');if(!body)continue;
    const active=body.contains(document.activeElement)?document.activeElement:null;
@@ -692,7 +696,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   const stores=PRESTA_SHOPS(w);for(const shop of stores){const key=shop+'|'+from+'|'+to;
    if(!force&&ordersData.has(key))continue;if(queries.has(key))continue;
    const owned=owner,requestToken=token;
+   const progress=message=>{if(live()&&token===requestToken&&owner===owned){readProgress.set(key,message);refreshFinancialMargin();}};
    const task=(async()=>{try{
+    progress('Comprobando conexión…');
     const cs=await initConnections();if(!live()||token!==requestToken||owner!==owned)return;
     const c=storeConnection(cs,shop),ready=prestashopReadiness(c);if(!ready.ready)throw new Error(ready.reason);
     const cacheKey=JSON.stringify([key,c.id,c.revision]);
@@ -704,7 +710,9 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
      if(!result?.ok||result.store!==shop||result.resource!=='orders'||result.page!==page||!Array.isArray(result.rows))throw new Error('La respuesta de pedidos no corresponde a esta consulta.');
      for(const r of result.rows){if(ids.has(String(r.id)))throw new Error('Pedidos repetidos entre páginas; comprueba el origen.');ids.add(String(r.id));rows.push(r)}
      possiblyMore=result.possibly_more===true;page++;
+     progress(rows.length+' pedidos leídos…');
     }while(possiblyMore&&page<20);
+    progress('Consultando monedas y líneas de '+rows.length+' pedidos…');
     const currencies=new Map();for(const id of [...new Set(rows.map(r=>String(r.id_currency||'')))] ){
      if(!/^\d{1,15}$/.test(id))continue;
      try{const r=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'currencies',page:0,page_size:1,record_id:id});if(r?.ok&&r.store===shop&&r.resource==='currencies'&&String(r.rows?.[0]?.id)===id)currencies.set(id,r.rows[0].iso_code);}catch{}
@@ -731,6 +739,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
       if(complete){
        const current=()=>live()&&token===requestToken&&owner===owned;
        const request=args=>invoke({store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args});
+       progress('Calculando costes de productos y variaciones…');
        const enriched=await enrichHomeOrderLines({store:shop,lines:[...details.values()].flat(),invoke:request,current});
        if(!current()||!enriched)return;
        for(const order of rows){order.currency_code=currencies.get(String(order.id_currency))||null;const margin=homeOrderMargin(order,details.get(String(order.id)),true);order.margin_value=margin.margin;order.margin_revenue=margin.revenue;}
@@ -742,6 +751,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     try{
      const employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
      for(let start=0;start<rows.length;start+=25){
+      progress('Verificando datos de pedidos: '+Math.min(start+25,rows.length)+'/'+rows.length+'…');
       const sellers=await loadOrderSellers({orders:rows.slice(start,start+25),store:shop,employees,current,invoke:args=>invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args})});
       if(!current())return;
       for(const order of rows.slice(start,start+25)){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}
@@ -753,12 +763,12 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     if(completedOrders.size>8)completedOrders.delete(completedOrders.keys().next().value);
     ordersData.set(key,result);refreshShopWidgets();
    }catch(e){if(!live()||token!==requestToken||owner!==owned)return;ordersData.set(key,{shop,rows:[],currencies:new Map(),from,to,complete:false,error:e.message||String(e)});refreshShopWidgets()}
-   })().finally(()=>{if(queries.get(key)===task)queries.delete(key);});queries.set(key,task);
+   })().finally(()=>{if(queries.get(key)===task){queries.delete(key);readProgress.delete(key);refreshFinancialMargin();}});queries.set(key,task);
   }
  }
  function mount(target){
   const identity=JSON.stringify([state.user?.id,state.user?.role]);if(completedOwner!==identity){completedOrders.clear();completedOwner=identity;}
-  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
+  token++;root=target?.querySelector('.dashboard-page');grid=null;connections=null;connectionsTask=null;queries.clear();readProgress.clear();ordersData.clear();catalogData.clear();catalogQueries.clear();edit=false;selected=null;panelView='closed';styleItems=[];stylesError='';stylesBusy=false;remoteReady=false;owner=state.user?.id;
   if(!root||!owner||!can('inicio','view'))return;
   sources=collectExisting(root);for(const [type,id] of defaultSpecs)if(sources.has(id)&&!sources.has(type))sources.set(type,sources.get(id));const hero=root.querySelector('.dashboard-hero');
   const toolbar=document.createElement('div');toolbar.className='home-dashboard-toolbar';toolbar.innerHTML=`<div class="home-toolbar-description"><strong>Operativa de hoy · Inicio personalizado</strong><p>Organiza tus indicadores y consultas sin perder las funciones actuales.</p><small data-home-status role="status" aria-live="polite"></small></div><div class="home-toolbar-actions"><button class="btn secondary home-edit-tool" data-home-command="panel-library">＋ Añadir widgets</button><button class="btn secondary home-edit-tool" data-home-command="panel-board">⚙ Diseño general</button><button class="btn secondary home-edit-tool" data-home-command="panel-styles">☆ Estilos compartidos</button><button class="btn primary home-edit-tool" data-home-command="save">Guardar cambios</button><button class="btn secondary home-edit-tool" data-home-command="reset">Restaurar diseño</button><button class="btn secondary home-settings-button" data-home-command="edit" aria-label="Personalizar inicio" title="Personalizar inicio">⚙</button></div>`;
@@ -883,5 +893,5 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   // PrestaShop is read with the existing authenticated service, without changing stock or accounting.
   for(const w of model.widgets)if(usesShopData(w))void fetchFor(w);
  }
- return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}financialObserver?.disconnect();taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
+ return {mount,dispose({clearCache=false}={}){if(clearCache){completedOrders.clear();completedOwner='';}financialObserver?.disconnect();taskCalendar.reset();token++;root=null;grid=null;ordersData.clear();queries.clear();readProgress.clear();catalogData.clear();catalogQueries.clear();connections=null;connectionsTask=null;model=null;owner=null},hasUnsaved:()=>changed()};
 }

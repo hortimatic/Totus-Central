@@ -70,6 +70,16 @@ try{
  await page.locator('[data-home-widget="gain"] .home-commercial-total').filter({hasText:'303,84'}).waitFor();
  assert.equal(await page.locator('[data-home-widget="gain"] .home-commercial-chart svg').count(),1);
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
+ const financial=page.locator('[data-financial-margin]');await financial.scrollIntoViewIfNeeded();
+ await financial.locator('.home-financial-margin b').filter({hasText:'303,84'}).waitFor();
+ await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
+ await page.evaluate(()=>{window.__holdHomeOrders=true;window.__releaseHomeOrders=[];});
+ await financial.locator('button').click();await page.waitForFunction(()=>window.__releaseHomeOrders.length===2);
+ assert.equal(await financial.locator('button').isDisabled(),true,'Una consulta en curso no dispara duplicados');
+ assert.match(await financial.innerText(),/Comprobando conexión/);
+ await page.evaluate(()=>{window.__holdHomeOrders=false;window.__releaseHomeOrders.splice(0).forEach(resolve=>resolve());});
+ await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
+ assert.match(await financial.innerText(),/303,84/,'La lectura termina con el margen y conserva el resultado contable');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
