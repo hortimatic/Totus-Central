@@ -11,8 +11,8 @@ try{
   db.families=[{id:'qa-family-1',brand_id:'qa-brand-1',name:'Sales 10 ml',category:'General',default_margin:35},{id:'qa-family-2',brand_id:'qa-brand-2',name:'XLIM',category:'General',default_margin:35},{id:'qa-family-3',brand_id:'qa-brand-3',name:'Familia con un nombre largo que debe ajustarse sin pisar las acciones',category:'General',default_margin:35}];
   const {loadCore}=await import('../src/api.js');await loadCore();
  });
- await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));
- const open=()=>page.locator('[data-action="families-manage"]').click();
+ await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));await page.locator('[data-action=pricing-source][data-source=local]').click();
+ const open=async()=>{if((await page.locator('.pricing-reference-tools').getAttribute('open'))===null)await page.locator('.pricing-reference-tools>summary').click();await page.locator('[data-action="families-manage"]').click();};
  await open();
  for(const width of [1920,1536,1280,1024,900,800,768,390,320]){
   await page.setViewportSize({width,height:1000});

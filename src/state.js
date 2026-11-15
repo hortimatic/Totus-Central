@@ -7,7 +7,7 @@ export const state={
    gastos:{mode:'list',id:null},
    facturacion:{mode:'list',id:null,section:'documentos'},
    documentos:{mode:'list',id:null},
-   pricing:{mode:'list',id:null},
+   pricing:{mode:'list',id:null,section:'prestashop'},
    administracion:{section:'usuarios'}
  },
  filters:{

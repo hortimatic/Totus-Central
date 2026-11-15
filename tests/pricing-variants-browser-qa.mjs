@@ -6,7 +6,7 @@ const browser=await chromium.launch({headless:true}),page=await browser.newPage(
 page.on('pageerror',error=>errors.push(error.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));
+ await clickModuleLink(page,page.locator('#nav [data-route="pricing"]'));await page.locator('#content[data-module=pricing]').waitFor();if(await page.locator('[data-action=pricing-source][data-source=local]').count())await page.locator('[data-action=pricing-source][data-source=local]').click();
  await page.locator('[data-action="product-new"]').click();
  await page.locator('#prName').fill('Sales QA');await page.locator('#prSku').fill('SALES-QA');await page.locator('#prType').selectOption('variants');
  await page.locator('#prDraftVariants').waitFor({state:'visible'});
@@ -87,7 +87,7 @@ try{
  const simple=await browser.newPage({viewport:{width:1024,height:900}});
  simple.on('pageerror',error=>errors.push(error.message));
  await simple.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await clickModuleLink(simple,simple.locator('#nav [data-route="pricing"]'));await simple.locator('[data-action="product-new"]').click();
+ await clickModuleLink(simple,simple.locator('#nav [data-route="pricing"]'));await simple.locator('#content[data-module=pricing]').waitFor();if(await simple.locator('[data-action=pricing-source][data-source=local]').count())await simple.locator('[data-action=pricing-source][data-source=local]').click();await simple.locator('[data-action="product-new"]').click();
  await simple.locator('#prName').fill('Simple QA');await simple.locator('#prSku').fill('SIMPLE-QA');
  await simple.locator('#prPvp').fill('5.70');await simple.locator('#prInitialProviderName').fill('Proveedor QA');await simple.locator('#prInitialCost').fill('3.20');
  assert.match(await simple.locator('#prSummaryReal').innerText(),/4,04/);
@@ -128,7 +128,7 @@ try{
   window.__mockDb.team_members.find(member=>member.email===state.user.email).role='gerente';
   window.__mockDb.ops_user_permissions=[{email:state.user.email,module:'pricing',can_view:true,can_create:false,can_edit:true,can_delete:false,can_export:false}];
  });
- await clickModuleLink(simple,simple.locator('#nav [data-route="pricing"]'));
+ await clickModuleLink(simple,simple.locator('#nav [data-route="pricing"]'));await simple.locator('#content[data-module=pricing]').waitFor();if(await simple.locator('[data-action=pricing-source][data-source=local]').count())await simple.locator('[data-action=pricing-source][data-source=local]').click();
  if(await simple.locator('[data-action="product-back"]').count())await simple.locator('[data-action="product-back"]').first().click();
  await simple.locator('[data-action="product-edit"]').first().click();await simple.locator('#prType').selectOption('variants');
  assert.equal(await simple.locator('[data-action="product-draft-add"]').count(),0,'Editor without create must not be offered new variant insertion');

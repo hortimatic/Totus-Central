@@ -934,7 +934,7 @@ function adminLogHtml(){
 
 export function pricing(){
  const view=getView('pricing');
- const native=view.section==='prestashop',sources='<div class="inline-actions pricing-source-actions" aria-label="Origen de precios"><button type="button" class="btn '+(native?'primary active':'secondary')+'" data-action="pricing-source" data-source="prestashop" aria-pressed="'+native+'">Catálogo PrestaShop</button><button type="button" class="btn '+(!native?'primary active':'secondary')+'" data-action="pricing-source" data-source="local" aria-pressed="'+!native+'">Estudios de Totus</button>'+btn('+ Nuevo producto','product-new','primary')+'</div>';
+ const native=view.section==='prestashop',sources='<nav class="tabs module-tabs pricing-source-tabs" aria-label="Secciones de Precio"><button type="button" class="tab '+(native?'active':'')+'" data-action="pricing-source" data-source="prestashop" aria-pressed="'+native+'">Catálogo PrestaShop</button><button type="button" class="tab '+(!native?'active':'')+'" data-action="pricing-source" data-source="local" aria-pressed="'+!native+'">Estudios de Totus</button></nav>';
  if(view.mode==='record'){
    const row=view.id?state.data.products.find(x=>x.id===view.id):null;
    return productRecordHtml(row);
@@ -963,7 +963,7 @@ export function pricing(){
  return `<div class="page pricing-page">
  ${sources}
  <div class="kpis">${kpi('Productos',String(rows.length))}${kpi('Familias',String(state.data.families.length))}${kpi('Proveedores',String(state.data.providers.length))}${kpi('Consultas',String(state.data.consultations.length))}</div>
- <section class="card table-card"><div class="section-head card-pad"><div><h2>Precio</h2><p>Costes, PVP, margen, proveedores, variantes y competencia.</p></div><div class="inline-actions">${btn('Marcas y familias','families-manage','secondary')}<details class="pricing-reference-tools"><summary>Referencias de estudios</summary>${btn('Proveedores','providers-manage','secondary')}</details></div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" data-draft-ignore value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
+ <section class="card table-card"><div class="section-head card-pad"><div><h2>Estudios de Totus</h2><p>Simulaciones de costes y precios. Se guardan en Totus; no modifican las tiendas.</p></div><div class="pricing-study-tools">${btn('+ Nuevo estudio','product-new','primary')}<details class="pricing-reference-tools"><summary class="btn secondary">Opciones de estudios</summary><div>${btn('Marcas y familias','families-manage','secondary')}${btn('Proveedores','providers-manage','secondary')}</div></details></div></div><div class="filters"><div class="field search"><label>Buscar</label><input id="pricingQuery" data-draft-ignore value="${esc(getFilters('pricing').query)}" placeholder="Producto, referencia o estado"></div>${btn('Buscar','pricing-search','primary')}</div>${table(headers,rows,{emptyTitle:'Sin productos',emptyText:'Todavía no hay productos registrados.'})}</section>
  <section class="card card-pad"><div class="section-head"><div><h2>Consulta rápida</h2><p>Calcula y guarda consultas reutilizables.</p></div></div><div class="form-grid" style="margin-top:14px">
   ${formField('Consulta / producto','pqQuery','')}
   ${formField('Coste neto','pqCost','','number','step="0.01" min="0"')}

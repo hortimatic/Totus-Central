@@ -259,11 +259,6 @@
 #productosRoot .prd-professional [data-pr-column-option][hidden]{display:none!important}
 
 /* Compact reorder controls, usable with drag, touch position choice or keyboard. */
-#productosRoot .prd-professional .prd-column-option{display:grid;grid-template-columns:minmax(100px,1fr) 24px 44px 26px 26px;align-items:center;gap:4px;min-width:0;padding:3px 0;border-bottom:1px solid var(--line,#dbe4ef)}
-#productosRoot .prd-professional .prd-column-option>label{min-width:0;padding:0;display:flex;align-items:center;gap:6px;font-size:12px}
-#productosRoot .prd-professional .prd-column-option>label span{overflow-wrap:anywhere}
-#productosRoot .prd-professional .prd-column-option :is(button,select){min-width:0;width:100%;height:28px;min-height:28px;font-size:11px;padding:2px;box-sizing:border-box;margin:0}
-#productosRoot .prd-professional .prd-column-option .prd-column-grip{cursor:grab;font-size:18px;touch-action:pan-y}
 #productosRoot .prd-professional .prd-column-instructions,#productosRoot .prd-professional .prd-layout-save-state{font-size:11px;line-height:16px;margin:5px 0;color:var(--muted,#58677a)}
 #productosRoot .prd-professional .prd-column-views label{display:grid!important;grid-template-columns:1fr;align-items:stretch;gap:4px}
 

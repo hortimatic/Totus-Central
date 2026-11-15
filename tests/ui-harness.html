@@ -37,6 +37,7 @@ if(mode==='record'){
  if(route==='facturacion')setView('facturacion',{mode:'record',id:q.get('id')==='new'?null:'iv1',docType:q.get('type')||'factura',invoiceKind:q.get('kind')||'invoice',origin:q.get('origin')||'totus'});
  if(route==='documentos')setView('documentos',{mode:'record',id:q.get('id')==='new'?null:'doc1'});
 }
+if(route==='pricing'&&q.get('section'))setView('pricing',{section:q.get('section')});
 if(route==='gastos'&&q.get('section'))setView('gastos',{section:q.get('section')});
 if(route==='facturacion'&&q.get('section'))setView('facturacion',{section:q.get('section')});
 if(route==='administracion'&&q.get('section'))setView('administracion',{section:q.get('section')});

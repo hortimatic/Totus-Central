@@ -11,6 +11,8 @@ La revisión de interfaz, margen, clientes combinados y Precio del 15/11 consta 
 La auditoría de los circuitos del asistente convencional está en [RECORRIDOS_ASISTENTE_20261115.md](RECORRIDOS_ASISTENTE_20261115.md). Antes de usar un correo histórico, resolver la cuenta ChatGPT activa y vinculada: la cuenta técnica antigua puede estar desactivada. No reactivarla ni cambiar credenciales para superar una prueba.
 Los ajustes posteriores de carga, organización de controles y ganancia con coste de compra incluido IVA/recargo están en [AJUSTES_CARGA_INTERFAZ_20261115.md](AJUSTES_CARGA_INTERFAZ_20261115.md). La réplica persistente de catálogos queda aplazada por orden de Diego; no instalarla ni ampliar infraestructura para cerrar esta revisión.
 
+La unificación de columnas, el catálogo principal de Precio, los lotes de precios/ofertas y el desglose de ganancia por tienda están descritos en [COLUMNAS_PRECIO_LOTES_20261115.md](COLUMNAS_PRECIO_LOTES_20261115.md). Mantener el guardado personal existente, el precio base separado de las ofertas y las solicitudes estables ante respuestas inciertas.
+
 ## Servicios e identidad
 - Aplicación: https://totuscentral.totuscode.com/ (direcciones normales con `?module=nombre`; la identidad interna de compilación se conserva sin mantener parámetros técnicos en la barra).
 - Código y documentación: `hortimatic/Totus-Central`, rama `totus-central`.

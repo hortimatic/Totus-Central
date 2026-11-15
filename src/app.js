@@ -1000,7 +1000,7 @@ async function saveProduct(id='',next=false){
  const savedResult=await rpc('totus_pricing_save_product',{p_product:{...row,id:required('prSaveId','Identificador del producto'),expected_updated_at:val('prExpectedUpdate')||null,is_new:!id},p_variants:variants,p_provider:!id&&row.product_type==='simple'&&(val('prInitialProviderName').trim()||val('prInitialCost')!=='')?{name:required('prInitialProviderName','Proveedor'),net_cost:val('prInitialCost')===''?null:num('prInitialCost'),provider_discount:num('prInitialDiscount'),shipping_unit:num('prInitialShipping')}:null});
  const saved=savedResult.product;
  const siblings=next?state.data.products.filter(p=>p.family_id===saved.family_id):[],position=siblings.findIndex(p=>p.id===saved.id),following=position>=0?siblings[position+1]:null;
- if(next&&!following)resetView('pricing');else setView('pricing',{mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
+ if(next&&!following)resetView('pricing');else setView('pricing',{section:'local',mode:'record',id:following?.id||saved.id});await refresh('Producto guardado.');
 }
 async function recordProductHistory(productId,variantId,snapshot){
  try{
@@ -1422,7 +1422,7 @@ async function convertConsultation(id){
  const result=await rpc('totus_pricing_save_product',{p_product:{id:required('ccProductId','Identificador del producto'),is_new:true,consultation_id:id,name,sku,family_id:val('ccFamily')||null,product_type:'simple',current_pvp:pvp,proposed_pvp:null,quick_competitor:c.competitor??null,quick_discount:c.discount??0,units_month:0,status:'PENDIENTE',notes:'Creado desde consulta: '+c.query},
  p_variants:[],p_provider:{id:providerId,name:state.data.providers.find(p=>p.id===providerId)?.name||'',net_cost:cost,provider_discount:0,shipping_unit:0}});
  const product=result.product;
- closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{mode:'record',id:product.id});setRoute('pricing');render();
+ closeModal();await refresh('Producto creado desde la consulta.');setView('pricing',{section:'local',mode:'record',id:product.id});setRoute('pricing');render();
 }
 
 async function reuseConsultation(id){
@@ -2978,8 +2978,8 @@ document.addEventListener('click',async e=>{
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
-  if(a==='product-new'){setView('pricing',{mode:'record',id:null});render();return}
-  if(a==='product-edit'){setView('pricing',{mode:'record',id:el.dataset.id});render();return}
+  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();return}
+  if(a==='product-edit'){setView('pricing',{section:'local',mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
   if(a==='product-draft-remove'){document.querySelector('.pricing-draft-variant[data-draft-id="'+el.dataset.draft+'"]')?.remove();updateProductStudy();return}
