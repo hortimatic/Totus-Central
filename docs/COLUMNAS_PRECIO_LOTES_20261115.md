@@ -38,6 +38,18 @@ Los errores de publicación del formulario de directorios se muestran encima de 
 
 Se reprodujo en producción el bloqueo anterior a cualquier POST de directorio: `totus_directory_operation` es SECURITY INVOKER y su comprobación del registro de tiendas fallaba con `permission denied for table totus_websites`. El servidor tenía permiso de lectura de los metadatos de conexión anteriores, pero no de las columnas `connection_id,status` del registro añadido después. La migración `20261115084252_directory_journal_website_metadata.sql` concede únicamente esas dos columnas a `service_role`; conserva SECURITY INVOKER y no concede acceso a navegadores, secretos ni al resto de columnas. El ensayo SQL desechable reproduce primero el rechazo y ejecuta después los recorridos de alta, reintento y edición con la misma comprobación de registro que producción. Contrastar su aplicación y una consulta posterior con el rol del servidor antes de dar el bloqueo por corregido. No crear la marca ficticia «cocus» para verificarlo sin una instrucción expresa sobre sus datos.
 
+## Automatizaciones y navegación de Ventas
+
+«Configurar campana» llama al controlador de cabecera y abre directamente la configuración. Se detiene la propagación del clic de origen: antes ese mismo clic llegaba al cierre exterior y ocultaba inmediatamente el panel. Las pruebas usan el botón real desde Automatizaciones, guardan el intervalo y vuelven a abrirlo. Se mantienen el cierre exterior normal, Escape y los permisos de administración.
+
+«Comprobar ahora» solicita al planificador una ejecución; no acredita una comprobación terminada. La regla muestra pendiente, en curso, completada, parcial o fallida a partir de un trabajo identificado. Consulta su resultado mientras la pantalla está abierta, durante un máximo de 90 segundos; después conserva el estado pendiente y puede actualizarse el registro. No repite la solicitud para refrescar el resultado, no consume modelos y cancela el seguimiento al salir. Un resultado parcial no se muestra como éxito completo. Cambiar de cuenta limpia ese seguimiento.
+
+La vista previa de gastos recurrentes acepta su contrato `rows`; antes se rechazaba al exigir por error las propiedades del registro de automatizaciones. Se elimina la opción duplicada de EAN del selector y se invalida una vista previa cuando cambia su configuración. Las pruebas recorren todas las consultas disponibles, los orígenes web frente a TPV, la ausencia de envíos en vista previa, errores de lectura y guardado, conservación del borrador y el historial. No se envían mensajes reales para ensayar.
+
+Ventas conserva un único control de página. Se retiran sus botones redundantes Anterior/Siguiente; las flechas para columnas horizontales se conservan. El campo de página admite escritura y Enter, valida y limita el número, evita cambios accidentales por las flechas del control numérico y recupera el foco después de cargar una página remota. Volver a una página ya consultada no repite la petición. Se comprueban los límites, entrada vacía, foco y desplazamiento en móvil y escritorio.
+
+Gastos retira el acceso de cabecera «Proveedores». Su gestión permanece en el módulo Proveedores y el selector del formulario de gasto conserva los datos guardados. Los recorridos de alta, modificación, inactivación y protección de referencias se prueban entrando por el menú del módulo.
+
 ## Inicio y verificación
 
 La tarjeta de ganancia estimada conserva el total y muestra la cifra de cada tienda, con su cobertura o estado pendiente. Reutiliza los datos del cálculo; no añade consultas. El resultado sigue siendo ingresos con IVA menos coste de compra con IVA y recargo, separado del resultado contable y del margen comercial sin impuestos.

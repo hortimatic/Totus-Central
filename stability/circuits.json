@@ -185,6 +185,9 @@
     {
       "id": "automation",
       "paths": [
+        "src/automations-ui.js",
+        "src/header-online-orders.js",
+        "src/header-tools.js",
         "src/prestashop",
         "src/recurring",
         "src/website-registry",

@@ -97,7 +97,7 @@ try{
  });
  await scenario('Proveedor: alta, edición, inactivo, búsqueda y protección de referencias',async p=>{
   await p.evaluate(async()=>{window.__mockDb.ops_suppliers=[];await(await import('../src/api.js')).loadCore()});
-  await nav(p);await p.locator('[data-action="expense-suppliers"]').click();await p.locator('[data-action="expense-supplier-new"]').click();
+  await nav(p);assert.equal(await p.locator('.module-heading [data-action="expense-suppliers"]').count(),0);await clickModuleLink(p,p.locator('#nav [data-route="proveedores"]'));await p.locator('[data-action="expense-supplier-new"]').click();
   await p.locator('#esName').fill('Proveedor con todos los datos QA');await p.locator('#esTax').fill('QA-NIF');await p.locator('#esDocKind').selectOption('control_interno');await p.locator('#esVat').fill('101');await p.locator('[data-action="expense-supplier-save"]').click();assert.equal(await p.evaluate(()=>window.__mockDb.ops_suppliers.length),0);
   await p.locator('#esVat').fill('0');await p.locator('[data-action="expense-supplier-save"]').click();await p.getByText('Proveedor de gastos guardado.',{exact:true}).waitFor();
   await p.locator('[data-action="expense-supplier-edit"]').click();assert.equal(await p.locator('#esDocKind').inputValue(),'control_interno');await p.locator('#esActive').uncheck();await p.locator('[data-action="expense-supplier-save"]').click();await p.getByText('Proveedor de gastos guardado.',{exact:true}).last().waitFor();

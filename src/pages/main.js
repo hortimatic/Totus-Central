@@ -302,7 +302,7 @@ export function gastos(){
   <div class="kpis">${kpi('Gasto del periodo',money(total),'Los pagos por conciliar no se duplican como gasto')}${kpi('Solo control interno',money(internal+taxInformation),'Incluye impuestos pagados; no reduce el beneficio fiscal')}${kpi('Registros',String(rows.length))}${kpi('Registros pendientes',String(pending),'Factura, pago o diferencia por comprobar')}</div>
   ${(kind==='all'||kind==='internal')?taxPaymentInformationHtml({...f,paid}):''}
   <section class="card table-card expense-register-card">
-   <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Proveedores','expense-suppliers','secondary')}${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
+   <div class="section-head card-pad"><div><h2>Gastos</h2><p>Accede a cada factura desde su gasto o consulta el archivo ordenado en «Facturas y justificantes».</p></div><div class="inline-actions">${btn('Exportar','export-expenses-current','secondary')}${btn('+ Nuevo gasto','expense-new','primary')}</div></div>
    ${dateFilters({...f,stores:state.data.stores},'gastos',extras)}
    ${table(headers,rows.filter(r=>!r.management_only||isExpensePaymentEvidence(r)),{emptyTitle:kind==='internal'?'Consulta el detalle de control interno':'No hay gastos',emptyText:'No existen otros gastos para los filtros seleccionados.'})}
   </section>
