@@ -1,4 +1,4 @@
-import {columnSettingsRow,columnSettingsCaption} from './column-settings.js';
+import {standardizeColumnPanel,standardizeColumnPanels,columnSettingsRow,columnSettingsCaption} from './column-settings.js';
 /** Shared presentation and personal layouts; never writes business records. */
 export function installSharedTableArrows(root=document,{owner=()=>null}={}){
  const entries=new Map(),abort=new AbortController();let frame=0;
@@ -10,7 +10,7 @@ export function installSharedTableArrows(root=document,{owner=()=>null}={}){
  root.addEventListener('dragover',e=>{if(drag&&e.target.closest?.('.tc-column-row')?.closest('.prd-columns,.tc-column-popover,.home-columns-inspector')===drag.scope)e.preventDefault();},{signal:abort.signal});
  root.addEventListener('drop',e=>{const row=e.target.closest?.('.tc-column-row'),target=row?.querySelector('select'),source=drag?.row?.querySelector('select');if(drag&&row?.closest('.prd-columns,.tc-column-popover,.home-columns-inspector')===drag.scope&&target&&source&&!source.disabled){e.preventDefault();const value=target.value;drag=null;source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}));}},{signal:abort.signal});root.addEventListener('dragend',()=>drag=null,{signal:abort.signal});
  const closeMenus=except=>{for(const menu of root.querySelectorAll('details.prd-columns[open]'))if(menu!==except)menu.open=false;};
- root.addEventListener('toggle',event=>{const menu=event.target;if(!menu.matches?.('details.prd-columns')||!menu.open)return;closeMenus(menu);const panel=menu.querySelector(':scope>div'),rect=menu.querySelector('summary')?.getBoundingClientRect();if(!panel||!rect)return;const width=Math.min(360,innerWidth-24),height=Math.min(panel.scrollHeight,innerHeight*.6,480);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px',top:Math.max(12,Math.min(rect.bottom+6,innerHeight-height-12))+'px',right:'auto',maxHeight:'min(60dvh,480px)'});},{capture:true,signal:abort.signal});
+ root.addEventListener('toggle',event=>{const menu=event.target;if(!menu.matches?.('details.prd-columns')||!menu.open)return;closeMenus(menu);const panel=menu.querySelector(':scope>div'),rect=menu.querySelector('summary')?.getBoundingClientRect();if(!panel||!rect)return;const width=Math.min(360,innerWidth-24),height=Math.min(panel.scrollHeight,innerHeight*.6,480);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px',top:Math.max(12,Math.min(rect.bottom+6,innerHeight-height-12))+'px',right:'auto',maxHeight:'min(75dvh,480px)'});},{capture:true,signal:abort.signal});
  root.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.prd-columns'))closeMenus();},{capture:true,signal:abort.signal});
  root.addEventListener('keydown',event=>{if(event.key==='Escape'){const menu=event.target.closest?.('details.prd-columns');if(menu){menu.open=false;menu.querySelector('summary')?.focus();}}},{signal:abort.signal});
  const selector='.table-wrap,.directory-table-viewport,.ps-orders-table-viewport,.home-orders-table-wrap';
@@ -28,7 +28,7 @@ export function installSharedTableArrows(root=document,{owner=()=>null}={}){
    const buttons=[[-1,'izquierda','←'],[1,'derecha','→']].map(([direction,label,symbol])=>{const b=document.createElement('button');b.type='button';b.dataset.tcTableAction=direction<0?'left':'right';b.className='btn secondary';b.textContent=symbol;b.setAttribute('aria-label','Recorrer columnas hacia la '+label);b.onclick=()=>viewport.scrollBy({left:direction*Math.max(180,viewport.clientWidth*.65),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});arrows.append(b);return b;});
    const update=()=>{const max=viewport.scrollWidth-viewport.clientWidth;arrows.hidden=max<=2;buttons[0].disabled=viewport.scrollLeft<=1;buttons[1].disabled=viewport.scrollLeft>=max-1;};
    viewport.insertAdjacentElement('afterend',arrows);viewport.addEventListener('scroll',update,{passive:true});
-   const table=viewport.querySelector('table'),columns=viewport.matches('.table-wrap,.directory-table-viewport')&&table.matches('.data-table,.directory-table')&&owner()?installColumns(table,viewport,owner()):null;
+   const table=viewport.querySelector('table'),columns=!viewport.hasAttribute('data-tc-columns-managed')&&viewport.matches('.table-wrap,.directory-table-viewport')&&table.matches('.data-table,.directory-table')&&owner()?installColumns(table,viewport,owner()):null;
    const observer=new ResizeObserver(update);observer.observe(viewport);observer.observe(table);entries.set(viewport,{arrows,observer,columns});update();
   }
  };
@@ -69,5 +69,5 @@ function installColumns(table,viewport,owner){
  button(actions,'Eliminar vista','delete-view',()=>{if(!viewSelect.value)return;views=views.filter(v=>v.name!==viewSelect.value);viewName='';save();draw();});
  button(actions,'Restablecer columnas','reset-columns',()=>{order=[...initial];visible=[...initial];viewName='';search.value='';save();draw();});
  viewSelect.onchange=()=>{const view=views.find(v=>v.name===viewSelect.value);if(view){order=[...view.order];visible=validVisible(view.visible);viewName=view.name;save();draw();}};
- apply();draw();status.textContent='Los cambios se guardan automáticamente en este navegador.';return tools;
+ apply();draw();standardizeColumnPanel(panel);status.textContent='Los cambios se guardan automáticamente en este navegador.';return tools;
 }

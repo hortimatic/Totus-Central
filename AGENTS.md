@@ -23,3 +23,11 @@ Instrucción expresa de Diego, 8 de noviembre de 2026:
 - Seguir `docs/PROTOCOLO_ESTABILIDAD.md`. El PR #195 está publicado; las referencias históricas a PR anteriores no describen el estado actual.
 
 Los archivos de sources/ del proyecto sincronizado son referencias de solo lectura.
+
+## Contrato de interfaz común
+
+- Seguir `docs/HOMOGENEIDAD_PRECIO_RUTAS_20261115.md`: no crear otro panel de columnas, selector buscable ni escala de botones para un módulo concreto.
+- Usar `column-settings.js` y conservar el adaptador de persistencia y permisos de cada tabla. Marcar los controladores propios para que no reciban herramientas genéricas duplicadas.
+- Comparar acción, parámetros y contexto antes de retirar duplicados; conservar acciones distintas por tienda, fecha o registro.
+- Mantener búsqueda completa y orden alfabético de catálogos sin alterar el orden lógico de posiciones, frecuencias o estados. La búsqueda no es una edición del formulario.
+- Mantener rutas públicas españolas y entradas de publicación recargables; no cambiar los IDs internos de permisos para traducir una URL.

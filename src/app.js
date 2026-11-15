@@ -1,13 +1,15 @@
+import {installSearchableSelects} from './productos-controls.js';
 import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
 import {installSharedTableArrows} from './shared-table-controls.js';
 installSharedTableArrows(document,{owner:()=>state.user?.id});
+installSearchableSelects(document);
 import {createContactDirectoryUI} from './contact-directory-ui.js';
 import {interfaceStylesSettings,acceptInterfaceStyles,verifySavedInterfaceStyle} from './appearance-styles.js';
 import {createAutomationsUI} from './automations-ui.js';
 import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
 import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
-import {moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
@@ -122,7 +124,7 @@ const activityLog=createActivityLog({rpc,actor:()=>String(state.user?.email||'')
 setInterval(()=>{if(state.user&&document.visibilityState==='visible')activityLog.retry();},30000);
 document.addEventListener('totus-download-prepared',event=>{if(state.user)activityLog.record(state.route==='cotejos'?'recepciones':state.route,'descarga_preparada',String(event.detail?.format||'archivo').replace(/[^a-z0-9_-]/gi,'').slice(0,30)||'archivo');});
 function can(module,action='view'){if(module==='apis')return isAdmin()&&can('configuracion','edit');if(module==='prestashop')return !!state.user&&state.user.active!==false&&((isAdmin()&&can('configuracion','edit'))||canUser(state.user,'prestashop',action,state.data.userPermissions||[])||(action==='view'&&canUser(state.user,'documentos','view',state.data.userPermissions||[])));if(!state.user||state.user.active===false)return false;return canUser(state.user,module==='cotejos'?'documentos':module,action,state.data.userPermissions||[])}
-const appearanceUI=createAppearanceUI({styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
+const appearanceUI=createAppearanceUI({loadSharedStyles:()=>rpc('totus_shared_interface_styles',{}),styles:()=>interfaceStylesSettings(state),saveStyle:async command=>{
  const owner=state.user?.id;if(!owner||!can('configuracion','view'))throw Error('No tienes acceso a tu configuración.');
  const saved=await rpc('totus_interface_styles',{p_action:command.action,p_id:command.id,p_name:command.name,p_config:command.config,p_expected_revision:command.revision});
  verifySavedInterfaceStyle(saved,command);acceptInterfaceStyles(state,saved,owner);return saved;
@@ -295,7 +297,7 @@ function render(){
   state.route=first.id;
  }
  renderNav();
- history.replaceState(history.state?.totusModuleNavigation===true?{totusModuleNavigation:true}:null,'',moduleUrl(location.href,state.route));
+ history.replaceState(moduleNavigationState(location.href,state.route,history.state),'',moduleUrl(location.href,state.route));
  const [eye,title]=titles[state.route]||['Totus Central',''];
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
@@ -491,7 +493,7 @@ async function navigateModule(route,el=null,prepare=null){
  let owner=sessionViewOwner();const generation=++refreshGeneration;
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
- history.replaceState({totusModuleNavigation:true},'',moduleUrl(location.href,route));
+ history.replaceState(moduleNavigationState(location.href,route,{...history.state,totusModuleNavigation:true}),'',moduleUrl(location.href,route));
  teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
@@ -2978,7 +2980,7 @@ document.addEventListener('click',async e=>{
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
-  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();return}
+  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();requestAnimationFrame(()=>{const name=input('prName');name?.scrollIntoView({block:'center'});name?.focus({preventScroll:true});});return}
   if(a==='product-edit'){setView('pricing',{section:'local',mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
@@ -3329,7 +3331,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  const internalReturn=history.state?.totusModuleNavigation===true;
- const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);history.replaceState(history.state,'',moduleUrl(location.href,state.route));
+ const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);history.replaceState(moduleNavigationState(location.href,state.route,history.state),'',moduleUrl(location.href,state.route));
  if(internalReturn)history.replaceState(null,'',moduleUrl(location.href,state.route));
  await refresh('',{route:state.route,initialProfile:profile});chatNotifier.start();headerTools.start();
  }catch(error){bootStatus='error';throw error}

@@ -7,11 +7,11 @@ export const LOGIN_STYLE_PRESETS={
 export const settingsSearchText=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es').trim();
 
 /** Search and folding never remove controls, change values or submit a form. */
-export function installAppearanceTools(host,{section,editable,applyPreset,query='',current={}}){
+export function installAppearanceTools(host,{section,editable,applyPreset,query='',current={},showTools=true}){
  const form=host.querySelector('form'),groups=[...host.querySelectorAll('[data-appearance-group]')];
  const tools=document.createElement('div');tools.className='appearance-tools';
  tools.innerHTML='<label>Buscar ajustes<input type="search" data-settings-search data-draft-ignore autocomplete="off" placeholder="Color, logotipo, navegación…"></label><div class="inline-actions"><button type="button" class="btn secondary" data-appearance-navigation data-settings-expand>Expandir secciones</button><button type="button" class="btn secondary" data-appearance-navigation data-settings-fold>Contraer secciones</button></div><small data-settings-result role="status" aria-live="polite"></small>';
- form.before(tools);
+ if(showTools)form.before(tools);
  const search=tools.querySelector('input'),result=tools.querySelector('[data-settings-result]');let priorOpen=null;
  function filter(){
   const needle=settingsSearchText(search.value);

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {exportSharedInterfaceStyle} from '../src/appearance-style-share.js';
 import {mkdir} from 'node:fs/promises';
 import {startLocalServer} from './local-static-server.mjs';
 const server=await startLocalServer(),{chromium}=await import(process.env.TOTUS_PLAYWRIGHT_MODULE||'playwright');
@@ -10,14 +11,15 @@ async function mount(page,owner){
   const {createAppearanceUI,appearancePage,applyInterfaceAppearance}=await import('../src/appearance-ui.js');
   const qa=window.stylesQA={owner,row:{appearance_config:saved?.active||{}},library:saved?.book||{revision:0,items:[]},confirm:true};
   document.body.innerHTML='<main id="main">'+appearancePage()+'</main>';
-  qa.ui=createAppearanceUI({settings:()=>qa.row,styles:()=>qa.library,actor:()=>qa.owner,canEdit:()=>true,confirm:async()=>qa.confirm,
+  qa.ui=createAppearanceUI({loadSharedStyles:()=>window.sharedStylesQA(qa.owner),settings:()=>qa.row,styles:()=>qa.library,actor:()=>qa.owner,canEdit:()=>true,confirm:async()=>qa.confirm,
    save:async(section,config)=>{await window.persistStyleQA(qa.owner,{active:config,book:qa.library});qa.row.appearance_config=config;applyInterfaceAppearance(config);},
    saveStyle:async command=>{const result=await window.saveStyleQA(qa.owner,command);qa.library=result;return result;}});
   qa.ui.mount(document.querySelector('#appearanceRoot'));applyInterfaceAppearance(qa.row.appearance_config);
  },{owner,saved:cloud.get(owner)});
 }
-try{for(const width of [390,1440]){
+try{for(const width of [390,1440]){cloud.clear();
  const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.exposeFunction('sharedStylesQA',owner=>({items:[...cloud].filter(([id])=>id!==owner).flatMap(([id,data])=>(data.book?.items||[]).map(row=>({id:id+'-'+row.id,name:row.name,config:JSON.parse(exportSharedInterfaceStyle(row)).config,mine:false})))}));
  await page.exposeFunction('persistStyleQA',async(owner,data)=>cloud.set(owner,structuredClone(data)));
  await page.exposeFunction('saveStyleQA',async(owner,c)=>{
   const data=cloud.get(owner)||{},book=structuredClone(data.book||{revision:0,items:[]});
@@ -44,16 +46,13 @@ try{for(const width of [390,1440]){
  await page.screenshot({path:'artifacts/interface-styles/styles-'+width+'.png',fullPage:true});
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'No horizontal overflow');
  await page.locator('[data-my-style]').selectOption({label:'Trabajo'});
- await page.locator('[data-style-export]').click();
- const sharedCode=await page.locator('[data-style-share-code]').inputValue();
- assert.equal(JSON.parse(sharedCode).format,'totus-interface-style');
- assert.equal(JSON.parse(sharedCode).config.primary,'#334455');
- assert(!sharedCode.includes('customLogoData'),'A share code must exclude personal images');
- assert(!sharedCode.includes('brandName'),'A share code must exclude personal identity');
- await mount(page,'b'+width);assert.equal(await page.locator('[data-my-style] option').count(),1,'Other account cannot see private styles before import');
- await page.locator('[data-style-share-code]').fill(sharedCode);
- await page.locator('[data-style-import]').click();
- await page.locator('[data-style-share-status]').filter({hasText:'Estilo recibido y guardado'}).waitFor();
+ assert.equal(await page.locator('[data-style-share-code],.appearance-style-share').count(),0,'No manual sharing codes');
+ await mount(page,'b'+width);await page.locator('[data-my-style] option').filter({hasText:'Trabajo · equipo'}).waitFor({state:'attached'});
+ await page.locator('[data-my-style]').selectOption({label:'Trabajo · equipo'});assert.equal(await page.locator('[data-style-action=remove]').isDisabled(),true,'Recipient cannot delete the author style');
+ assert.equal(cloud.get('b'+width)?.active,undefined,'Shared library never applies another user interface');
+ await page.locator('[data-style-action=load]').click();assert.equal(await page.locator('[name=primary]').inputValue(),'#334455');
+ assert.equal(await page.locator('[name=brandName]').inputValue(),'Totus Central','Shared appearance preserves recipient identity');
+ await page.locator('[data-style-name]').fill('Trabajo');await page.locator('[data-style-action=create]').click();await page.locator('[data-style-status]').filter({hasText:'Estilo guardado'}).waitFor();
  assert.equal(cloud.get('b'+width).book.items[0].config.primary,'#334455','Receiver saves a private independent copy');
  assert.equal(cloud.get('b'+width).active,undefined,'Receiving a style must not apply it automatically');
  await page.reload();await mount(page,'b'+width);

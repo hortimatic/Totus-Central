@@ -9,7 +9,7 @@ async function fresh(){const page=await browser.newPage({viewport:{width:1440,he
 async function simple(page){await page.locator('[data-action="product-new"]').click();await page.locator('#prName').fill('Producto ficticio auditoria');await page.locator('#prSku').fill('QA-PR-INTEGRAL');await page.locator('#prPvp').fill('10');await page.locator('#prUnits').fill('20');await page.locator('#prInitialProviderName').fill('Proveedor ficticio');await page.locator('#prInitialCost').fill('4');await page.locator('[data-action="product-save"]').click();await page.getByText('Producto guardado.',{exact:true}).last().waitFor()}
 try{
  await attempt('local record opens after the connected catalog was selected',async()=>{const p=await fresh();try{
-  await p.getByRole('button',{name:'Catálogo PrestaShop',exact:true}).click();await p.locator('#productosRoot').waitFor();
+  await p.getByRole('button',{name:'Precios y ofertas',exact:true}).click();await p.locator('#productosRoot').waitFor();
   await p.evaluate(async()=>{const {setView}=await import('../src/state.js');setView('pricing',{mode:'record',id:null});});
   await clickModuleLink(p,p.locator('#nav [data-route=inicio]'));await clickModuleLink(p,p.locator('#nav [data-route=pricing]'));
   await p.locator('#prName').waitFor();assert.equal(await p.locator('#productosRoot').count(),0,'An explicit local record takes precedence over the last catalog tab');

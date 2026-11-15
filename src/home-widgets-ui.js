@@ -1,4 +1,5 @@
-import {columnSettingsRow} from './column-settings.js';
+import {standardizeColumnPanel,standardizeColumnPanels,columnSettingsRow} from './column-settings.js';
+import {readPool} from './read-pool.js';
 /* Totus Central — Inicio modular. Enhances existing home DOM, preserving forms,
  * accounting functions and delegated data-action/data-route handlers. */
 import {HOME_WIDGET_CATALOG,createHomeDashboard,readHomeDashboard,addHomeWidget,duplicateHomeWidget,removeHomeWidget,setHomeWidgetConfig,reorderHomeWidget,homeCanvasSettings,HOME_ORDER_COLUMNS} from './home-widgets-core.js';
@@ -482,7 +483,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   const body=document.createElement('div');body.className='home-editor-panel-body';
   body.append(library,widgetView,boardView,stylesView);
   for(const section of body.children)section.hidden=section.dataset.editorView!==panelView;
-  drawer.replaceChildren(head,tabs,body);
+  drawer.replaceChildren(head,tabs,body);standardizeColumnPanels(drawer);
   const inspectorActions=widgetView.querySelector('.home-inspector-actions');
   if(panelView==='widget'&&inspectorActions){
    const footer=document.createElement('div');footer.className='home-editor-footer';
@@ -702,7 +703,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(!w||!usesShopData(w)||!can('prestashop','view')||!live())return;
   const {from,to}=dateRange(w);if(to<from){status('Fecha final anterior a la inicial.',true);return}
   const stores=PRESTA_SHOPS(w);for(const shop of stores){const key=shop+'|'+from+'|'+to;
-   if(!force&&ordersData.has(key))continue;if(queries.has(key))continue;
+   if(!force&&ordersData.has(key)&&(!ordersData.get(key).gainOnly||w.type==='home.gain'))continue;if(queries.has(key)){if(w.type!=='home.gain')void queries.get(key).then(()=>{if(live())void fetchFor(w);});continue;}
    const owned=owner,requestToken=token;
    const progress=message=>{if(live()&&token===requestToken&&owner===owned){readProgress.set(key,message);refreshFinancialMargin();}};
    const task=(async()=>{try{
@@ -710,6 +711,13 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     const cs=await initConnections();if(!live()||token!==requestToken||owner!==owned)return;
     const c=storeConnection(cs,shop),ready=prestashopReadiness(c);if(!ready.ready)throw new Error(ready.reason);
     const cacheKey=JSON.stringify([key,c.id,c.revision]);
+    // A different widget may need seller names after gain has finished. Upgrade
+    // the bounded in-memory result without rereading orders, lines or costs.
+    if(!force&&w.type!=='home.gain'&&completedOrders.get(cacheKey)?.gainOnly&&Date.now()-completedOrders.get(cacheKey).readAt<120000){
+     const cached=completedOrders.get(cacheKey),employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
+     for(let start=0;start<cached.rows.length;start+=25){const batch=cached.rows.slice(start,start+25),sellers=await loadOrderSellers({orders:batch,store:shop,employees,current,invoke:args=>invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),...args})});if(!current())return;for(const order of batch){const seller=sellers?.get(String(order.id));if(seller){order.employee_name=seller.name;order.employee_source=seller.source;}}}
+     const result={...cached,gainOnly:false};ordersData.set(key,result);rememberOrders(cacheKey,result);refreshShopWidgets();return;
+    }
     if(!force&&completedOrders.has(cacheKey)){const cached=completedOrders.get(cacheKey);if(!cached.gainOnly||w.type==='home.gain'){const fresh=Date.now()-cached.readAt<120000;ordersData.set(key,{...cached,refreshing:!fresh});refreshShopWidgets();if(fresh)return;}}
     const rows=[],ids=new Set();let page=0,possiblyMore=false;
     do{
@@ -733,10 +741,13 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
      try{
       const ids=rows.filter(o=>String(o.valid)==='1').map(o=>String(o.id));
       const ranking=new Map(),details=new Map(),lineIds=new Set(),coveredOrders=new Set();let complete=true,totalSoldUnits=0;
+      // Gain needs no seller history. Read independent first pages two at a
+      // time, retaining the same batch membership, pagination and coverage checks.
+      const firstPages=w.type==='home.gain'?await readPool(Array.from({length:Math.ceil(ids.length/25)},(_,i)=>ids.slice(i*25,i*25+25)),batch=>invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:0,page_size:100,order_ids:batch}),{limit:2,current:()=>live()&&token===requestToken&&owner===owned}):null;
       for(let index=0;index<ids.length;index+=25){
        const batch=ids.slice(index,index+25);let detailPage=0,more=false;
        do{
-        const detail=await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:detailPage,page_size:100,order_ids:batch});
+        const detail=detailPage===0&&firstPages?firstPages[index/25]:await invoke({action:'prestashop_read',store:shop,id:c.id,revision:c.revision,call_id:crypto.randomUUID(),resource:'order_details',page:detailPage,page_size:100,order_ids:batch});
         if(!live()||token!==requestToken||owner!==owned)return;
         if(!detail?.ok||detail.store!==shop||detail.resource!=='order_details'||!Array.isArray(detail.rows)||detail.rows.some(l=>!batch.includes(String(l.id_order))))throw Error('Líneas de un pedido ajeno');
         for(const line of detail.rows){const id=String(line.product_id||''),lid=String(line.id||''),qty=Number(line.product_quantity),attribute=String(line.product_attribute_id??'0');if(!/^\d{1,15}$/.test(id)||!/^\d{1,15}$/.test(lid)||!/^\d{1,15}$/.test(attribute)||lineIds.has(lid)||!Number.isSafeInteger(qty)||qty<=0){complete=false;break}lineIds.add(lid);const orderId=String(line.id_order),name=String(line.product_name||'Producto #'+id),group=id+':'+attribute;coveredOrders.add(orderId);const prev=ranking.get(group)||{name,qty:0,productId:id,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)};prev.qty+=qty;totalSoldUnits+=qty;ranking.set(group,prev);if(!details.has(orderId))details.set(orderId,[]);details.get(orderId).push({...line,name,qty,attributeId:attribute,reference:String(line.product_reference||'').slice(0,80)})}
@@ -758,6 +769,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     }
     // Publish verified costs immediately. Seller history is independent of gain.
     const costResult={shop,rows,currencies,from,to,complete:!possiblyMore,top,detailsByOrder,totalUnits,readAt:Date.now(),gainOnly:true,checked:new Date().toLocaleString('es-ES')};ordersData.set(key,costResult);rememberOrders(cacheKey,costResult);refreshShopWidgets();
+    if(w.type==='home.gain')return;
     try{
      const employees=new Map(),current=()=>live()&&token===requestToken&&owner===owned;
      for(let start=0;start<rows.length;start+=25){
