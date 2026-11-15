@@ -124,11 +124,33 @@ export function verifyRemoteSale(expected, observed) {
     requireValue(expected.lines.length === observed.lines.length, 'TPV_ORDER_LINES_MISMATCH');
     for (const line of expected.lines) {
       const actual = observed.lines.find(item => productKey(item) === productKey(line));
-      cents(line.unitTaxInclCents, true); cents(line.unitTaxExclCents);
-      requireValue(line.unitTaxExclCents <= line.unitTaxInclCents, 'TPV_ORDER_TAX_INVALID');
-      requireValue(actual && actual.qty === line.qty && actual.unitTaxInclCents === line.unitTaxInclCents && actual.unitTaxExclCents === line.unitTaxExclCents, 'TPV_ORDER_LINES_MISMATCH');
+      if(Object.hasOwn(line,'unitTaxInclMicros')) {
+        requireValue(['unitTaxInclMicros','unitTaxExclMicros'].every(key=>Number.isSafeInteger(line[key])&&
+          line[key]>=0&&line[key]<=MAX_CENTS*10000)&&line.unitTaxExclMicros<=line.unitTaxInclMicros,
+          'TPV_ORDER_TAX_INVALID');
+        requireValue(!Object.hasOwn(line,'unitTaxInclCents')&&!Object.hasOwn(line,'unitTaxExclCents'),
+          'TPV_ORDER_LINES_INVALID');
+        cents(line.lineTaxInclCents);cents(line.lineTaxExclCents);
+        requireValue(line.lineTaxExclCents<=line.lineTaxInclCents,'TPV_ORDER_TAX_INVALID');
+        requireValue(actual&&actual.qty===line.qty&&['unitTaxInclMicros','unitTaxExclMicros','lineTaxInclCents',
+          'lineTaxExclCents'].every(key=>actual[key]===line[key]),'TPV_ORDER_LINES_MISMATCH');
+        continue;
+      }
+      cents(line.unitTaxInclCents, true);
+      let excludedMatches;
+      if(Object.hasOwn(line,'unitTaxExclMicros')) {
+        requireValue(Number.isSafeInteger(line.unitTaxExclMicros)&&line.unitTaxExclMicros>=0&&
+          line.unitTaxExclMicros<=line.unitTaxInclCents*10000,'TPV_ORDER_TAX_INVALID');
+        excludedMatches=actual?.unitTaxExclMicros===line.unitTaxExclMicros;
+      } else {
+        cents(line.unitTaxExclCents);
+        requireValue(line.unitTaxExclCents <= line.unitTaxInclCents, 'TPV_ORDER_TAX_INVALID');
+        excludedMatches=actual?.unitTaxExclCents===line.unitTaxExclCents;
+      }
+      requireValue(actual && actual.qty === line.qty && actual.unitTaxInclCents === line.unitTaxInclCents && excludedMatches, 'TPV_ORDER_LINES_MISMATCH');
     }
-    const merchandiseCents = sum(expected.lines.map(line => line.qty * line.unitTaxInclCents));
+    const merchandiseCents = sum(expected.lines.map(line => Object.hasOwn(line,'unitTaxInclMicros')?
+      line.lineTaxInclCents:line.qty * line.unitTaxInclCents));
     const discountCents = cents(expected.discountCents ?? 0);
     requireValue(discountCents <= merchandiseCents && merchandiseCents + expected.shippingCents - discountCents === expected.totalCents && (observed.discountCents ?? 0) === discountCents, 'TPV_ORDER_EXPECTED_TOTAL_INVALID');
     requireValue(Array.isArray(observed.payments) && observed.payments.length > 0, 'TPV_PAYMENT_RECORD_MISSING');

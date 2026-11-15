@@ -1,0 +1,14 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TotusTPV · Laboratorio local sin ventas reales</title>
+<link rel="stylesheet" href="../src/styles.css"><link rel="stylesheet" href="../src/interface-design.css">
+<link rel="stylesheet" href="../src/interface-controls.css"><link rel="stylesheet" href="../src/totustpv/workspace.css">
+<style>body{padding:16px;margin:0}main{max-width:1400px;margin:auto}header.module-heading{margin-bottom:16px}</style>
+</head><body><main><header class="module-heading"><div class="module-identity"><div><h2>TotusTPV</h2><p>Mostrador · laboratorio local</p></div></div></header>
+<section id="tpv" class="totus-tpv" aria-label="TotusTPV"></section></main>
+<script type="module">
+import {createTpvWorkspace} from '../src/totustpv/workspace.js';
+let account={id:'fixture-operator',full_name:'Operador de práctica',active:true};
+const workspace=createTpvWorkspace({actor:()=>account,can:()=>true,confirm:async()=>true});
+workspace.mount(document.querySelector('#tpv'));
+window.fixture={workspace,setAccount(value){account=value;workspace.mount(document.querySelector('#tpv'));}};
+</script></body></html>

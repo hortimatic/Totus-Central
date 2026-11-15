@@ -18,7 +18,7 @@ async function journal(action,operationId,data={},selected=scope){
 async function asAdmin(sql){await db.exec('reset role');await db.exec(sql);await db.exec('set role service_role');}
 const expected=cartId=>({storeId:scope.storeId,shopId:1,cartId,currency:'EUR',paymentModule:'native_cash',
  customerId:501,invoiceAddressId:601,deliveryAddressId:601,currencyId:1,
- totalCents:801,shippingCents:0,paidStateIds:[11],lines:[{productId:101,attributeId:0,qty:1,unitTaxInclCents:801,unitTaxExclCents:662,stockBefore:5}]});
+ totalCents:801,shippingCents:0,nativePaymentLabels:{cash:'Efectivo',card:'Tarjeta'},paidStateIds:[11],lines:[{productId:101,attributeId:0,qty:1,unitTaxInclCents:801,unitTaxExclCents:662,stockBefore:5}]});
 const payments=[{id:'cash-1',method:'cash',status:'settled',amountCents:400,receivedCents:500},
  {id:'card-1',method:'card',status:'settled',amountCents:401}];
 try {
@@ -107,11 +107,13 @@ try {
  await ledger.prepare({scope,operationId,expected:e,quoteExpiresAt:Date.now()+60000});
  let remoteCreated=false,posts=0;
  const native={
+  async validatePayments(){return true;},
   async revalidatePrepared(){return {unchanged:true,cartId:707};},
   async ordersForCart(){return remoteCreated?[{connectionId:scope.connectionId,shopId:1,cartId:707,orderId:907}]:[];},
   async submitOrderOnce(){posts++;remoteCreated=true;throw Error('lost HTTP response');},
   async readSale(){return {...e,connectionId:scope.connectionId,orderId:907,receivedCents:801,stateId:11,statePaid:true,
-   payments:[{id:602,amountCents:801,currency:'EUR',recordVerified:true}],
+   payments:[{id:602,amountCents:400,methodLabel:'Efectivo',currency:'EUR',recordVerified:true},
+    {id:603,amountCents:401,methodLabel:'Tarjeta',currency:'EUR',recordVerified:true}],
    inventory:[{mode:'isolated-fixture',productId:101,attributeId:0,before:5,after:4,ambiguous:false}]};}
  };
  const service=createCheckoutService({ledger,native,settlements:{verify:async()=>payments},authorize:async()=>{

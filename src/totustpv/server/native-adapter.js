@@ -3,6 +3,7 @@
  * A raw quantity difference alone cannot attribute a concurrent stock movement.
  */
 import {createNativeCartPreflight} from './cart-preflight.js';
+import {paymentSummary} from '../model.js';
 const requireValue=(condition,code)=>{if(!condition)throw new Error(code);};
 const positive=value=>Number.isSafeInteger(value)&&value>0;
 const nativeId=value=>/^[1-9][0-9]*$/.test(String(value))&&positive(Number(value))?Number(value):null;
@@ -14,6 +15,13 @@ export function nativeCents(value) {
   requireValue(!/[1-9]/.test(fraction.slice(2)),'TPV_NATIVE_AMOUNT_PRECISION_UNSUPPORTED');
   const amount=Number(match[1])*100+Number(fraction.slice(0,2));
   requireValue(Number.isSafeInteger(amount)&&amount<=100_000_000_000,'TPV_NATIVE_AMOUNT_INVALID');
+  return amount;
+}
+export function nativeMicros(value) {
+  const match=String(value).match(/^(0|[1-9][0-9]*)(?:\.([0-9]{1,6}))?$/);
+  requireValue(match,'TPV_NATIVE_AMOUNT_INVALID');
+  const amount=Number(match[1])*1000000+Number((match[2]||'').padEnd(6,'0'));
+  requireValue(Number.isSafeInteger(amount)&&amount<=1000000000000000,'TPV_NATIVE_AMOUNT_INVALID');
   return amount;
 }
 function rows(payload,key) {
@@ -65,9 +73,17 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
     requireValue(payments.length>0 && payments.length<=20 && payments.every(payment=>
       payment.order_reference===order.reference && Number(payment.id_currency)===expected.currencyId && nativeId(payment.id)),
       'TPV_NATIVE_PAYMENT_FILTER_INVALID');
-    const lines=details.map(line=>({productId:nativeId(line.product_id),attributeId:Number(line.product_attribute_id),
-      qty:Number(line.product_quantity),unitTaxInclCents:nativeCents(line.unit_price_tax_incl),
-      unitTaxExclCents:nativeCents(line.unit_price_tax_excl)}));
+    const lines=details.map(line=>{
+      const prepared=expected.lines.find(item=>item.productId===Number(line.product_id)&&item.attributeId===Number(line.product_attribute_id));
+      if(prepared&&Object.hasOwn(prepared,'unitTaxInclMicros'))return {
+        productId:nativeId(line.product_id),attributeId:Number(line.product_attribute_id),qty:Number(line.product_quantity),
+        unitTaxInclMicros:nativeMicros(line.unit_price_tax_incl),unitTaxExclMicros:nativeMicros(line.unit_price_tax_excl),
+        lineTaxInclCents:nativeCents(line.total_price_tax_incl),lineTaxExclCents:nativeCents(line.total_price_tax_excl)};
+      return {productId:nativeId(line.product_id),attributeId:Number(line.product_attribute_id),
+        qty:Number(line.product_quantity),unitTaxInclCents:nativeCents(line.unit_price_tax_incl),
+        ...(prepared&&Object.hasOwn(prepared,'unitTaxExclMicros')?
+          {unitTaxExclMicros:nativeMicros(line.unit_price_tax_excl)}:{unitTaxExclCents:nativeCents(line.unit_price_tax_excl)})};
+    });
     const inventory=await readInventoryEvidence({scope:structuredClone(scope),orderId,expected:structuredClone(expected)});
     return {connectionId:scope.connectionId,storeId:scope.storeId,shopId:scope.shopId,cartId:Number(order.id_cart),orderId,
       customerId:Number(order.id_customer),invoiceAddressId:Number(order.id_address_invoice),
@@ -75,17 +91,27 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
       paymentModule:order.module,stateId,statePaid:flag(state.paid),totalCents:nativeCents(order.total_paid_tax_incl),
       shippingCents:nativeCents(order.total_shipping_tax_incl),discountCents:nativeCents(order.total_discounts_tax_incl),
       receivedCents:nativeCents(order.total_paid_real),lines,inventory,
-      payments:payments.map(payment=>({id:nativeId(payment.id),amountCents:nativeCents(payment.amount),currency:currency.iso_code,recordVerified:true}))};
+      payments:payments.map(payment=>({id:nativeId(payment.id),amountCents:nativeCents(payment.amount),
+        methodLabel:payment.payment_method,currency:currency.iso_code,recordVerified:true}))};
+  }
+  function validatePayments({scope:requested,expected,payments}) {
+    sameScope(requested);
+    requireValue(Array.isArray(payments)&&payments.length===1,'TPV_NATIVE_SPLIT_PAYMENT_UNSUPPORTED');
+    requireValue(['cash','card'].includes(expected.nativePaymentMethod)&&payments[0].method===expected.nativePaymentMethod&&
+      expected.nativePaymentLabels?.[payments[0].method]===expected.paymentLabel,'TPV_NATIVE_PAYMENT_MAPPING_REQUIRED');
+    requireValue(paymentSummary(expected.totalCents,payments).fullyPaid,'TPV_PAYMENT_NOT_SETTLED');
+    return true;
   }
   return Object.freeze({ordersForCart,readSale,
+    validatePayments,
     async revalidatePrepared({scope:requested,record}) {
       sameScope(requested);
       const prepared=structuredClone(record);
       await inspectCart({scope:requested,expected:prepared.expected});
       return verifyPrepared({scope:structuredClone(scope),record:prepared});
     },
-    async submitOrderOnce({scope:requested,expected}) {
-      sameScope(requested);return transport.createOrderOnce(expected);
+    async submitOrderOnce({scope:requested,expected,payments}) {
+      validatePayments({scope:requested,expected,payments});return transport.createOrderOnce(expected);
     }
   });
 }

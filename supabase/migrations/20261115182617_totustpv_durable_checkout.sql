@@ -115,7 +115,7 @@ end $$;
 create function private.totus_tpv_operation_json(r private.totus_tpv_operations) returns jsonb
 language sql stable security invoker set search_path='' as $$
  select jsonb_build_object('id',r.id,'revision',r.revision,'status',r.status,'orderId',r.order_id,
- 'quoteExpiresAt',floor(extract(epoch from r.quote_expires_at)*1000)::bigint,'expected',r.expected,
+ 'quoteExpiresAt',floor(extract(epoch from r.quote_expires_at)*1000)::bigint,'expected',r.expected,'payments',r.payments,
  'scope',jsonb_build_object('connectionId',r.connection_id,'connectionRevision',r.connection_revision,
  'storeId',r.store_id,'shopId',r.shop_id,'drawerId',r.drawer_id,'sessionId',r.session_id,
  'currency',r.currency,'actorId',r.created_by))

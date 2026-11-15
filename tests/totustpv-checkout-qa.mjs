@@ -32,10 +32,10 @@ function fixture(options={}) {
   const scope=resolveCheckoutContext(selection,records());
   const expected={storeId:scope.storeId,shopId:1,cartId:701,currency:'EUR',paymentModule:'native_cash',
     customerId:501,invoiceAddressId:601,deliveryAddressId:601,currencyId:1,
-    totalCents:801,shippingCents:0,paidStateIds:[11],lines:[{productId:101,attributeId:5,qty:1,
+    totalCents:801,shippingCents:0,nativePaymentLabels:{cash:'Efectivo',card:'Tarjeta'},paidStateIds:[11],lines:[{productId:101,attributeId:5,qty:1,
       unitTaxInclCents:801,unitTaxExclCents:662,stockBefore:5}]};
   const observed={connectionId:scope.connectionId,...structuredClone(expected),orderId:901,receivedCents:801,
-    stateId:11,statePaid:true,payments:[{id:601,amountCents:801,currency:'EUR',recordVerified:true}],
+    stateId:11,statePaid:true,payments:[{id:601,amountCents:801,methodLabel:'Efectivo',currency:'EUR',recordVerified:true}],
     inventory:[{mode:'isolated-fixture',productId:101,attributeId:5,before:5,after:4,ambiguous:false}]};
   let record={id:id(6),scope,expected,status:'ready',revision:1,quoteExpiresAt:2000,orderId:null};
   let orders=[],postCount=0,authorizationCount=0,settlementCount=0,storageUnavailable=false;
@@ -63,6 +63,7 @@ function fixture(options={}) {
     }
   };
   const native={
+    async validatePayments(){if(options.unsupportedPayment)throw Error('TPV_NATIVE_PAYMENT_UNSUPPORTED');return true;},
     async revalidatePrepared(){return {unchanged:!options.quoteChanged,cartId:701};},
     async ordersForCart(){return structuredClone(options.wrongCart?[{orderId:901,cartId:999,shopId:1,connectionId:scope.connectionId}]:orders);},
     async submitOrderOnce(){
@@ -142,4 +143,14 @@ test('wrong cart results are never adopted and an existing cart is never submitt
 test('read-only reconciliation cannot start a ready sale',async()=>{
   const f=fixture();await assert.rejects(f.service.reconcile(f.command),/RECONCILIATION_NOT_REQUIRED/);
   assert.equal(f.count().postCount,0);assert.equal(f.count().settlementCount,0);
+});
+test('correct remote total with the wrong payment method stays uncertain without another POST',async()=>{
+ const f=fixture({observedPatch:{payments:[{id:601,amountCents:801,methodLabel:'Tarjeta',currency:'EUR',recordVerified:true}]}});
+ const result=await f.service.submit(f.command);assert.equal(result.status,'uncertain');
+ assert.equal(result.reason,'TPV_NATIVE_PAYMENT_METHOD_MISMATCH');
+ await f.service.reconcile(f.command);assert.equal(f.count().postCount,1);assert.equal(f.count().cashEvents,0);
+});
+test('unsupported native payment cannot claim or dispatch a sale',async()=>{
+ const f=fixture({unsupportedPayment:true});await assert.rejects(f.service.submit(f.command),/PAYMENT_UNSUPPORTED/);
+ assert.equal(f.record().status,'ready');assert.equal(f.count().postCount,0);
 });

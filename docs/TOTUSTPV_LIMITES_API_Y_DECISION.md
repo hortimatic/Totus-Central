@@ -1,6 +1,6 @@
 # TotusTPV: decisión API nativa y límites comprobados
 
-15/11/2026. Este documento evita prometer equivalencia completa con POSTPV sobre operaciones que el Webservice no representa del mismo modo. No autoriza instalar módulos, modificar PrestaShop ni habilitar cobros.
+15/11/2026. Este documento distingue capacidades de la API, comandos internos del núcleo y operaciones todavía pendientes. No autoriza instalar módulos, modificar una tienda remota ni habilitar cobros.
 
 ## Identidad de Hortimatic
 
@@ -46,24 +46,23 @@ Fuentes: [tutorial oficial de precios calculados](https://devdocs.prestashop-pro
 
 ## 4. Decisión de arquitectura
 
-Decisión actual del responsable técnico, tras la delegación del propietario: desarrollar TotusTPV dentro de Totus Central sobre la API nativa autorizada de PrestaShop **8.2.8**, sin instalar conector. No se plantea actualizar a 9. La preferencia por no instalar componentes no permite declarar resueltas las limitaciones descritas en este documento.
+Decisión técnica actual, tras estudiar las limitaciones concretas y la delegación del propietario: desarrollar TotusTPV dentro de Totus Central, conservar la API clásica para las operaciones que representa y preparar una capacidad nativa propia y mínima para cálculo completo de carrito, pagos mixtos y devoluciones. Se mantiene **PrestaShop 8.2.8**. No se plantea actualizar a 9 ni una aplicación de caja separada. Esta decisión sustituye la propuesta inicial de cubrirlo todo exclusivamente con la API clásica: esa propuesta no resolvía los requisitos completos.
 
 Central conserva usuarios, permisos, tiendas físicas, cajas, sesiones y el registro durable de operaciones. PrestaShop conserva sus pedidos y sus referencias nativas. Cada envío queda ligado a una instalación, tienda nativa, carrito y operación únicos; una respuesta incierta se recupera mediante lectura, sin volver a cobrar ni crear otro pedido a ciegas.
 
 El alcance inicial habilitable exige ventas completamente cobradas, cálculo contrastado y verificación de pedido, pago, estado y movimiento de stock. Las reposiciones concurrentes, crédito, anticipos y devoluciones no se anuncian disponibles hasta demostrar su circuito nativo. La incidencia del pedido 46542 sigue pendiente de explicación; la recuperación manual anterior no acredita que el checkout esté listo para explotación.
 
-El código bajo `connectors/prestashop/` es exclusivamente una alternativa local de investigación. No tiene módulo instalable ni se importa desde Central. No forma parte de la solución elegida ni autoriza instalar nada. Si un requisito imprescindible resulta imposible con la API existente, debe documentarse la operación exacta y su evidencia antes de reconsiderar esa alternativa; no se traslada de nuevo al propietario una elección técnica abstracta.
+El código bajo `connectors/prestashop/` prepara protocolo, registro propio y cálculo nativo. El transporte de Central sólo permite solicitar ese cálculo con un perfil explícitamente verificado; no hay endpoint ni componente activado en una tienda. Todavía faltan un paquete instalable, controlador HTTP, proveedores persistentes, configuración y recuperación transaccional de efectos. No se traslada de nuevo al propietario una elección técnica abstracta.
 
 La restricción vigente en `AGENTS.md` indica: «No instalar ni actualizar complementos propios ni de terceros en PrestaShop para cumplir objetivos de Totus» y «Si la API de la versión instalada no admite una operación, comprobarlo y explicarlo».
 
-Hay dos alcances distintos:
+La instalación sigue siendo un acto distinto de estudiar y preparar el código. Antes de solicitarla debe existir un paquete concreto revisable, instrucciones de alta y retirada, compatibilidad comprobada, permisos por comando y pruebas del recorrido completo. La restricción citada sigue vigente para cambios sobre las tiendas. No se ha instalado este código en ninguna de ellas.
 
-1. Mantener estrictamente la API autorizada actual: se implementan y habilitan sólo recorridos cuya representación y recuperación se puedan demostrar. Las limitaciones anteriores permanecen visibles; no se declara equivalencia completa.
-2. Autorizar expresamente una capacidad nativa adicional propia y acotada: permitiría estudiar comandos transaccionales concretos que hoy faltan, manteniendo toda la interfaz y operativa en Central. Eso cambia la restricción anterior y requiere una decisión del propietario antes de implementarlo en una tienda.
+En el laboratorio local desechable ya se han probado el cálculo, un pedido con tarjeta, otro con efectivo y tarjeta, factura sin duplicación de pagos y dos abonos con distinta decisión de reposición. Se ejecutaron clases/comandos reales de 8.2.8 sobre MariaDB. Los proveedores de propiedad y módulos de pago de esas pruebas son fixtures; no acreditan aún la integración HTTP de Central ni el reintegro externo. El registro propio también se ha probado con dos conexiones MariaDB, separadamente de los efectos del pedido.
 
-La segunda opción no es una propuesta de instalar POSTPV ni de basar Central en su código. Tampoco garantiza automáticamente compatibilidad: exigiría código propio auditable, versionado, permisos por comando, identidad estable de operación, verificación y recuperación, actualizaciones compatibles, instalación autónoma y pruebas con POSTPV ausente. No se ha construido ni instalado ese componente.
+El datáfono es independiente. El cajero confirma el cobro como `Tarjeta`; Central no carga una tarjeta por API y ese importe no entra en el efectivo físico de caja. Una devolución exige distinguir abono documental, reintegro confirmado por el cajero y reposición. Un abono nativo, por sí solo, no prueba que se haya devuelto el dinero.
 
-Se continúa con dominio, almacenamiento propio, autorización, lectura nativa, conciliación, interfaz compartida y preparación de carrito sobre la vía elegida. No se publican botones que aparenten completar operaciones no implementadas.
+Se continúa con dominio, almacenamiento propio, autorización, lectura nativa, conciliación, interfaz compartida y preparación de comandos. No se publican botones que aparenten completar operaciones no implementadas. El detalle de evidencia y pendientes se mantiene en `TOTUSTPV_ESTADO_IMPLEMENTACION.md`.
 
 Actualización del propietario, 15/11: delega estudiar todas las alternativas y elegir la de menor dependencia y problemas futuros. Se puede preparar y comparar una alternativa propia; esta decisión no acredita pruebas ni instalación. Debe evitarse volver a trasladar al propietario la elección técnica.
 

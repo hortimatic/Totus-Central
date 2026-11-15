@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTpvNativeTransport,nativePaidOrderXml} from '../src/totustpv/server/native-transport.js';
-const scope={connectionId:'00000000-0000-4000-8000-000000000001',connectionRevision:1,storeId:'store-one',shopId:2};
+const scope={connectionId:'00000000-0000-4000-8000-000000000001',actorId:'00000000-0000-4000-8000-000000000003',connectionRevision:1,storeId:'store-one',shopId:2};
 const connection={id:scope.connectionId,revision:1,verified_revision:1,enabled:true,real_data_authorized:true,
  protocol:'prestashop',endpoint:'https://shop.example/api',website_origin:'https://shop.example',secret:'fixture-secret-not-real'};
 const expected={storeId:scope.storeId,shopId:2,cartId:701,customerId:501,invoiceAddressId:601,deliveryAddressId:601,
@@ -15,6 +15,8 @@ function fixture(options={}) {
  const transport=createTpvNativeTransport({...connection,...options.connection},{...scope,...options.scope},{
   resolve:async()=>options.privateAddress?['127.0.0.1']:['93.184.216.34'],
   allowedPaymentModules:['ps_cashondelivery'],
+  ...(options.extension?{nativeExtension:{verified:true,installationId:'00000000-0000-4000-8000-000000000002',
+   connectionId:scope.connectionId,connectionRevision:1,shopId:2,protocol:1},allowNativeQuote:async()=>options.quoteAllowed===true}:{}),
   ...(options.enabled?{allowOrderCreation:async()=>true}:{}),
   request:async(url,init)=>{
    requests.push({url,init});
@@ -98,4 +100,15 @@ test('missing native aliases and float prices are rejected instead of silently u
   const f=fixture({response:()=>new Response(JSON.stringify({product}),{headers:{'content-type':'application/json'}})});
   await assert.rejects(f.transport.readProductPricePreview(priceContext),/PRICE_RESPONSE_INVALID/);
  }
+});
+test('owned-cart native quote has a separate explicit server gate, exact resource and private credentials',async()=>{
+ const command={operationId:'00000000-0000-4000-8000-000000000004',cartId:701};
+ for(const options of [{},{extension:true}]){
+  const f=fixture(options);await assert.rejects(f.transport.quoteOwnedCart(command),/QUOTE_DISABLED/);assert.equal(f.requests.length,0);
+ }
+ const f=fixture({extension:true,quoteAllowed:true,response:()=>new Response(JSON.stringify({verified:true,native_reference:701,quote:{cart_id:701,shop_id:2}}),{headers:{'content-type':'application/json'}})});
+ await f.transport.quoteOwnedCart(command);const {url,init}=f.requests[0];assert.equal(new URL(url).pathname,'/api/totus_tpv_quotes');
+ assert.equal(init.headers['Content-Type'],'application/json');assert.equal(JSON.parse(init.body).actor_id,scope.actorId);
+ assert.equal(JSON.parse(init.body).command,'cart.quote');assert.equal(init.body.includes(connection.secret),false);
+ await assert.rejects(f.transport.read('totus_tpv_quotes'),/RESOURCE_FORBIDDEN/);
 });

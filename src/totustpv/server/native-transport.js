@@ -37,10 +37,12 @@ export function nativePaidOrderXml(expected, allowedPaymentModules) {
 }
 
 export function createTpvNativeTransport(connection, scope, {
-  request=fetch,resolve,allowOrderCreation=async()=>false,allowedPaymentModules=[]
+  request=fetch,resolve,allowOrderCreation=async()=>false,allowedPaymentModules=[],
+  nativeExtension=null,allowNativeQuote=async()=>false
 }={}) {
   connection=structuredClone(connection);scope=structuredClone(scope);
   allowedPaymentModules=structuredClone(allowedPaymentModules);
+  nativeExtension=structuredClone(nativeExtension);
   requireValue(connection && connection.id === scope?.connectionId && connection.revision === scope.connectionRevision &&
     connection.enabled === true && connection.verified_revision === connection.revision &&
     connection.real_data_authorized === true && connection.protocol === 'prestashop' && positive(scope.shopId),
@@ -50,8 +52,8 @@ export function createTpvNativeTransport(connection, scope, {
     !base.search && !base.hash, 'TPV_NATIVE_ORIGIN_MISMATCH');
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
-  async function call(resource,method,query={},body,nativePrices=false) {
-    requireValue(resources.test(resource), 'TPV_NATIVE_RESOURCE_FORBIDDEN');
+  async function call(resource,method,query={},body,nativePrices=false,nativeCommand=false) {
+    requireValue(resources.test(resource)||(nativeCommand&&resource==='totus_tpv_quotes'&&method==='POST'), 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
     for(const [key,value] of Object.entries(query)) {
@@ -63,7 +65,7 @@ export function createTpvNativeTransport(connection, scope, {
       url.searchParams.set(key,value);
     }
     const target=await safeEndpoint(url.href,resolve);
-    const response=await request(target.href,{method,headers:{...headers,...(body?{'Content-Type':'application/xml'}:{})},
+    const response=await request(target.href,{method,headers:{...headers,...(body?{'Content-Type':nativeCommand?'application/json':'application/xml'}:{})},
       ...(body?{body}:{}),redirect:'error',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000)});
     if(!response.ok) {
       await response.body?.cancel();
@@ -82,6 +84,20 @@ export function createTpvNativeTransport(connection, scope, {
   }
   return Object.freeze({
     read:(resource,query={})=>call(resource,'GET',query),
+    async quoteOwnedCart({operationId,cartId}) {
+      const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+      requireValue(uuid(operationId)&&positive(cartId)&&uuid(scope.actorId),'TPV_NATIVE_QUOTE_IDENTITY_INVALID');
+      requireValue(nativeExtension?.verified===true&&uuid(nativeExtension.installationId)&&
+        nativeExtension.connectionId===scope.connectionId&&nativeExtension.connectionRevision===scope.connectionRevision&&
+        nativeExtension.shopId===scope.shopId&&nativeExtension.protocol===1&&
+        await allowNativeQuote({scope:structuredClone(scope),cartId})===true,'TPV_NATIVE_QUOTE_DISABLED');
+      const body={protocol:1,operation_id:operationId,installation_id:nativeExtension.installationId,
+        shop_id:scope.shopId,actor_id:scope.actorId,command:'cart.quote',payload:{cart_id:cartId}};
+      const result=await call('totus_tpv_quotes','POST',{},JSON.stringify(body),false,true);
+      requireValue(result?.verified===true&&result.native_reference===cartId&&result.quote?.cart_id===cartId&&
+        result.quote?.shop_id===scope.shopId,'TPV_NATIVE_QUOTE_RESPONSE_INVALID');
+      return result;
+    },
     /** Native product-price preview, not a payable cart quote. In 8.2.8 this
      * engine has no customer/cart input and does not apply cart-rule totals.
      * Keep all six decimals; never round the unit here to derive a sale total.

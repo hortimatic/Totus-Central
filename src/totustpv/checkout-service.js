@@ -5,6 +5,7 @@
  */
 import {assertSameCheckoutScope, remoteOrderKey} from './context.js';
 import {paymentSummary, verifyRemoteSale} from './model.js';
+import {nativePaymentPlan,verifyNativePaymentBreakdown} from './server/payment-readback.js';
 
 const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive = value => Number.isSafeInteger(value) && value > 0;
@@ -27,7 +28,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
   requireValue(typeof authorize === 'function' && typeof now === 'function', 'TPV_SERVER_ADAPTER_REQUIRED');
   for (const method of ['get','claimSubmission','rememberRemote','markUncertain','confirm'])
     requireValue(typeof ledger?.[method] === 'function', 'TPV_DURABLE_LEDGER_REQUIRED');
-  for (const method of ['revalidatePrepared','ordersForCart','submitOrderOnce','readSale'])
+  for (const method of ['revalidatePrepared','validatePayments','ordersForCart','submitOrderOnce','readSale'])
     requireValue(typeof native?.[method] === 'function', 'TPV_NATIVE_ADAPTER_REQUIRED');
   requireValue(typeof settlements?.verify === 'function', 'TPV_SETTLEMENT_ADAPTER_REQUIRED');
 
@@ -63,6 +64,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
       const observed = await native.readSale({scope,orderId,expected:copy(record.expected)});
       requireValue(observed?.connectionId === scope.connectionId && observed?.orderId === orderId,
         'TPV_REMOTE_CONNECTION_MISMATCH');
+      verifyNativePaymentBreakdown(record.expected,record.payments,observed.payments);
       const verification = verifyRemoteSale(record.expected,observed);
       requireValue(verification.status === 'confirmed', verification.reason || 'TPV_REMOTE_VERIFICATION_FAILED');
       const confirmed = await ledger.confirm({scope,operationId:record.id,revision:record.revision,token,
@@ -99,6 +101,9 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
     const payments = await settlements.verify({scope,operationId:record.id,expected:copy(record.expected),
       requested:copy(command.payments)});
     requireValue(paymentSummary(record.expected.totalCents,payments).fullyPaid, 'TPV_PAYMENT_NOT_SETTLED');
+    nativePaymentPlan(record.expected,payments);
+    requireValue(await native.validatePayments({scope,expected:copy(record.expected),payments:copy(payments)})===true,
+      'TPV_NATIVE_PAYMENT_UNSUPPORTED');
     const freshScope = await authorize({selection:copy(command.selection),action:'sell'});
     assertSameCheckoutScope(scope,freshScope);
     requireValue(now() < record.quoteExpiresAt, 'TPV_QUOTE_EXPIRED');
@@ -106,7 +111,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
       expected:copy(record.expected),payments:copy(payments)});
     if (claim?.won !== true) return result({...record,...claim?.record},{retryOrderForbidden:true});
     requireValue(typeof claim.token === 'string' && claim.token.length >= 16, 'TPV_DISPATCH_CLAIM_INVALID');
-    const dispatched = {...record,status:'dispatched'};
+    const dispatched = {...record,status:'dispatched',payments:copy(payments)};
     try {
       const existing = await native.ordersForCart({scope,cartId:record.expected.cartId});
       requireValue(Array.isArray(existing) && existing.length === 0, 'TPV_CART_ALREADY_ORDERED');

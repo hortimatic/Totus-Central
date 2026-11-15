@@ -387,8 +387,8 @@
     },
     {
       "id": "totustpv-foundation",
-      "paths": ["src/totustpv/", "tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs", "tests/totustpv-cart-qa.mjs", "supabase/migrations/20261115182617_totustpv_durable_checkout.sql"],
-      "tests": ["tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs", "tests/totustpv-cart-qa.mjs"],
+      "paths": ["src/totustpv/", "tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs", "tests/totustpv-cart-qa.mjs", "tests/totustpv-operator-payments-qa.mjs", "tests/totustpv-payment-readback-qa.mjs", "tests/totustpv-practice-qa.mjs", "tests/totustpv-workspace-browser-qa.mjs", "tests/totustpv-workspace.html", "tests/totustpv-quote-contract-qa.mjs", "supabase/migrations/20261115182617_totustpv_durable_checkout.sql"],
+      "tests": ["tests/totustpv-model-qa.mjs", "tests/totustpv-checkout-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-native-adapter-qa.mjs", "tests/totustpv-inventory-qa.mjs", "tests/totustpv-cart-qa.mjs", "tests/totustpv-operator-payments-qa.mjs", "tests/totustpv-payment-readback-qa.mjs", "tests/totustpv-practice-qa.mjs", "tests/totustpv-workspace-browser-qa.mjs", "tests/totustpv-quote-contract-qa.mjs"],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
         "cash isolated by store drawer and session",
@@ -396,6 +396,17 @@
         "confirmation requires remote payment state lines and stock readback",
         "server-only PostgreSQL journal commits order confirmation and payment events atomically",
         "one active physical drawer session and one remote cart dispatch across workers"
+      ]
+    },
+    {
+      "id": "totustpv-native-boundary",
+      "paths": ["connectors/prestashop/", "tests/native-lab/", "tests/totustpv-native-lab-qa.mjs", "tests/totustpv-connector-qa.php", "tests/totustpv-connector-journal-qa.php", "tests/totustpv-native-quote-qa.php", "tests/totustpv-php-boundary-qa.mjs"],
+      "tests": ["tests/totustpv-php-boundary-qa.mjs"],
+      "invariants": [
+        "research source is not an installed or enabled PrestaShop module",
+        "native authentication installation shop account and named commands are bound",
+        "durable claim survives restart and uncertain effects are never repeated",
+        "native cart calculation is restricted to owned carts and restores context"
       ]
     },
     {

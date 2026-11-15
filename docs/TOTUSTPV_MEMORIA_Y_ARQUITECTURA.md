@@ -4,13 +4,13 @@ Fecha: 15 de noviembre de 2026. Documento principal del futuro módulo de Totus 
 
 ## 1. Objetivo y estado real
 
-El objetivo es trabajar desde Totus Central: vender en mostrador, gestionar clientes, pagos, existencias y cajas, y registrar los pedidos en el PrestaShop seleccionado. TotusTPV forma parte de Central y debe poder funcionar con POSTPV desinstalado. POSTPV se estudia como referencia funcional y visual, sin reutilizar su implementación protegida.
+El objetivo es trabajar desde Totus Central: vender en mostrador, gestionar clientes, pagos, existencias y cajas, y registrar los pedidos en el PrestaShop seleccionado. TotusTPV forma parte de Central, con implementación propia y sin dependencia de otro TPV instalado.
 
-No existe todavía un módulo comercial completo. Hay una prueba de conexión y pedido en preproducción, un estudio de POSTPV y una base de reglas propias con pruebas locales. La prueba de pedido necesitó una recuperación manual del estado; por tanto, no acredita un circuito autónomo terminado. Ninguna promesa de ausencia absoluta de fallos sustituye las condiciones verificables de aceptación de este documento.
+No existe todavía un módulo comercial completo. Hay una prueba de conexión y pedido en preproducción, reglas y aplicación propias, un recorrido de práctica y pruebas nativas locales de pagos, pedidos, factura y abonos. La prueba remota anterior necesitó una recuperación manual; las nuevas pruebas nativas locales no acreditan por sí solas la integración HTTP desplegada. El estado preciso está en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión actual sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
 
 Documentos complementarios:
 
-- [Estudio de POSTPV y recorridos](TOTUSTPV_ESTUDIO_Y_RECORRIDOS_20261115.md): evidencia de interfaz, configuración, código legible y manuales.
+- [Estudio histórico y recorridos](TOTUSTPV_ESTUDIO_Y_RECORRIDOS_20261115.md): referencia histórica de interfaz, configuración y manuales.
 - [Alcance funcional integrado](TOTUSTPV_ALCANCE_INTEGRADO.md): cobertura y aceptación por función.
 - `src/totustpv/model.js`: reglas originales de pagos, caja, estados y verificación.
 - `tests/totustpv-model-qa.mjs`: pruebas locales de esas reglas; no son una prueba real de cobro.
