@@ -137,12 +137,14 @@ for(const action of new Set(literalActions)){
 
 const uiMatrix=[
  ['cajas',pages.cajas(),['Desde','Hasta','Nuevo cierre','Exportar']],
- ['gastos',pages.gastos(),['Desde','Hasta','Nuevo gasto','Proveedores','Exportar']],
+ ['gastos',pages.gastos(),['Desde','Hasta','Nuevo gasto','Exportar']],
  ['facturacion',pages.facturacion(),['Desde','Hasta','Nueva factura','Proforma','Factura externa','Rectificativa']],
  ['documentos',pages.documentos(),['Desde','Hasta','Subir documento','Descargar ZIP filtrado']],
  ['fiscalidad',pages.fiscalidad(),['Desde','Hasta','Modelo 130','Ajuste fiscal']],
  ['informes',pages.informes(),['Desde','Hasta','Diarios mensuales de gastos y ventas','Gestoría y auditoría']]
 ];
+if(pages.gastos().includes('data-action="expense-suppliers"'))errors.push('Gastos conserva el acceso redundante a Proveedores');
+for(const term of ['Proveedores','expense-supplier-new'])if(!pages.renderers.proveedores().includes(term))errors.push('Módulo Proveedores incompleto: '+term);
 for(const [name,html,terms] of uiMatrix){
  for(const term of terms)if(!html.includes(term))errors.push(name+' incompleto: '+term);
  if(!html.includes('type="date"')&&['cajas','gastos','facturacion','documentos','fiscalidad','informes'].includes(name))errors.push(name+' no usa fechas completas');
