@@ -935,11 +935,11 @@ function adminLogHtml(){
 export function pricing(){
  const view=getView('pricing');
  const native=view.section==='prestashop',sources='<nav class="module-tabs" aria-label="Origen de precios"><button type="button" class="tab '+(!native?'active':'')+'" data-action="pricing-source" data-source="local" aria-pressed="'+!native+'">Estudios de Totus</button><button type="button" class="tab '+(native?'active':'')+'" data-action="pricing-source" data-source="prestashop" aria-pressed="'+native+'">Catálogo PrestaShop</button></nav>';
- if(native)return '<div class="page pricing-page">'+sources+'<p class="note">Precios conectados a la tienda. Filtra por marca y categoría para trabajar una familia; los cambios se revisan y guardan mediante el mismo circuito de Productos. El precio base no incluye IVA ni ofertas.</p>'+productosWorkspacePage()+'</div>';
  if(view.mode==='record'){
    const row=view.id?state.data.products.find(x=>x.id===view.id):null;
    return productRecordHtml(row);
  }
+ if(native)return '<div class="page pricing-page">'+sources+'<p class="note">Precios conectados a la tienda. Filtra por marca y categoría para trabajar una familia; los cambios se revisan y guardan mediante el mismo circuito de Productos. El precio base no incluye IVA ni ofertas.</p>'+productosWorkspacePage()+'</div>';
  const q=getFilters('pricing').query.toLowerCase();
  const rows=state.data.products.filter(x=>!q||matchesText(q,x.name,x.sku,x.status));
  const familyName=id=>state.data.families.find(x=>x.id===id)?.name||'—';

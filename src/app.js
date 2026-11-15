@@ -329,7 +329,7 @@ function render(){
  if(state.route==='ventas')void salesUI.mount($('#salesRoot'));
  if(state.route==='gastos'&&$('#recurringExpensesRoot'))void recurringExpensesUI.mount($('#recurringExpensesRoot'));
  if(state.route==='productos')void productosUI.mount($('#productosRoot'));
- if(state.route==='pricing'&&getView('pricing').section==='prestashop'){
+ if(state.route==='pricing'&&$('#productosRoot')){
   if(can('productos','view'))void productosUI.mount($('#productosRoot'));
   else $('#productosRoot').innerHTML='<p role="status">Necesitas permiso de lectura de Productos para consultar los precios de la tienda.</p>';
  }
