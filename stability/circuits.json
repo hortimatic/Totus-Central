@@ -327,7 +327,8 @@
         "tests/dashboard-report-browser-qa.mjs",
         "tests/account-document-page-qa.mjs",
         "tests/pricing-integral-browser-qa.mjs",
-        "tests/pricing-directory-browser-qa.mjs"
+        "tests/pricing-directory-browser-qa.mjs",
+        "tests/layout-audit.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",

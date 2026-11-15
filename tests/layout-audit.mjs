@@ -26,10 +26,11 @@ for(const [viewportName,viewport] of [['wide',{width:1640,height:900}],['desktop
  for(const [view,query] of pages){
   const label=viewportName+'/'+view;
   await page.goto('http://127.0.0.1:4173/tests/ui-harness.html'+query,{waitUntil:'networkidle'});
+  if(view==='pricing'&&await page.locator('.pricing-reference-tools>summary').count())await page.locator('.pricing-reference-tools>summary').click();
   if(view==='admin-storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
   const audit=await page.evaluate(()=>{
    const root=document.querySelector('#root');
-   const visible=el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0};
+   const visible=el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return el.checkVisibility({checkVisibilityCSS:true})&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0};
    const ids=new Map(),duplicate=[],unlabeled=[],links=[],outOfBounds=[];
    for(const el of root.querySelectorAll('[id]')){if(!visible(el))continue;const id=el.id;if(!id)continue;if(ids.has(id))duplicate.push({id,first:ids.get(id),second:el.tagName});else ids.set(id,el.tagName)}
    for(const el of root.querySelectorAll('button,input,select,textarea')){
