@@ -108,6 +108,7 @@ export function stitchCatalog({backendLink=()=>'',canEdit=false,canDelete=canEdi
  for(const td of body.querySelectorAll('td:last-child'))td.classList.add('prd-row-actions');
  if(!visible.length){const empty=document.createElement('p');empty.className='prd-catalog-empty';empty.setAttribute('role','note');empty.textContent=rows.length?'No hay productos que coincidan con estos filtros. Limpia el buscador o cambia los filtros.':'No hay productos cargados. Comprueba la conexión y pulsa Actualizar.';table.parentElement.before(empty);}
  const footer=table.parentElement.nextElementSibling;
+ footer?.classList.add('prd-catalog-footer');
  const arrows=document.createElement('div');arrows.className='prd-table-navigation';arrows.innerHTML='<label class="prd-column-position">Recorrer columnas <input type="range" min="0" max="1000" value="0" data-pr-table-position aria-label="Posición horizontal del catálogo"></label><button type="button" data-pr-action="catalog-scroll" data-direction="-1" aria-label="Ver columnas anteriores">←</button><button type="button" data-pr-action="catalog-scroll" data-direction="1" aria-label="Ver columnas siguientes">→</button>';const floatingArrows=document.createElement('div');floatingArrows.className='prd-table-arrows';floatingArrows.setAttribute('aria-label','Mover columnas');for(const button of arrows.querySelectorAll('button'))floatingArrows.append(button);table.parentElement.before(arrows);table.parentElement.after(floatingArrows);
 
  if(footer){footer.innerHTML='<span>'+filtered.length+' resultados · página <input type="number" min="1" max="'+pages+'" value="'+(page+1)+'" data-pr-page-number aria-label="Número de página del catálogo"> de '+pages+'</span><div class="flex items-center gap-space-sm"><label>Mostrar <select data-pr-page-size>'+[10,20,50,100,Number.MAX_SAFE_INTEGER].map(n=>'<option value="'+n+'" '+(size===n?'selected':'')+'>'+(n===Number.MAX_SAFE_INTEGER?'Todos':n)+'</option>').join('')+'</select></label><button type="button" data-pr-action="catalog-prev" '+(page===0?'disabled':'')+'>Anterior</button><button type="button" data-pr-action="catalog-next" '+(page+1>=pages&&!hasMore?'disabled':'')+'>Siguiente</button></div>';}
@@ -123,6 +124,7 @@ const inputClass='bg-surface-container-low text-on-surface font-body-md text-bod
 const labelClass='font-label-md text-label-md text-on-surface-variant';
 export function stitchFiche({galleryDraft={},record,backendUrl='',store,section,overrides,variants,variantOverrides,variantReviews=new Map(),metadata,fieldControl,priceHtml,rawHtml,amounts,brands=[],categories=[],stock=null,organization=null,taxGroups=[]}){
  const f=fragment(STITCH_VIEWS['tab-ficha']),view=f.firstElementChild;
+ view.insertAdjacentHTML('afterbegin','<div class="record-toolbar"><div><button type="button" class="btn link" data-pr-action="catalog-return">← Volver al catálogo</button></div></div>');
  view.classList.remove('hidden');view.classList.add('flex');
  setText(f.querySelector('h2'),textValue(overrides.name??record.name)||'Nuevo producto');
  const heading=f.querySelector('h2').parentElement;

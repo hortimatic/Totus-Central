@@ -32,6 +32,7 @@
     {
       "id": "products",
       "paths": [
+        "src/catalog-price-batch.js",
         "src/productos",
         "src/website-registry",
         "src/prestashop-readonly",
@@ -53,7 +54,9 @@
         "tests/productos-movements-browser-qa.mjs",
         "tests/product-stock-summary-qa.mjs",
         "tests/read-pool-qa.mjs",
-        "tests/productos-ui-browser-qa.mjs"
+        "tests/productos-ui-browser-qa.mjs",
+        "tests/catalog-price-batch-qa.mjs",
+        "tests/catalog-price-batch-browser-qa.mjs"
       ],
       "invariants": [
         "create/edit/copy",
@@ -213,7 +216,9 @@
         "tests/dashboard-report-qa.mjs",
         "tests/home-commercial-calendar-qa.mjs",
         "tests/home-commercial-calendar-browser-qa.mjs",
-        "tests/home-order-enrichment-qa.mjs"
+        "tests/home-order-enrichment-qa.mjs",
+        "tests/header-tools-browser-qa.mjs",
+        "tests/header-online-orders-browser-qa.mjs"
       ],
       "invariants": [
         "no false dirty state",

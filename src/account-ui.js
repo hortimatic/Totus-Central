@@ -100,8 +100,11 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
   if(section==='documentos'){
    const box=panel.querySelector('[data-account-documents]');
    let page=1,size=20,query='',requestId=0,timer=null;
+   const hiddenKey='totus.account-documents-hidden.v1:'+who;let hiddenIds=new Set(),showHidden=false;
+   if(!managing)try{const saved=JSON.parse(localStorage.getItem(hiddenKey)||'[]');if(Array.isArray(saved))hiddenIds=new Set(saved.filter(id=>typeof id==='string').slice(-2000));}catch{}
    box.innerHTML='<div class="account-document-tools"><label>Buscar documento<input type="search" maxlength="160" data-account-doc-search data-draft-ignore></label><label>Mostrar<select data-account-doc-size data-draft-ignore>'+[10,20,50].map(n=>'<option '+(size===n?'selected':'')+'>'+n+'</option>').join('')+'</select></label><button type="button" class="btn secondary" data-account-doc-clear>Limpiar</button></div><p class="small muted" data-account-doc-status role="status"></p><div class="account-document-list"></div><div class="account-document-pagination"><button type="button" class="btn secondary" data-account-doc-prev>Anterior</button><button type="button" class="btn secondary" data-account-doc-next>Siguiente</button></div>';
    const status=box.querySelector('[data-account-doc-status]'),list=box.querySelector('.account-document-list'),prev=box.querySelector('[data-account-doc-prev]'),next=box.querySelector('[data-account-doc-next]');
+   if(!managing){const personal=document.createElement('div');personal.className='account-document-personal';personal.innerHTML='<label><input type="checkbox" data-account-doc-show-hidden data-draft-ignore> Mostrar también los ocultos</label><small>Ocultar solo retira el documento de esta lista en este dispositivo. Conserva el original y sus vínculos contables.</small>';box.querySelector('.account-document-tools').after(personal);personal.querySelector('input').onchange=event=>{showHidden=event.target.checked;void read();};}
    async function read(){
     clearTimeout(timer);const id=++requestId,chosen={page,size,query};status.textContent='Consultando documentos…';prev.disabled=next.disabled=true;
     try{
@@ -110,13 +113,15 @@ export function createAccountUI({user,profile,documents,can,rpc,accept,guard,nav
      if(!active(panel)||id!==requestId)return;
      const rows=result.rows;if(!Array.isArray(rows)||rows.length>chosen.size||rows.some(d=>d.uploaded_by!==targetOwner))throw Error('Respuesta ajena a esta cuenta');
      acceptDocuments(rows,who);
-     list.innerHTML=rows.map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+'</div></article>').join('')||'<p>No hay documentos para esta búsqueda.</p>';
-     status.textContent='Página '+page+' · '+rows.length+' documentos'+(result.hasMore?' · Hay más resultados':' · Fin de los resultados');prev.disabled=page===1;next.disabled=!result.hasMore;
+     const visibleRows=rows.filter(d=>managing||showHidden||!hiddenIds.has(String(d.id))),hiddenCount=rows.length-visibleRows.length;
+     list.innerHTML=visibleRows.map(d=>'<article><div><b>'+esc(d.original_name||'Documento')+'</b><small>'+esc(fmtDate(d.document_date||d.created_at))+'</small></div><div class="inline-actions">'+btn('Vista previa','document-preview','secondary','data-id="'+esc(d.id)+'"')+(can('documentos','export')?btn('Descargar','document-download','secondary','data-id="'+esc(d.id)+'"'):'')+(!managing?'<button type="button" class="btn secondary" data-account-doc-hide="'+esc(d.id)+'">'+(hiddenIds.has(String(d.id))?'Volver a mostrar':'Ocultar de mi lista')+'</button>':'')+'</div></article>').join('')||(hiddenCount?'<p>Los documentos de esta página están ocultos. Activa Mostrar también los ocultos para recuperarlos.</p>':'<p>No hay documentos para esta búsqueda.</p>');
+     status.textContent='Página '+page+' · '+rows.length+' documentos'+(hiddenCount?' · '+hiddenCount+' ocultos en esta página':'')+(result.hasMore?' · Hay más resultados':' · Fin de los resultados');prev.disabled=page===1;next.disabled=!result.hasMore;
     }catch(error){if(active(panel)&&id===requestId){status.textContent='No se pudieron consultar los documentos. Pulsa Limpiar para reintentar.';list.replaceChildren();prev.disabled=page===1;}}
    }
    box.querySelector('[data-account-doc-search]').oninput=e=>{query=e.target.value;page=1;requestId++;clearTimeout(timer);timer=setTimeout(()=>{if(active(panel))void read();},250);};
    box.querySelector('[data-account-doc-size]').onchange=e=>{size=Number(e.target.value);page=1;void read();};
    box.querySelector('[data-account-doc-clear]').onclick=()=>{query='';page=1;box.querySelector('[data-account-doc-search]').value='';void read();};
+   list.onclick=event=>{const button=event.target.closest('[data-account-doc-hide]');if(!button||managing||!active(panel))return;const id=button.dataset.accountDocHide,nextHidden=new Set(hiddenIds);nextHidden.has(id)?nextHidden.delete(id):nextHidden.add(id);try{if(nextHidden.size>2000)throw Error('Se ha alcanzado el límite local de ocultación.');localStorage.setItem(hiddenKey,JSON.stringify([...nextHidden]));hiddenIds=nextHidden;void read();}catch(error){status.textContent='No se pudo guardar la ocultación en este dispositivo: '+error.message;}};
    prev.onclick=()=>{page--;void read();};next.onclick=()=>{page++;void read();};await read();
   }
   if(section==='tareas'){

@@ -33,7 +33,7 @@ const confirmDiscard=()=>typeof window==='undefined'||window.confirm('Hay cambio
 const safeStore=key=>PRESTASHOP_STORES.some(s=>s.key===key)?key:'all';
 const safeDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''))?s:'';
 const labelStore=k=>PRESTASHOP_STORES.find(s=>s.key===k)?.name||'Todas las tiendas';
-const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows);return m.complete&&sourceComplete?money(m.value):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
+const marginText=(rows,sourceComplete=true)=>{const m=homeMarginTotal(rows),valid=rows.filter(row=>String(row.valid)==='1'),revenue=valid.every(row=>Number.isFinite(row.margin_revenue))?valid.reduce((sum,row)=>sum+row.margin_revenue,0):null;return m.complete&&sourceComplete?money(m.value)+(revenue>0?' · '+(m.value/revenue*100).toLocaleString('es-ES',{maximumFractionDigits:1})+' %':''):m.covered?money(m.value)+' · parcial '+m.covered+'/'+m.total+' pedidos':'Costes pendientes';};
 const orderMarginText=row=>Number.isFinite(row.margin_value)&&row.currency_code==='EUR'?money(row.margin_value):'Costes pendientes';
 const sellerText=row=>row.employee_name||'Sin vendedor vinculado';
 const metric=(label,value)=>`<div class="home-ps-metric"><small>${esc(label)}</small><strong>${esc(String(value))}</strong></div>`;

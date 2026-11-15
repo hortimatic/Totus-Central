@@ -6,7 +6,14 @@ import fs from 'node:fs';
 fs.mkdirSync('artifacts/mobile-audit',{recursive:true});
 const routes=[
  {route:'inicio',sections:[null]},
- {route:'pricing',sections:[null]},
+ {route:'pricing',attribute:'data-source',scope:'[data-action=pricing-source]',sections:['local','prestashop']},
+ {route:'productos',attribute:'data-mode',scope:'[data-pr-action=mode]',active:'aria-selected',sections:['catalogo','ficha','comparar','encargo','guardado','atributos']},
+ {route:'ventas',attribute:'data-tab',scope:'[data-prestashop-action=tab]',active:'aria-pressed',sections:['summary','orders','queries','saved_queries']},
+ {route:'prestashop',attribute:'data-tab',scope:'[data-prestashop-action=tab]',active:'aria-pressed',sections:['summary','orders','catalog','queries','cash','saved_queries','connection']},
+ {route:'clientes',attribute:'data-directory-source',active:'aria-pressed',sections:['local','hortimatic','newoldsmok','both']},
+ {route:'proveedores',attribute:'data-directory-source',active:'aria-pressed',sections:['local','hortimatic','newoldsmok']},
+ {route:'marcas',attribute:'data-directory-source',active:'aria-pressed',sections:['local','hortimatic','newoldsmok']},
+ {route:'automatizaciones',sections:[null]},
  {route:'cajas',sections:[null]},
  {route:'gastos',action:'expense-section',sections:['registros','facturas','recurrentes']},
  {route:'facturacion',action:'billing-section',sections:['documentos','clientes','plantillas','series']},
@@ -33,10 +40,10 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
   for(const section of mod.sections){
    const key=size+'/'+mod.route+(section?'/'+section:'');
    if(section){
-    const selector=mod.attribute?'#content ['+mod.attribute+'="'+section+'"]':'#content [data-action="'+mod.action+'"][data-section="'+section+'"]';const tab=page.locator(selector).first();
+    const selector=mod.attribute?'#content '+(mod.scope||'')+'['+mod.attribute+'="'+section+'"]':'#content [data-action="'+mod.action+'"][data-section="'+section+'"]';const tab=page.locator(selector).first();
     if(!await tab.count()){errors.push(key+': missing subtab');continue}
     await tab.click();
-    if(!await page.locator(selector+'.active').count())
+    if(!await page.locator(selector+(mod.active?'['+mod.active+'="true"]':'.active')).count())
       errors.push(key+': subtab not active after clicking');
    }
    if(mod.route==='administracion'&&section==='storage'&&await page.locator('details.storage-technical').count())await page.locator('details.storage-technical > summary').click();
@@ -45,8 +52,8 @@ for(const [size,width] of [['wide',1640],['desktop',1180],['mobile',390],['narro
    if(width<=480&&mod.route==='administracion'&&section==='backups'){const height=await page.locator('#backupSelectedFile').evaluate(e=>e.getBoundingClientRect().height);if(height>60)errors.push(key+': file selection placeholder reserves '+height+'px of empty height');}
    const info=await page.evaluate(()=>{
     const root=document.querySelector('#content'),rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}};
-    const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
-    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&!el.dataset.htAction&&!el.dataset.forecastAction&&!(el.dataset.tcTableAction&&typeof el.onclick==='function')&&!(el.dataset.directorySource&&typeof el.closest('[data-directory-root]')?.onclick==='function')&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
+    const visible=el=>{const x=getComputedStyle(el),b=el.getBoundingClientRect();return el.checkVisibility({checkVisibilityCSS:true})&&x.display!=='none'&&x.visibility!=='hidden'&&b.width>0&&b.height>0};
+    const emptyButtons=[...root.querySelectorAll('button')].filter(visible).filter(el=>!el.dataset.action&&!el.dataset.route&&!(el.dataset.attrAction&&typeof el.closest('[data-pr-attributes-host]')?.onclick==='function')&&!el.dataset.prestashopAction&&!el.dataset.homeCommand&&!el.dataset.htAction&&!el.dataset.forecastAction&&!(el.dataset.tcTableAction&&typeof el.onclick==='function')&&!(el.dataset.prAction&&typeof el.closest('#productosRoot')?.onclick==='function')&&!(Object.keys(el.dataset).some(key=>key.startsWith('directory'))&&typeof el.closest('[data-directory-root]')?.onclick==='function')&&el.type!=='submit'&&!el.closest('#teamChatRoot,#tasksRoot,#appearanceRoot,#connectionsRoot,#automationsRoot,[data-config-section]')).map(el=>el.outerHTML.slice(0,180));
     const badControls=[],overlaps=[];
     for(const el of root.querySelectorAll('input,select,textarea')){
      if(!visible(el)||el.type==='hidden'||el.type==='file')continue;
