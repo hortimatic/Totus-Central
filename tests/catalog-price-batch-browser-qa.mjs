@@ -6,7 +6,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('http://127.0.0.1:4173/tests/prestashop-harness.html');await page.addStyleTag({url:'http://127.0.0.1:4173/src/productos.css'});
  await page.evaluate(async()=>{
-  const {createProductosUI,productosWorkspacePage}=await import('../src/productos-ui.js');document.querySelector('#chatHarness').innerHTML=productosWorkspacePage();
+  const {createProductosUI,productosWorkspacePage}=await import('../src/productos-ui.js');document.querySelector('#chatHarness').innerHTML=productosWorkspacePage('pricing');
   const q=window.priceQA={calls:[],canEdit:true,stale:false,lose:false,items:[{id:'42',name:'Familia QA A',price:'10.000000',reference:'QA-A',active:'0',associations:{images:[],combinations:[]}},{id:'43',name:'Familia QA B',price:'20.000000',reference:'QA-B',active:'0',associations:{images:[],combinations:[]}}]};
   q.ui=createProductosUI({actor:()=> '11111111-1111-4111-8111-111111111111',allowed:()=>true,canEdit:()=>q.canEdit,rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke:async body=>{
    q.calls.push(structuredClone(body));const out={ok:true,store:body.store,resource:body.resource,record_id:body.record_id,page:body.page,possibly_more:false};const item=q.items.find(row=>row.id===body.record_id);

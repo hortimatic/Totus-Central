@@ -15,6 +15,10 @@ fs.cpSync('assets',path.join(folder,'assets'),{recursive:true});
 fs.writeFileSync(path.join(folder,'src/graph-fixture.js'),"export {state} from './state.js';\nexport const api=()=>import( './api.js' );\nexport const pdf=()=>import(\"./vendor/pdfjs/pdf.mjs\");\n");
 const result=spawnSync(process.env.PYTHON||'python3',['-c',script],{cwd:folder,env:{...process.env,PYTHONUTF8:'1',GITHUB_SHA:sha},encoding:'utf8'});
 assert.equal(result.status,0,result.stderr);
+const entryVersion=spawnSync(process.execPath,['tools/version-entry-assets.mjs',path.join(folder,'_site'),sha],{encoding:'utf8'});
+assert.equal(entryVersion.status,0,entryVersion.stderr);
+const entry=fs.readFileSync(path.join(folder,'_site/index.html'),'utf8');
+for(const asset of entry.matchAll(/(?:href|src)="(src\/[^"?#]+\.(?:css|m?js))([^"#]*)"/g))assert.equal(asset[2],'?v='+sha,'Every entry asset must invalidate the previous browser cache: '+asset[1]);
 const sourceDir=path.join(folder,'_site/src');
 const graph=[];
 for(const relative of fs.readdirSync(sourceDir,{recursive:true}).filter(p=>p.endsWith('.js')&&!p.split(path.sep).join('/').startsWith('vendor/'))){

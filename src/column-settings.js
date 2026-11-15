@@ -7,6 +7,20 @@ export function columnSettingsRow({key,label,selected,locked=false,fixed=false,i
 }
 export function columnSettingsCaption(count){return '<span aria-hidden="true">⚙</span><span>Columnas</span><small>'+Number(count)+'</small>';}
 
+// Measure the rendered panel after constraining it. An estimated height can
+// place a 480px editor using a 60vh calculation and cut its save controls off.
+export function positionColumnPanel(panel,anchor){
+ const rect=anchor.getBoundingClientRect?anchor.getBoundingClientRect():anchor;
+ // Top layer escapes transformed/animated cards and overflow clipping, while
+ // keeping the DOM inside its controller so native handlers keep working.
+ if(!panel.hasAttribute('popover'))panel.popover='manual';
+ if(!panel.matches(':popover-open'))panel.showPopover();
+ Object.assign(panel.style,{position:'fixed',inset:'auto',margin:'0',width:Math.min(360,innerWidth-24)+'px',maxHeight:Math.min(480,innerHeight-24)+'px',right:'auto'});
+ const size=panel.getBoundingClientRect();
+ panel.style.left=Math.max(12,Math.min(rect.left,innerWidth-size.width-12))+'px';
+ panel.style.top=Math.max(12,Math.min(rect.bottom+6,innerHeight-size.height-12))+'px';
+}
+
 // Normalize the entire editor while preserving its native event handlers and
 // persistence adapter. No settings or permissions are inferred from presentation.
 export function standardizeColumnPanel(panel,{onClose=()=>{}}={}){
@@ -19,7 +33,7 @@ export function standardizeColumnPanel(panel,{onClose=()=>{}}={}){
  const statuses=[...panel.querySelectorAll('p[role=status]')];
  const header=document.createElement('header');header.className='tc-settings-header';header.innerHTML='<strong>Configurar columnas</strong>';
  const close=document.createElement('button');close.type='button';close.className='btn secondary';close.textContent='×';close.setAttribute('aria-label','Cerrar columnas');
- close.onclick=()=>{const details=panel.closest('details.prd-columns');if(details)details.open=false;else if(panel.matches('[popover]'))panel.hidePopover();onClose();};
+ close.onclick=()=>{const details=panel.closest('details.prd-columns');if(details)details.open=false;if(panel.matches('[popover]:popover-open'))panel.hidePopover();onClose();};
  if(panel.closest('details.prd-columns')||panel.matches('[popover]'))header.append(close);
  const help=document.createElement('p');help.className='tc-column-status';help.textContent='Elige las columnas visibles y su posición.';
  const parent=rows[0].parentElement,list=parent!==panel&&rows.every(row=>row.parentElement===parent)?parent:document.createElement('div');list.classList.add('tc-settings-list','directory-column-list');list.append(...rows);

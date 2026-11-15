@@ -24,6 +24,9 @@ with tempfile.TemporaryDirectory(prefix='release-cache-', dir=artifacts) as dire
     subprocess.run([sys.executable, '-X', 'utf8', '-c', assembly], cwd=temp,
                    env={**os.environ, 'GITHUB_SHA': sha}, check=True, capture_output=True)
     site = temp / '_site'
+    # Execute the entry-versioning step that follows assembly in publish.yml.
+    subprocess.run(['node', str(root / 'tools/version-entry-assets.mjs'), str(site), sha],
+                   cwd=root, check=True, capture_output=True)
     assert f'href="src/productos.css?v={sha}"' in (site / 'index.html').read_text(encoding='utf-8')
     assert f'rel="modulepreload" href="src/app.js?v={sha}"' in (site / 'index.html').read_text(encoding='utf-8')
     css = (site / 'src/productos.css').read_text(encoding='utf-8')

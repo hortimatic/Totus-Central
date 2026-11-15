@@ -254,7 +254,7 @@ function columnsInspector(w,columnQuery=''){
  return '<fieldset class="home-columns-inspector"><legend>Columnas de la tabla de pedidos</legend><label class="prd-column-search">Buscar columna<input type="search" data-draft-ignore data-home-column-search="'+esc(w.id)+'" value="'+esc(columnQuery)+'"></label><p class="small muted">El pedido siempre queda visible para abrir su ficha. Puedes mostrar, ocultar y reordenar las demás columnas.</p>'+all.map(key=>{
   const active=selected.includes(key),position=selected.indexOf(key);
   return columnSettingsRow({key,label:orderColumnLabels[key],selected:active,locked:key==='order',fixed:key==='order',index:position,count:selected.length,className:'home-column-item',row:{hidden:!orderColumnLabels[key].toLocaleLowerCase('es').includes(columnQuery.toLocaleLowerCase('es'))},check:{'data-home-column':key,'data-id':w.id},position:{'data-home-column-position':key,'data-id':w.id,disabled:key==='order'},up:{'data-home-command':'column-up','data-id':w.id,'data-column':key},down:{'data-home-command':'column-down','data-id':w.id,'data-column':key}});
- }).join('')+'<div class="tc-column-views"><button type="button" class="btn secondary" data-home-command="columns-save">Guardar distribución</button></div></fieldset>';
+ }).join('')+'<div class="tc-column-views"><button type="button" class="btn secondary" data-home-command="columns-save" data-id="'+esc(w.id)+'">Guardar distribución</button><button type="button" class="btn secondary" data-home-command="columns-reset" data-id="'+esc(w.id)+'">Restablecer columnas</button></div></fieldset>';
 }
 function prestashopInspector(w,columnQuery=''){
  const pick=(field,label,values,selected)=>'<label>'+esc(label)+'<select data-home-config="'+field+'" data-id="'+esc(w.id)+'">'+values.map(([value,name])=>'<option value="'+esc(value)+'" '+(String(selected)===String(value)?'selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>';
@@ -363,6 +363,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
     // Widget presentation filters never count as unsaved business forms.
     body.querySelectorAll('input,select,textarea').forEach(field=>field.setAttribute('data-draft-ignore',''));
    }else body.append(content);
+   if(!edit&&['cash.openings','home.activity','home.alerts','pricing.quick','documents.latest','expenses.quarter','billing.pending','fiscal.forecast','reports.shortcut','system.status'].includes(w.type)){const inner=body.querySelector('h2,h3');if(inner){if(/\b(?:[1-4]T|20\d{2})\b/.test(inner.textContent)){const period=document.createElement('small');period.className='tc-widget-period';period.textContent=inner.textContent;inner.replaceWith(period);}else inner.remove();body.setAttribute('aria-label',w.title);}}
    card.append(heading,body);if(edit)card.insertAdjacentHTML('beforeend',`<button type="button" class="home-resize-handle" data-home-resize="${esc(w.id)}" aria-label="Estirar o encoger ${esc(w.title)}" title="Arrastrar la esquina para cambiar tamaño">↘</button>`);grid.append(card);const calendarHost=body.querySelector('[data-home-task-calendar]');if(calendarHost)taskCalendar.mount(calendarHost);
   }
   const defaultFinancialSize=card=>{const def=HOME_WIDGET_CATALOG[card.dataset.homeType],defaults={'--span':def.width,'--height':def.height,'--tablet-span':Math.min(6,def.width),'--tablet-height':def.height,'--mobile-height':Math.min(12,def.height)};return Object.entries(defaults).every(([key,value])=>Number(card.style.getPropertyValue(key))===value);};
@@ -560,6 +561,40 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
  }
 
  const makeId=()=>`hw-${crypto.randomUUID()}`;
+ function openOrderColumns(id,trigger){
+  const widget=find(id);if(!widget||busy||!live()||widget.type!=='prestashop.orders')return;
+  root.querySelector('[data-home-columns-popover]')?.remove();
+  const dialog=document.createElement('div');dialog.className='tc-column-popover home-columns-inspector';dialog.popover='auto';dialog.dataset.homeColumnsPopover=id;dialog.setAttribute('role','dialog');dialog.setAttribute('aria-label','Configurar columnas');
+  let columns=selectedOrderColumns(widget).slice(),query='',saving=false;
+  const close=()=>{if(saving)return;if(dialog.isConnected&&dialog.matches(':popover-open'))dialog.hidePopover();dialog.remove();const button=root?.querySelector('[data-home-command="order-columns"][data-id="'+CSS.escape(id)+'"]');if(button?.isConnected)button.focus({preventScroll:true});};
+  const paint=()=>{
+   const template=document.createElement('template');template.innerHTML=columnsInspector({...widget,filters:{...widget.filters,columns}},query);dialog.innerHTML=template.content.firstElementChild.innerHTML+'<p role="status" data-home-columns-status>Guarda la distribución para conservarla en tu cuenta.</p>';
+   standardizeColumnPanel(dialog,{onClose:close});
+   for(const row of dialog.querySelectorAll('.tc-column-row'))row.hidden=!row.textContent.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'));
+  };
+  dialog.addEventListener('input',e=>{if(e.target.matches('[data-home-column-search]'))query=e.target.value;});
+  dialog.addEventListener('change',e=>{
+   e.stopPropagation();if(saving)return;const el=e.target,key=el.dataset.homeColumn||el.dataset.homeColumnPosition;
+   if(el.hasAttribute('data-home-column')){const next=el.checked?[...columns,key]:columns.filter(k=>k!==key);if(next.length>=2&&next.includes('order'))columns=next;}
+   else if(el.hasAttribute('data-home-column-position')&&key!=='order'){const from=columns.indexOf(key),to=Math.max(1,Math.min(columns.length-1,Number(el.value)));if(from>0){columns.splice(from,1);columns.splice(to,0,key);}}
+   paint();
+  });
+  dialog.addEventListener('click',async e=>{
+   e.stopPropagation();const button=e.target.closest('button');if(!button||saving)return;
+   const command=button.dataset.homeCommand;
+   if(command==='columns-reset'){columns=HOME_ORDER_COLUMNS.slice();paint();return;}
+   if(command==='column-up'||command==='column-down'){const from=columns.indexOf(button.dataset.column),to=from+(command==='column-up'?-1:1);if(from>0&&to>0&&to<columns.length){[columns[from],columns[to]]=[columns[to],columns[from]];paint();}return;}
+   if(command!=='columns-save')return;
+   if(!live()||!find(id))return;model=setHomeWidgetConfig(model,id,{filters:{columns:columns.slice()}});saving=true;
+   for(const control of dialog.querySelectorAll('button,input,select'))control.disabled=true;
+   dialog.querySelector('[data-home-columns-status]').textContent='Guardando y verificando la distribución…';
+   const saved=await save(edit);saving=false;
+   if(!live()){dialog.remove();return;}
+   if(saved){close();return;}
+   paint();dialog.querySelector('[data-home-columns-status]').textContent=root.querySelector('[data-home-status]')?.textContent||'No se ha confirmado el guardado. Puedes volver a intentarlo.';
+  });
+  dialog.addEventListener('toggle',e=>{if(e.newState==='closed'&&!saving)dialog.remove();});paint();root.append(dialog);dialog.showPopover();const rect=trigger.getBoundingClientRect();dialog.style.left=Math.max(12,Math.min(rect.left,innerWidth-dialog.offsetWidth-12))+'px';dialog.style.top=Math.max(12,Math.min(rect.bottom+6,innerHeight-dialog.offsetHeight-12))+'px';
+ }
  const mutate=(fn,focusId=null)=>{if(!edit||busy)return;try{const next=fn(model);model=next;selected=(focusId&&find(focusId)?.id)||find(selected)?.id||model.widgets.find(w=>!w.hidden)?.id||null;draw();status('Cambios pendientes de guardar.');}catch(error){status('No se pudo aplicar el cambio: '+String(error?.message||error),true)}};
  function command(action,id,el){
   if(action==='style-refresh'){void loadStyles();return}
@@ -573,7 +608,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
 
   if(action==='edit'){if(edit){if(changed()&&!confirmDiscard())return;model=structuredClone(original);edit=false;selected=null;panelView='closed'}else{edit=true;selected=null;panelView='closed'}draw();return}
   if(action==='exit'){if(changed()&&!confirmDiscard())return;edit=false;model=structuredClone(original);selected=null;panelView='closed';draw();return}
-  if(action==='order-columns'){selected=id;edit=true;panelView='widget';advancedOpen=true;draw();root.querySelector('.home-columns-inspector')?.scrollIntoView({block:'center',behavior:'smooth'});return;}
+  if(action==='order-columns'){openOrderColumns(id,el);return;}
   if(action==='select'){selected=id;edit=true;panelView='widget';advancedOpen=false;draw();return}
   if(action==='add'){panelView='widget';const type=el.dataset.type;if(nonClonable.has(type)&&model.widgets.some(w=>w.type===type)){status('Ese widget contiene controles únicos y ya está añadido. Puedes moverlo o cambiar su tamaño.',true);return}const scope=type==='prestashop.summary'?{store:PRESTASHOP_STORES[0].key}:{store:'all'};const newId=makeId();mutate(m=>addHomeWidget(m,type,newId,{scope}),newId);if(type==='prestashop.quality')void fetchCatalog(find(newId));else if(type.startsWith('prestashop.'))void fetchFor(find(newId));return}
   if(action==='duplicate'){const w=find(id);if(!w||nonClonable.has(w.type))return;const newId=makeId();mutate(m=>duplicateHomeWidget(m,id,newId),newId);return}
@@ -604,6 +639,7 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   if(action==='open-prestashop-tab'){const tab=el.dataset.tab;if(['catalog','receipts'].includes(tab))void onOpenOrders({tab});return}
   if(action==='open-order'){const shop=el.dataset.shop,order=el.dataset.order,date=el.dataset.date;if(PRESTA_SHOPS({scope:{store:shop}}).length!==1||!/^\d{1,15}$/.test(order||'')||!/^\d{4}-\d{2}-\d{2}$/.test(date||''))return;void onOpenOrders({tab:'orders',store:shop,order,date});return}
   if(action==='prev-page'||action==='next-page'){const w=find(id);if(!w)return;const current=Number(w.filters.page)||0;model=setHomeWidgetConfig(model,id,{filters:{page:Math.max(0,current+(action==='prev-page'?-1:1))}});draw();return}
+  if(action==='columns-reset'){const w=find(id);if(!edit||!w||w.type!=='prestashop.orders')return;mutate(m=>setHomeWidgetConfig(m,id,{filters:{columns:HOME_ORDER_COLUMNS.slice()}}));return}
   if(action==='column-up'||action==='column-down'){const w=find(id),key=el.dataset.column;if(!edit||!w||w.type!=='prestashop.orders'||key==='order')return;const columns=selectedOrderColumns(w).slice(),index=columns.indexOf(key),dest=index+(action==='column-up'?-1:1);if(index<0||dest<1||dest>=columns.length)return;[columns[index],columns[dest]]=[columns[dest],columns[index]];mutate(m=>setHomeWidgetConfig(m,id,{filters:{columns}}));return}
   if(action==='scroll-left'||action==='scroll-right'){const viewport=root.querySelector(`[data-home-orders-viewport="${CSS.escape(id)}"]`);viewport?.scrollBy({left:action==='scroll-left'?-300:300,behavior:'smooth'});return}
   if(action==='save'||action==='columns-save')void save();
@@ -796,8 +832,8 @@ export function createHomeWidgetsUI({rpc,invoke,can,notify=()=>{},onOpenOrders=(
   hero?.after(toolbar,shell);if(!hero)root.append(toolbar,shell);
   model=createDefault();original=structuredClone(model);
   // Source nodes are moved, never reimplemented; original data-action handlers stay intact.
-  root.addEventListener('click',e=>{if(e.target.closest('.home-editor-advanced>summary'))advancedOpen=!advancedOpen;const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
-  root.addEventListener('change',e=>{const el=e.target;if(el.hasAttribute('data-home-column-position')){const w=find(el.dataset.id),key=el.dataset.homeColumnPosition;if(!edit||!w||key==='order')return;const columns=selectedOrderColumns(w).slice(),index=columns.indexOf(key),dest=Math.max(1,Math.min(columns.length-1,Number(el.value)));if(index<1)return;columns.splice(index,1);columns.splice(dest,0,key);mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns}}));return;}if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-switch-widget')){if(!edit||!model.widgets.some(w=>w.id===el.value&&!w.hidden&&permitted(w,can)))return;selected=el.value;panelView='widget';draw();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
+  root.addEventListener('click',e=>{if(e.target.closest('[data-home-columns-popover]'))return;if(e.target.closest('.home-editor-advanced>summary'))advancedOpen=!advancedOpen;const el=e.target.closest('[data-home-command]');if(!el||!root.contains(el))return;e.preventDefault();e.stopPropagation();command(el.dataset.homeCommand,el.dataset.id,el)},true);
+  root.addEventListener('change',e=>{if(e.target.closest('[data-home-columns-popover]'))return;const el=e.target;if(el.hasAttribute('data-home-column-position')){const w=find(el.dataset.id),key=el.dataset.homeColumnPosition;if(!edit||!w||key==='order')return;const columns=selectedOrderColumns(w).slice(),index=columns.indexOf(key),dest=Math.max(1,Math.min(columns.length-1,Number(el.value)));if(index<1)return;columns.splice(index,1);columns.splice(dest,0,key);mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns}}));return;}if(el.hasAttribute('data-home-category')){root.querySelector('[data-home-drawer]').dataset.category=el.value;renderDrawer();return}if(el.hasAttribute('data-home-switch-widget')){if(!edit||!model.widgets.some(w=>w.id===el.value&&!w.hidden&&permitted(w,can)))return;selected=el.value;panelView='widget';draw();return}if(el.hasAttribute('data-home-general')){const key=el.dataset.homeGeneral;model.settings=homeCanvasSettings({...model.settings,[key]:el.value});draw();status('Diseño general actualizado. Guarda los cambios para conservarlo en tu cuenta.');return}if(el.hasAttribute('data-home-column')){const w=find(el.dataset.id),column=el.dataset.homeColumn;if(!w||w.type!=='prestashop.orders'||!HOME_ORDER_COLUMNS.includes(column)||column==='order')return;const current=selectedOrderColumns(w),next=el.checked?[...current,column]:current.filter(x=>x!==column);if(next.length<2){status('El widget necesita al menos dos columnas visibles.',true);draw();return}mutate(m=>setHomeWidgetConfig(m,w.id,{filters:{columns:next}}));return}if(!el.dataset.homeConfig&&!el.dataset.homeFilter)return;const w=find(el.dataset.id);if(!w)return;
    if(el.dataset.homeFilter){const key=el.dataset.homeFilter;let filters;
     if(key==='store'){
      model=setHomeWidgetConfig(model,w.id,{scope:{store:safeStore(el.value)},filters:{page:0}});

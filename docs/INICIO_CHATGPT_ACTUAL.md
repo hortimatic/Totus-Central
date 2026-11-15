@@ -15,8 +15,12 @@ Los ajustes posteriores de carga, organización de controles y ganancia con cost
 
 La unificación de columnas, el catálogo principal de Precio, los lotes de precios/ofertas y el desglose de ganancia por tienda están descritos en [COLUMNAS_PRECIO_LOTES_20261115.md](COLUMNAS_PRECIO_LOTES_20261115.md). Mantener el guardado personal existente, el precio base separado de las ofertas y las solicitudes estables ante respuestas inciertas.
 
+## Contraste completo de las peticiones
+
+Leer [CUMPLIMIENTO_INTERFAZ_20261115.md](CUMPLIMIENTO_INTERFAZ_20261115.md). Incluye contenedores con tamaños personales, columnas de Gastos e Inicio, separación de Productos/Precio y actualización de todas las hojas con caché conservada. No dar por cumplido el encargo solamente por pasar pruebas.
+
 ## Servicios e identidad
-- Aplicación: https://totuscentral.totuscode.com/ (direcciones normales con `?module=nombre`; la identidad interna de compilación se conserva sin mantener parámetros técnicos en la barra).
+- Aplicación: https://totuscentral.totuscode.com/ (rutas públicas españolas: `/inicio`, `/precio`, `/tareas`, `/gastos` y demás módulos; los enlaces antiguos siguen siendo compatibles).
 - Código y documentación: `hortimatic/Totus-Central`, rama `totus-central`.
 - Supabase: proyecto `awmojepsasikxocoeqtu`.
 - OneDrive privado: `Apps/Totus Central`. Datos relacionales en Supabase, originales y diez juegos de copia en OneDrive, código en GitHub. No mover o renombrar los archivos administrados por fuera del circuito de Totus.

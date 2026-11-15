@@ -1,4 +1,4 @@
-import {standardizeColumnPanel,standardizeColumnPanels,columnSettingsRow,columnSettingsCaption} from './column-settings.js';
+import {positionColumnPanel,standardizeColumnPanel,standardizeColumnPanels,columnSettingsRow,columnSettingsCaption} from './column-settings.js';
 /** Shared presentation and personal layouts; never writes business records. */
 export function installSharedTableArrows(root=document,{owner=()=>null}={}){
  const entries=new Map(),abort=new AbortController();let frame=0;
@@ -10,7 +10,7 @@ export function installSharedTableArrows(root=document,{owner=()=>null}={}){
  root.addEventListener('dragover',e=>{if(drag&&e.target.closest?.('.tc-column-row')?.closest('.prd-columns,.tc-column-popover,.home-columns-inspector')===drag.scope)e.preventDefault();},{signal:abort.signal});
  root.addEventListener('drop',e=>{const row=e.target.closest?.('.tc-column-row'),target=row?.querySelector('select'),source=drag?.row?.querySelector('select');if(drag&&row?.closest('.prd-columns,.tc-column-popover,.home-columns-inspector')===drag.scope&&target&&source&&!source.disabled){e.preventDefault();const value=target.value;drag=null;source.value=value;source.dispatchEvent(new Event('change',{bubbles:true}));}},{signal:abort.signal});root.addEventListener('dragend',()=>drag=null,{signal:abort.signal});
  const closeMenus=except=>{for(const menu of root.querySelectorAll('details.prd-columns[open]'))if(menu!==except)menu.open=false;};
- root.addEventListener('toggle',event=>{const menu=event.target;if(!menu.matches?.('details.prd-columns')||!menu.open)return;closeMenus(menu);const panel=menu.querySelector(':scope>div'),rect=menu.querySelector('summary')?.getBoundingClientRect();if(!panel||!rect)return;const width=Math.min(360,innerWidth-24),height=Math.min(panel.scrollHeight,innerHeight*.6,480);Object.assign(panel.style,{position:'fixed',width:width+'px',left:Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px',top:Math.max(12,Math.min(rect.bottom+6,innerHeight-height-12))+'px',right:'auto',maxHeight:'min(75dvh,480px)'});},{capture:true,signal:abort.signal});
+ root.addEventListener('toggle',event=>{const menu=event.target;if(!menu.matches?.('details.prd-columns'))return;if(!menu.open){const panel=menu.querySelector(':scope>div');if(panel?.matches(':popover-open'))panel.hidePopover();return;}closeMenus(menu);const panel=menu.querySelector(':scope>div'),rect=menu.querySelector('summary')?.getBoundingClientRect();if(!panel||!rect)return;positionColumnPanel(panel,rect);},{capture:true,signal:abort.signal});
  root.addEventListener('pointerdown',event=>{if(!event.target.closest?.('.prd-columns'))closeMenus();},{capture:true,signal:abort.signal});
  root.addEventListener('keydown',event=>{if(event.key==='Escape'){const menu=event.target.closest?.('details.prd-columns');if(menu){menu.open=false;menu.querySelector('summary')?.focus();}}},{signal:abort.signal});
  const selector='.table-wrap,.directory-table-viewport,.ps-orders-table-viewport,.home-orders-table-wrap';
@@ -41,11 +41,12 @@ function installColumns(table,viewport,owner){
  if(table.closest('.record-page,[data-draft-form],form'))return null;
  const headers=[...table.tHead?.rows[0]?.cells||[]];if(headers.length<2||headers.some(h=>h.colSpan!==1))return null;
  const rawLabels=headers.map(h=>h.textContent.trim()),labels=rawLabels.map((label,i)=>label||'Acciones '+(i+1)),rows=[...table.rows].filter(r=>r.cells.length===headers.length),original=rows.map(r=>[...r.cells]);
- const key='totus.table-layout.v1:'+owner+':'+new URL(location.href).searchParams.get('module')+':'+JSON.stringify(rawLabels);
+ const url=new URL(location.href),route=url.searchParams.get('module')||url.pathname.split('/').filter(Boolean).at(-1)||'inicio',module=({precio:'pricing',chat:'equipo'})[route]||route;
+ const key='totus.table-layout.v1:'+owner+':'+module+':'+JSON.stringify(rawLabels),legacyKey='totus.table-layout.v1:'+owner+':null:'+JSON.stringify(rawLabels);
  const initial=headers.map((_,i)=>i),validOrder=value=>Array.isArray(value)&&value.length===initial.length&&new Set(value).size===initial.length&&value.every(i=>initial.includes(i));
  const validVisible=value=>Array.isArray(value)?[...new Set(value.filter(i=>initial.includes(i)))]:[];
  let order=[...initial],visible=[...initial],views=[],viewName='';
- try{const saved=JSON.parse(localStorage.getItem(key));if(saved&&validOrder(saved.order)){order=saved.order;const allowed=validVisible(saved.visible);if(allowed.length)visible=allowed;views=Array.isArray(saved.views)?saved.views.filter(v=>typeof v.name==='string'&&validOrder(v.order)&&validVisible(v.visible).length).slice(0,20):[];viewName=String(saved.viewName||'');}}catch{}
+ try{const saved=JSON.parse(localStorage.getItem(key)||localStorage.getItem(legacyKey));if(saved&&validOrder(saved.order)){order=saved.order;const allowed=validVisible(saved.visible);if(allowed.length)visible=allowed;views=Array.isArray(saved.views)?saved.views.filter(v=>typeof v.name==='string'&&validOrder(v.order)&&validVisible(v.visible).length).slice(0,20):[];viewName=String(saved.viewName||'');}}catch{}
  const details=document.createElement('details');details.className='prd-columns tc-columns';
  const caption=document.createElement('summary');caption.className='btn secondary';caption.setAttribute('aria-label','Configurar columnas');details.append(caption);
  const panel=document.createElement('div');details.append(panel);const tools=document.createElement('div');tools.className='tc-table-tools';tools.setAttribute('aria-label','Herramientas de tabla');tools.append(details);viewport.insertAdjacentElement('beforebegin',tools);

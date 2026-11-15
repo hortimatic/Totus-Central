@@ -57,15 +57,17 @@
 .home-gain-stores{display:flex;flex-wrap:wrap;gap:4px 16px;width:100%;box-sizing:border-box;margin:8px 0 0;font-size:11px}.home-gain-stores>div{display:flex;flex:1 1 140px;flex-wrap:wrap;justify-content:space-between;gap:2px 6px;min-width:0}.home-gain-stores dt{color:var(--muted);white-space:nowrap}.home-gain-stores dd{margin:0;font-weight:600;white-space:nowrap}
 
 .tc-settings-panel,.directory-dialog.directory-columns.tc-settings-panel{display:flex!important;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 24px));max-height:min(75dvh,480px);overflow:hidden!important;padding:12px;font-size:12px}
+.prd-columns>.tc-settings-panel:not(:popover-open){visibility:hidden}
+.tc-settings-panel[popover]:not(:popover-open){display:none!important}
 .tc-settings-header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:0 0 8px;margin:0}
-.tc-settings-header>button{width:30px;height:30px;min-height:30px;padding:0}
+html[data-appearance] #app #content .tc-settings-header>button,.tc-settings-header>button{width:30px;height:30px;min-height:30px;padding:0;font-size:18px}
 .tc-settings-panel>.prd-column-search,.tc-settings-panel>.tc-column-status{margin:0;flex:none}
 .tc-settings-panel .tc-settings-list{display:block!important;grid-template-columns:none!important;min-height:60px;max-height:min(32dvh,240px);overflow:auto;overscroll-behavior:contain;flex:1 1 auto;width:100%}
 .tc-settings-panel .tc-settings-list>.tc-column-row{width:100%;max-width:100%}
-.tc-settings-advanced{display:grid;gap:6px;min-height:60px;max-height:100px;overflow:auto;flex:0 2 auto;border-top:1px solid var(--line);padding-top:8px}.tc-settings-advanced[hidden]{display:none!important}
+.tc-settings-advanced{display:grid;gap:6px;min-height:0;max-height:120px;overflow:auto;flex:0 1 auto;border-top:1px solid var(--line);padding-top:8px}.tc-settings-advanced[hidden]{display:none!important}
 .tc-settings-advanced :is(.prd-column-views,.tc-column-views,.ps-order-view-save){border:0;padding:0;margin:0}
 .tc-settings-footer{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line);padding-top:8px;flex:none}
-.tc-settings-footer>button{flex:1 1 130px;min-height:34px}
+html[data-appearance] #app #content .tc-settings-footer>button,.tc-settings-footer>button{flex:1 1 130px;min-height:36px;font-size:12px;padding:7px 9px}
 .tc-settings-panel .tc-settings-footer>button:first-child{background:var(--accent);color:var(--appearance-button-ink,#fff);border-color:var(--accent)}
 
 /* Content determines panel height; one compact spacing scale across modules.
@@ -79,7 +81,7 @@
  #content .record-toolbar{padding:8px 10px;gap:8px;min-height:0}
  #content .record-toolbar :is(h2,h3){margin:0}
  #content .record-toolbar .btn.link{margin:0;min-height:30px}
- #content .kpi{padding:12px;gap:4px}
+ html[data-appearance] #app #content :is(.kpi,.ps-kpi){min-height:0;min-block-size:0;padding:10px 12px;gap:4px}
  #content .kpi>.kpi-caption{min-height:0}
  #content .kpi strong{margin-top:3px}
  #content :is(.data-table,.directory-table,.prd-data-table) td{height:auto;padding:8px 10px}
@@ -88,7 +90,7 @@
  #content [data-tc-columns-managed] .directory-row-actions{display:flex;flex-wrap:wrap;gap:6px}
  #content [data-tc-columns-managed] .directory-row-actions .btn{white-space:normal;word-break:normal;min-width:90px;flex:0 0 auto}
  #content .card-pad>:is(h2,h3):first-child{margin-top:0;margin-bottom:8px}
- #content .empty{padding:20px 12px}
+ html[data-appearance] #app #content .empty{min-height:0;padding:16px 10px}
  #content .tc-table-tools{padding:8px 12px}
  #content .filters{padding:10px 12px;gap:8px}
  #content .form-actions{margin-top:12px;padding-top:10px}
@@ -100,11 +102,11 @@
  #content .dashboard-page:not(.home-edit-mode) .home-orders-cards{max-height:420px;overflow-y:auto;overscroll-behavior:contain}
  #content .home-widget-header{padding:7px 10px;min-height:34px}
  #content .home-widget-body{padding:min(var(--home-card-padding,var(--appearance-card-pad,12px)),10px)}
- #content .home-widget-body>:is(.card,.kpi,.opening-panel,.home-activity){border:0;box-shadow:none;border-radius:0;padding:0}
+ html[data-appearance] #app #content .home-widget-body>:is(.card,.kpi,.opening-panel,.home-activity){border:0;box-shadow:none;border-radius:0;padding:0;margin:0}
  #content .home-widget-body .kpi{min-height:0}
  #content .home-financial-kpis{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:auto;gap:var(--tc-panel-gap)}
  #content .home-financial-kpis>.home-margin-strip{grid-column:1/-1}
- #content .dashboard-page:not(.home-edit-mode) .home-financial-kpis>.home-widget-frame:not(.home-margin-strip)>.home-widget-header{display:none}
+ #content .dashboard-page:not(.home-edit-mode) :is([data-home-type="home.income"],[data-home-type="home.expenses"],[data-home-type="home.result"],[data-home-type="home.internal"])>.home-widget-header{display:none}
  #content .dashboard-page:not(.home-edit-mode) .home-financial-kpis>.home-widget-frame:not(.home-margin-strip) .kpi-caption{padding:0;min-height:0}
  #content .home-margin-strip .home-financial-margin{gap:4px;min-height:0}
  #content .home-gain-stores{margin:4px 0 0;gap:4px 12px}
@@ -195,3 +197,54 @@
  #content .home-widget-body[data-home-table-density="compact"] .home-orders-table :is(th,td){padding:5px 7px;font-size:10px}
  #content .home-widget-body[data-home-table-density="comfortable"] .home-orders-table :is(th,td){padding:13px 14px;font-size:12px}
 }
+
+/* Structural rules also apply to saved layouts and personal border/glow styles.
+   A widget owns its frame; borrowed module content must not draw another one. */
+@media screen{
+
+ html[data-appearance] #app #content :is(.kpi,.ps-kpi)>:is(.kpi-caption,small){min-height:0;min-block-size:0;margin:0}
+ html[data-appearance] #app #content .ps-kpi strong{font-size:22px;line-height:1.25}
+
+
+ html[data-appearance] #app #content .home-widget-body .kpi>:is(.kpi-caption,small){min-block-size:0}
+
+ #content .dashboard-page:not(.home-edit-mode) .home-widget-frame[data-home-type]>.home-widget-body{flex:0 0 auto}
+ #content .dashboard-page:not(.home-edit-mode) [data-home-type="prestashop.summary"]>.home-widget-body{flex:1}
+ #content .home-widget-body .store-status-card{padding:12px;min-height:0;box-shadow:none}
+ #content .home-widget-body .store-status-card .home-widget-actions{margin-top:10px;padding-top:8px}
+ #content .home-widget-body .summary-row{padding:8px 0}
+ #content .home-ps-metric,#content .home-ps-products,#content .home-ps-top li{min-block-size:0}
+ #content .home-widget-body .home-gain-stores{margin:0}
+ #content .home-widget-body .home-gain-actions{margin-top:4px}
+ :is(html[data-appearance] #app #content,#modalHost) :is(.btn,.prd-primary-action,.prd-secondary-action){box-sizing:border-box;min-height:36px;padding:7px 10px;line-height:1.3;border-radius:var(--appearance-button-radius,var(--r,8px));font-size:13px}
+ #content :is(.prd-columns>summary,.directory-actions>.btn,.module-actions>.btn){min-height:36px;padding:7px 10px;font-size:13px}
+ #content :is(.data-table,.directory-table,.prd-data-table) :is(button,a).btn{white-space:nowrap}
+ #content :is(.module-tabs,.directory-sources,.ps-tabs){display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--line);border-radius:var(--r,8px);background:var(--panel)}
+ #content :is(.module-tabs,.directory-sources,.ps-tabs)>:is(button,a){display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 12px;font-size:13px;line-height:1.3;border-radius:var(--appearance-button-radius,6px);white-space:nowrap}
+ #content :is(.module-tabs,.directory-sources,.ps-tabs)>:is(button,a):is(.active,[aria-pressed=true],[aria-selected=true]){color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel));box-shadow:none}
+ #app #content .prd-v4-nav{padding:4px;background:var(--panel);border:0;border-bottom:1px solid var(--line)}
+ #app #content .prd-v4-nav>div{display:flex;flex-wrap:wrap;gap:4px;width:100%}
+ #app #content .prd-v4-nav .master-tab-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:7px 12px;border-radius:var(--appearance-button-radius,6px);font-size:13px;line-height:1.3;white-space:nowrap;flex:0 1 auto}
+ #app #content .prd-v4-nav .master-tab-btn[aria-selected=true]{color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel));box-shadow:none}
+ #content .tc-widget-period{display:block;margin:0 0 6px;font-size:12px;color:var(--muted)}
+ :is(#content,#modalHost) :is(.directory-form-grid,.form-grid){row-gap:10px}
+ :is(#content,#modalHost) :is(.directory-form-grid,.form-grid)>label{gap:5px}
+
+ .tc-settings-advanced>strong{font-weight:600;padding:3px 0}
+
+ .tc-settings-footer{display:flex;gap:6px}
+ .tc-settings-footer>button{min-height:36px}
+}
+@media screen and (max-width:600px){
+ :is(html[data-appearance] #app #content,#modalHost) :is(.btn,.prd-primary-action,.prd-secondary-action){min-height:44px;font-size:13px}
+ #content :is(.module-tabs,.directory-sources,.ps-tabs)>:is(button,a){min-height:40px;font-size:12px;padding:6px 9px}
+ #content .home-widget-body .home-gain-stores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ #content .home-gain-stores>div{flex-direction:column;gap:2px}
+ #content .home-gain-stores dt,#content .home-gain-stores dd{white-space:normal}
+ .tc-settings-panel .tc-settings-footer>button{min-height:36px}
+}
+
+@media screen{#content [data-pr-workspace=pricing] .prd-catalog-table button[data-pr-action=open-product]{white-space:nowrap;min-width:104px}}
+
+/* Dense conversation filters use the compact tab scale, preserving reading space. */
+@media screen and (min-width:601px){html[data-appearance] #app #content .team-chat .chat-view-tabs>.btn{min-height:25px;padding:3px 4px;font-size:10px;line-height:1.25}}

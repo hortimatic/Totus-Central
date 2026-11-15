@@ -11,7 +11,7 @@ try{for(const width of [390,768,1024,1440]){
  await page.evaluate(async()=>{
   const {createProductosUI,productosWorkspacePage}=await import('../src/productos-ui.js');document.querySelector('#chatHarness').innerHTML=productosWorkspacePage();
   const q=window.tableQA={calls:[],item:{id:'42',name:'pruebas · simulación',reference:'QA-42',ean13:'',price:'10',wholesale_price:'4',active:'0',id_tax_rules_group:'0',associations:{images:[],combinations:[]}}};
-  const invoke=async b=>{q.calls.push(structuredClone(b));if(q.holdNextRefresh&&b.action==='prestashop_read'&&b.resource==='products'&&!b.product_ids){q.holdNextRefresh=false;q.refreshHeld=true;await new Promise(resolve=>q.releaseRefresh=resolve);}const out={ok:true,store:b.store,resource:b.resource,record_id:b.record_id};
+  const invoke=async b=>{q.calls.push(structuredClone(b));if(q.holdNextRefresh&&b.action==='prestashop_read'&&b.resource==='products'&&!b.product_ids){q.holdNextRefresh=false;q.refreshHeld=true;await new Promise(resolve=>q.releaseRefresh=resolve);}if(q.holdBackground&&b.action==='prestashop_read'&&b.resource==='products'&&b.page===1&&!b.product_ids){q.holdBackground=false;q.backgroundHeld=true;await new Promise(resolve=>q.releaseBackground=resolve);}const out={ok:true,store:b.store,resource:b.resource,record_id:b.record_id};
    if(b.action==='prestashop_product_create_profile')return {...out,persisted:false,language_ids:['1','2']};
    if(b.action==='prestashop_product_step_prepare')return {...out,persisted:false,can_commit:true,fingerprint:'b'.repeat(64)};
    if(b.action==='prestashop_product_step_commit'){q.item=null;return {...out,record_id:b.product_id,persisted:true,verified:true,deleted:true};}
@@ -25,8 +25,12 @@ try{for(const width of [390,768,1024,1440]){
   const owner=crypto.randomUUID();q.ui=createProductosUI({actor:()=>owner,allowed:()=>true,canEdit:()=>true,rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke});await q.ui.mount(document.querySelector('#productosRoot'));
  });
 
- await page.evaluate(()=>{tableQA.catalog=true});
+ await page.evaluate(()=>{tableQA.catalog=true;tableQA.holdBackground=true});
  await page.getByRole('button',{name:'Actualizar',exact:true}).click();
+ await page.waitForFunction(()=>tableQA.backgroundHeld);
+ assert.equal(await page.locator('[data-pr-action=catalog-more],[data-pr-action=catalog-complete]').count(),0,'No transient pagination buttons during background loading');
+ assert.equal(await page.locator('[data-pr-action=catalog-next]').count(),1,'Pagination remains at the table footer');
+ await page.evaluate(()=>tableQA.releaseBackground());
  await page.getByText('137 productos cargados · consulta completa',{exact:true}).waitFor();
  assert.equal(await page.locator('.prd-catalog-table tbody tr').count(),20);
  assert.equal(await page.getByRole('button',{name:'Consultar catálogo completo',exact:true}).count(),0);

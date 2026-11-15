@@ -225,6 +225,20 @@ try{
  await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('0');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===4);
  const customOrder=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.map(card=>card.dataset.homeWidget));assert(customOrder.indexOf('income')<customOrder.indexOf('opening')&&customOrder.indexOf('opening')<customOrder.indexOf('expense'),'Grouping equivalent cards cannot override the users saved non-contiguous positions');
  await page.setViewportSize({width:1440,height:960});await page.locator('[data-home-command="edit"]').click();await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('1');await page.locator('[data-home-config="width"]').selectOption('6');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===5);const customIncome=await page.locator('[data-home-widget="income"]').boundingBox(),customBoard=await page.locator('.home-widget-grid').boundingBox();assert(customIncome.width>customBoard.width*.45&&customIncome.width<customBoard.width*.55,'A saved six-column financial card retains its own width rather than being forced into the common row');
+
+ // Saved non-default widths still use a single compact frame and title.
+ const personal=await page.locator('[data-home-widget="income"]').evaluate(card=>({header:getComputedStyle(card.querySelector('.home-widget-header')).display,border:getComputedStyle(card.querySelector('.kpi')).borderTopWidth,height:card.getBoundingClientRect().height}));
+ assert.equal(personal.header,'none');assert.equal(personal.border,'0px');assert(personal.height<140,'A custom width does not restore the oversized financial frame');
+ // The ordinary Columnas button opens the same standalone panel, without the board editor.
+ const orderCard=page.locator('[data-home-type="prestashop.orders"]').first();
+ await orderCard.locator('[data-home-command="order-columns"]').click();
+ const columnPanel=page.getByRole('dialog',{name:'Configurar columnas',exact:true});await columnPanel.waitFor();
+ assert.equal(await page.locator('.home-edit-mode').count(),0,'Columns do not open dashboard editing');
+ assert.equal(await columnPanel.locator('.tc-settings-header').count(),1);assert.equal(await columnPanel.locator('.tc-settings-footer>button').count(),2);
+ const checked=await columnPanel.locator('[data-home-column=employee]').isChecked();await columnPanel.locator('[data-home-column=employee]').setChecked(!checked);
+ await columnPanel.getByRole('button',{name:'Guardar distribución',exact:true}).click();await columnPanel.waitFor({state:'detached'});await page.waitForFunction(()=>window.__homePrefs.revision===6);
+ await orderCard.locator('[data-home-command="order-columns"]').click();assert.equal(await columnPanel.locator('[data-home-column=employee]').isChecked(),!checked);
+ await columnPanel.getByRole('button',{name:'Restablecer columnas',exact:true}).click();await columnPanel.getByRole('button',{name:'Guardar distribución',exact:true}).click();await columnPanel.waitFor({state:'detached'});await page.waitForFunction(()=>window.__homePrefs.revision===7);
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
