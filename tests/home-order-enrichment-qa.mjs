@@ -7,7 +7,7 @@ const calls=[];
 await enrichHomeOrderLines({store:'hortimatic',lines,invoke:async args=>{
  calls.push(args);
  if(args.resource==='products')return {ok:true,store:'hortimatic',resource:'products',rows:[{id:'10',wholesale_price:'3',id_default_image:'40'}]};
- return {ok:true,item:{id:'20',id_product:'10',wholesale_price:'4'}};
+ return {ok:true,store:'hortimatic',item:{id:'20',id_product:'10',wholesale_price:'4'}};
 }});
 assert.equal(calls.length,2,'Shared product and variant are read once');
 assert.equal(homeOrderMargin(order,lines).margin,16,'30 − shipping 2 − 3 units × cost 4');
@@ -19,10 +19,17 @@ await enrichHomeOrderLines({store:'newoldsmok',lines:fallback,invoke:async()=>({
 assert.equal(homeOrderMargin(order,fallback).margin,26,'Foreign shop response ignored; recorded purchase cost remains available');
 assert.equal(fallback[0].image,null);
 const wrongVariant=[{product_id:'10',product_attribute_id:'20',product_quantity:'1',purchase_supplier_price:'2'}];
-await enrichHomeOrderLines({store:'hortimatic',lines:wrongVariant,invoke:async a=>a.resource==='products'?{ok:true,store:'hortimatic',resource:'products',rows:[]}:{ok:true,item:{id:'99',id_product:'10',wholesale_price:'99'}}});
+await enrichHomeOrderLines({store:'hortimatic',lines:wrongVariant,invoke:async a=>a.resource==='products'?{ok:true,store:'hortimatic',resource:'products',rows:[]}:{ok:true,store:'hortimatic',item:{id:'99',id_product:'10',wholesale_price:'99'}}});
 assert.equal(homeOrderMargin(order,wrongVariant).margin,26,'Response for another combination cannot replace the purchase cost');
 assert.equal(await enrichHomeOrderLines({store:'hortimatic',lines,invoke:()=>assert.fail('Cancelled operation'),current:()=>false}),null);
 assert.deepEqual(homeMarginTotal([{...order,margin_value:16},{...order,id:'2',margin_value:null},{...order,id:'3',valid:'0',margin_value:1000}]),{value:16,covered:1,total:2,complete:false});
 assert.deepEqual(homeMarginTotal([{...order,margin_value:0}]),{value:0,covered:1,total:1,complete:true},'Zero margin is a valid result');
 assert.equal(homeMarginTotal([{...order,currency_code:'USD',margin_value:10}]).complete,false,'Do not add different currencies');
+const foreignVariant=[{product_id:'10',product_attribute_id:'20',product_quantity:'1',purchase_supplier_price:'2'}];
+await enrichHomeOrderLines({store:'hortimatic',lines:foreignVariant,invoke:async a=>a.resource==='products'?{ok:true,store:'hortimatic',resource:'products',rows:[]}:{ok:true,store:'newoldsmok',item:{id:'20',id_product:'10',wholesale_price:'99'}}});
+assert.equal(homeOrderMargin(order,foreignVariant).margin,26,'A valid-looking ID in a foreign shop is not the requested cost');
+let active=0,peak=0,variantReads=0;
+const many=Array.from({length:7},(_,i)=>({product_id:'10',product_attribute_id:String(100+i),product_quantity:'1'}));
+await enrichHomeOrderLines({store:'hortimatic',lines:many,invoke:async a=>{if(a.resource==='products')return {ok:true,store:'hortimatic',resource:'products',rows:[]};active++;peak=Math.max(peak,active);variantReads++;await new Promise(r=>setTimeout(r,3));active--;return {ok:true,store:'hortimatic',item:{id:a.record_id,id_product:'10',wholesale_price:'4'}};}});
+assert.equal(peak,2,'Summary cost reads are bounded to two simultaneous requests');assert.equal(variantReads,7);assert(many.every(l=>l.current_wholesale_price==='4'));
 console.log('Home order costs, variant cache, shop isolation, images, coverage and cancellation PASS');

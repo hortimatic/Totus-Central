@@ -187,7 +187,8 @@
         "src/website-registry",
         "src/app.js",
         "src/profile-directory.js",
-        "src/api.js"
+        "src/api.js",
+        "src/read-pool.js"
       ],
       "tests": [
         "tests/home-navigation-draft-browser-qa.mjs",
@@ -195,7 +196,8 @@
         "tests/home-widgets-integration-browser-qa.mjs",
         "tests/dashboard-report-qa.mjs",
         "tests/home-commercial-calendar-qa.mjs",
-        "tests/home-commercial-calendar-browser-qa.mjs"
+        "tests/home-commercial-calendar-browser-qa.mjs",
+        "tests/home-order-enrichment-qa.mjs"
       ],
       "invariants": [
         "no false dirty state",

@@ -16,7 +16,7 @@ Base publicada: 63c54bca4c4e29d608fee77c26b1a8ad552d242a. Sesión real en el dom
 ## Correcciones de este bloque
 
 1. Stock de ficha calculado desde su propia lectura verificada: producto simple o suma de sus combinaciones, sin sumar también el padre nativo. Desglose visible de cada variante. Datos ausentes, ambiguos o fallidos no se convierten en cero.
-2. Lecturas independientes de combinaciones con máximo de tres peticiones simultáneas. Conserva orden, verifica producto asociado y deja de programar lecturas al cambiar de selección o fallar.
+2. Lecturas independientes de combinaciones con máximo de tres peticiones simultáneas en la ficha. Los costes de las ventas de Inicio, antes secuenciales, usan un máximo de dos por tienda. Se conservan orden, deduplicación y validación de tienda/producto; se deja de programar lecturas al cambiar de selección o fallar.
 3. Las respuestas de las consultas de Inicio actualizan solo widgets relacionados con PrestaShop. No reconstruyen el calendario ni el resto de tarjetas. Los controles con foco se conservan hasta terminar su interacción.
 4. Memoria de lecturas de la sesión, solo para lectura: usuario/rol y conexión/revisión comprobados de nuevo antes de reutilizarla; hasta ocho consultas, 250 pedidos y 1500 líneas por entrada. Al entrar se actualiza automáticamente, con la lectura anterior marcada. No se persiste en disco y no habilita funcionamiento offline. Una conexión distinta o revisada no reutiliza el resultado anterior.
 5. La consulta de retiradas entra en el mismo grupo máximo de cuatro lecturas; no se suprime su validación ni se amplía la concurrencia total.
