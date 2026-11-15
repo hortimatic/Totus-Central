@@ -2980,7 +2980,7 @@ document.addEventListener('click',async e=>{
   if(a==='document-delete'){await deleteDocument(el.dataset.id);return}
   if(a==='documents-zip'){await zipFilteredDocuments();return}
   if(a==='document-preview'){await previewDocument(el.dataset.id);return}
-  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();requestAnimationFrame(()=>{const name=input('prName');name?.scrollIntoView({block:'center'});name?.focus({preventScroll:true});});return}
+  if(a==='product-new'){setView('pricing',{section:'local',mode:'record',id:null});render();const name=input('prName');name?.scrollIntoView({block:'center'});name?.focus({preventScroll:true});return}
   if(a==='product-edit'){setView('pricing',{section:'local',mode:'record',id:el.dataset.id});render();return}
   if(a==='product-history'){await productHistory(el.dataset.id);return}
   if(a==='product-draft-add'){input('prDraftRows')?.insertAdjacentHTML('beforeend',draftVariantRow());updateProductStudy();return}
