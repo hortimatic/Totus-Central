@@ -44,6 +44,7 @@ assert.equal(validateVariant(base,[{id:'self',sku:'demo-10'}],'self'),base);
 assert.equal(pricingProviderCost({net_cost:10,provider_discount:10,shipping_unit:0.5,apply_special_tax:true,special_tax_amount:5}),9.5);
 console.log('PRICING VARIANTS: attributes, costs, nicotine-specific prices, unknown vs zero, duplicate SKU, informative tax and ranges OK');
 
+assert.equal(state.views.pricing.section,'prestashop');assert.match(pricing(),/id="productosRoot"/,'Precio abre el catálogo conectado por defecto');state.views.pricing.section='local';
 state.user={role:'admin',email:'qa@example.invalid'};
 state.data.settings={default_sales_vat_rate:21,purchase_re_rate:5.2};
 state.data.products=[{id:'liquid',name:'Sales QA',sku:'SALES',product_type:'variants',status:'PENDIENTE'}];
