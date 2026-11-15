@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import {chromium} from 'playwright';
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+try{
+ await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
+ await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
+ await page.getByRole('button',{name:/Artículo de práctica/}).click();
+ await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();
+ await page.locator('[name=received]').fill('10,00');
+ await page.locator('[name=scenario]').selectOption('lost-response');
+ await page.getByRole('button',{name:'Confirmar venta de práctica'}).click();
+ await page.getByText('Respuesta pendiente de recuperar',{exact:true}).waitFor();
+ await page.reload();await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Tickets de práctica',exact:true}).click();
+ await page.getByRole('button',{name:'Recuperar',exact:true}).click();
+ await page.getByText('Venta de práctica registrada',{exact:true}).waitFor();
+ assert.match(await page.locator('[aria-label="Resultado de práctica"]').innerText(),/1,99/);
+ await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
+ await page.getByRole('button',{name:/Artículo con variante/}).click();
+ for(const width of [1440,1024,768,390]){
+  await page.setViewportSize({width,height:950});
+  const metrics=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,
+   buttons:[...document.querySelectorAll('button')].filter(b=>b.offsetWidth>0).map(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height}))}));
+  assert.ok(metrics.scroll<=metrics.width+1,`No horizontal overflow at ${width}`);
+  assert.ok(metrics.buttons.every(b=>b.width>=32&&b.height>=32),`Usable targets at ${width}`);
+ }
+ await fs.mkdir('artifacts/totustpv-workspace',{recursive:true});
+ await page.screenshot({path:'artifacts/totustpv-workspace/mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:950});await page.screenshot({path:'artifacts/totustpv-workspace/desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();
+ await page.locator('[name=method]').selectOption('mixed');await page.locator('[name=cashPart]').fill('5,00');
+ await page.locator('[name=received]').fill('5,00');await page.locator('[name=cardAccepted]').check();
+ await page.getByRole('button',{name:'Confirmar venta de práctica'}).click();
+ await page.getByText('Venta de práctica registrada',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Tickets de práctica',exact:true}).click();
+ await page.locator('.tpv-history article').nth(1).getByRole('button',{name:'Devolver'}).click();
+ await page.locator('[name="qty-demo-1"]').fill('0');
+ await page.locator('[name="restock-demo-1"]').uncheck();
+ await page.locator('[name=refundAccepted]').check();
+ await page.getByRole('button',{name:'Registrar devolución de práctica'}).click();
+ await page.getByRole('alert').filter({hasText:'Selecciona líneas'}).waitFor();
+ assert.equal(await page.locator('[name="restock-demo-1"]').isChecked(),false,'Failed refund preserves defective-item choice');
+ assert.equal(await page.locator('[name=refundAccepted]').isChecked(),true);
+ await page.locator('[name="qty-demo-1"]').fill('1');
+ await page.getByRole('button',{name:'Registrar devolución de práctica'}).click();
+ await page.getByText(/Devolución de práctica registrada:/).waitFor();
+ await page.getByRole('button',{name:'Caja',exact:true}).click();
+ assert.match(await page.locator('.tpv-session').innerText(),/105,00/);
+ await page.locator('[name=counted]').fill('no');
+ await page.getByRole('button',{name:'Cerrar caja de práctica'}).click();
+ await page.getByRole('alert').filter({hasText:'importe válido'}).waitFor();
+ assert.equal(await page.locator('[name=counted]').inputValue(),'no');
+ await page.locator('[name=counted]').fill('105,00');
+ await page.getByRole('button',{name:'Cerrar caja de práctica'}).click();
+ await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
+ await page.getByRole('button',{name:/Artículo de práctica/}).click();
+ const staleLeave=await page.evaluate(async()=>{
+  const leaving=window.fixture.workspace.requestLeave();
+  window.fixture.setAccount({id:'third-operator',active:true});
+  return leaving;
+ });
+ assert.equal(staleLeave,false,'A confirmation belonging to another account cannot release the current workspace');
+ await page.getByRole('button',{name:'Practicar sin ventas reales'}).waitFor();
+ await page.evaluate(()=>window.fixture.setAccount({id:'other-operator',active:true}));
+ await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
+ assert.deepEqual(errors,[]);console.log('PASS TotusTPV workspace: cash/change, lost response, reload/recovery, mixed payment, refund without restocking, cash close, per-user isolation and four viewport sizes. Synthetic data only.');
+}finally{await page.close();await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

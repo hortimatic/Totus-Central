@@ -1,5 +1,5 @@
 // Public routes are Spanish paths. Internal permission/database IDs stay stable.
-export const MODULE_PATHS={inicio:'inicio',pricing:'precio',ventas:'ventas',productos:'productos',prestashop:'prestashop',clientes:'clientes',proveedores:'proveedores',marcas:'marcas',cajas:'cajas',gastos:'gastos',facturacion:'facturacion',documentos:'documentos',fiscalidad:'fiscalidad',informes:'informes',tareas:'tareas',equipo:'chat',administracion:'administracion',configuracion:'configuracion',automatizaciones:'automatizaciones',apis:'apis',cotejos:'cotejos'};
+export const MODULE_PATHS={totustpv:'tpv',inicio:'inicio',pricing:'precio',ventas:'ventas',productos:'productos',prestashop:'prestashop',clientes:'clientes',proveedores:'proveedores',marcas:'marcas',cajas:'cajas',gastos:'gastos',facturacion:'facturacion',documentos:'documentos',fiscalidad:'fiscalidad',informes:'informes',tareas:'tareas',equipo:'chat',administracion:'administracion',configuracion:'configuracion',automatizaciones:'automatizaciones',apis:'apis',cotejos:'cotejos'};
 const moduleId=value=>Object.entries(MODULE_PATHS).find(([,path])=>path===value)?.[0]||value;
 export function moduleUrl(href,module){
  const url=new URL(href),parts=url.pathname.split('/').filter(Boolean),last=parts.at(-1)||'';
@@ -29,7 +29,7 @@ const byModule={
  facturacion:['invoices','invoiceLines','customers','series','templates','documents'],
  documentos:['documents','expenses','invoices','customers','suppliers','categories'],
  pricing:['brands','families','products','variants','providers','providerPrices','competitors','consultations'],
- ventas:[],prestashop:['documents','suppliers'],productos:[],cotejos:['documents','suppliers'],equipo:[],tareas:[],configuracion:[],automatizaciones:[],apis:[]
+ ventas:[],totustpv:[],prestashop:['documents','suppliers'],productos:[],cotejos:['documents','suppliers'],equipo:[],tareas:[],configuracion:[],automatizaciones:[],apis:[]
 };
 const common=['settings','rolePermissions','userPermissions','team','profiles','stores','drawers'];
 export function moduleReads(tasks,module){

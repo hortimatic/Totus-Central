@@ -1,5 +1,6 @@
 # Generated dependencies and evidence; source and manuals stay versioned.
 /node_modules/
+/supabase/.temp/
 /artifacts/
 /qa-artifacts/
 /tests/.audit*.mjs

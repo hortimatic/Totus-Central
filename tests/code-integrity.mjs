@@ -12,6 +12,7 @@ for(const [file,content] of Object.entries(cache)){
  if(duplicated.length)problems.push(file+': duplicate function '+[...new Set(duplicated)].join(','));
  for(const statement of content.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g)){
   const target=path.posix.normalize(path.posix.join(path.posix.dirname(file),statement[2]));
+  if(!cache[target]&&!target.startsWith('../')&&!path.posix.isAbsolute(target)&&target.endsWith('.js')&&fs.existsSync(target))cache[target]=fs.readFileSync(target,'utf8');
   if(!cache[target]){problems.push(file+': module does not exist '+target);continue}
   const exported=cache[target];
   for(const specifier of statement[1].split(',')){

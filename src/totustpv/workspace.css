@@ -1,0 +1,41 @@
+/* TotusTPV uses Central's tokens, buttons, inputs and module tabs. */
+.totus-tpv{display:grid;gap:12px;min-width:0;container-type:inline-size}
+.totus-tpv h3,.totus-tpv h4{margin:0;font-size:1.05rem}
+.totus-tpv .card-pad{padding:16px;min-height:0}
+.totus-tpv p{margin:8px 0;line-height:1.45}
+.tpv-setup{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}.tpv-setup article{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.tpv-setup article>div{min-width:0;overflow-wrap:anywhere}.tpv-setup small{display:block}
+.totus-tpv label{display:grid;gap:5px;min-width:0;font-size:.9rem}
+.totus-tpv input,.totus-tpv select{width:100%;min-width:0;box-sizing:border-box}
+.totus-tpv small{display:block;color:var(--muted);line-height:1.4}
+.totus-tpv .inline-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.totus-tpv [hidden]{display:none!important}
+.tpv-practice-banner,.tpv-context{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.tpv-practice-banner{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--panel);padding:8px 12px;border-radius:var(--r)}
+.tpv-practice-banner span{flex:1;font-size:.85rem;color:var(--muted)}
+.tpv-context{justify-content:space-between;gap:12px}
+.tpv-context label{flex:1;max-width:360px}.tpv-context>span{flex:1;min-width:130px}
+.tpv-sale-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(310px,.85fr);gap:12px;align-items:start}
+.tpv-product-list{display:grid;gap:8px;margin-top:12px}
+.tpv-product{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
+.tpv-product:hover,.tpv-product:focus-visible{border-color:var(--accent);background:var(--bg)}
+.tpv-product:disabled{opacity:.55;cursor:default}.tpv-product b{white-space:nowrap}
+.tpv-product>span,.tpv-ticket-line>div{min-width:0;overflow-wrap:anywhere}
+.tpv-ticket header{display:grid;gap:4px}.tpv-ticket header span{font-size:.85rem;color:var(--muted)}
+.tpv-ticket-lines{margin-top:12px}.tpv-ticket-line{display:grid;grid-template-columns:minmax(0,1fr) 66px auto 40px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.tpv-ticket-line strong{font-size:.9rem}.tpv-ticket-line>b{white-space:nowrap;font-size:.9rem}.tpv-ticket-line .btn{padding-inline:8px;min-width:36px}
+.tpv-ticket-line .tpv-quantity{font-size:.7rem}.tpv-ticket-line input{text-align:center}
+.tpv-ticket-total{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-top:14px}.tpv-ticket-total span{font-size:.85rem;color:var(--muted)}
+.tpv-ticket-total strong{font-size:1.4rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tpv-empty{padding:18px 0;color:var(--muted)}
+.tpv-payment{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;display:grid;gap:10px}
+.tpv-payment-amount{display:flex;justify-content:space-between;align-items:center}.tpv-payment-amount strong{font-size:1.4rem}
+.tpv-check{display:flex!important;gap:8px!important;align-items:center}.tpv-check input{width:auto!important;flex:0 0 auto}
+.tpv-opening form,.tpv-session form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.tpv-opening form label,.tpv-session form label{flex:1;max-width:260px}
+.tpv-session dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.tpv-session dl div{padding:8px 0;border-bottom:1px solid var(--line)}.tpv-session dt{font-size:.85rem;color:var(--muted)}.tpv-session dd{margin:3px 0 0;font-weight:700;font-variant-numeric:tabular-nums}
+.tpv-history article{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}.tpv-history article>div{flex:1}.tpv-history article strong{white-space:nowrap}
+@container(max-width:680px){.tpv-sale-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:1000px){.totus-tpv .card-pad{padding:12px}}
+@media(max-width:500px){.totus-tpv .tpv-context{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.75fr);align-items:end}.tpv-context>span{grid-column:1/-1}.tpv-context>label{margin:0}}
+@media(max-width:500px){.totus-tpv{gap:8px;font-size:.9rem}.totus-tpv h3{font-size:1rem}.tpv-context{gap:8px}.tpv-context label{flex-basis:100%;max-width:none}.tpv-practice-banner{gap:6px}.tpv-practice-banner span{flex-basis:100%;order:3}.tpv-ticket-line{grid-template-columns:minmax(0,1fr) 56px auto 36px;gap:5px}.tpv-ticket-total strong,.tpv-payment-amount strong{font-size:1.25rem}.tpv-product{padding:10px}.totus-tpv .inline-actions>.btn{flex:1 1 auto}.tpv-history article{flex-wrap:wrap}.totus-tpv input,.totus-tpv select{font-size:16px}}

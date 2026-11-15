@@ -18,15 +18,18 @@ try{
    }
    if(b.resource==='addresses'){q.addressStarted++;q.addressRunning++;q.peak=Math.max(q.peak,q.addressRunning);await new Promise(resolve=>q.releases.push(resolve));q.addressRunning--;}
    return {...b,ok:true,rows,possibly_more:false};
-  }});await q.ui.mount(document.querySelector('[data-directory-root]'));
+  }});
+  // The native shop is now the initial source. Do not await the entire mount:
+  // addresses are intentionally gated until the visible primary rows are checked.
+  void q.ui.mount(document.querySelector('[data-directory-root]'));
  });
- await page.getByRole('button',{name:'Hortimatic',exact:true}).click();
  await page.waitForFunction(()=>speedQA.addressStarted===3);
  assert.equal(await page.locator('.directory-table tbody tr').count(),20,'Primary rows must appear before addresses return');
  assert.equal(await page.evaluate(()=>speedQA.peak),3,'Three independent batches overlap, no unbounded fan-out');
  await page.evaluate(()=>speedQA.releases.splice(0).forEach(resolve=>resolve()));
  await page.getByRole('status').filter({hasText:'75 registros · consulta completa'}).waitFor();
- await page.getByRole('button',{name:'Totus',exact:true}).click();
+ await page.locator('.directory-internal-tools > summary').click();
+ await page.getByRole('button',{name:'Referencias internas de Totus',exact:true}).click();
  await page.evaluate(()=>speedQA.gateCustomers=true);
  await page.getByRole('button',{name:'Hortimatic',exact:true}).click();
  await page.waitForFunction(()=>typeof speedQA.releaseCustomers==='function');

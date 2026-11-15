@@ -1,5 +1,6 @@
 // Local vector artwork: no font downloads, trackers or external icon runtime.
 const paths={
+ totustpv:'M4 3h16v12H4ZM8 15v4m8-4v4M5 21h14M7 7h10M8 11h.01M12 11h.01M16 11h.01',
  prestashop:'M3 7h18l-2 14H5ZM7 7V5a5 5 0 0 1 10 0v2M9 12h6',
  productos:'M3 6l9-3 9 3v12l-9 3-9-3ZM3 6l9 4 9-4M12 10v11',
  automatizaciones:'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 2M4 17l2 2a7 7 0 0 0 12-2',
