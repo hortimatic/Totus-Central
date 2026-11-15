@@ -39,10 +39,10 @@ try{
   "  if(resource==='orders'&&window.__holdHomeOrders)await new Promise(resolve=>(window.__releaseHomeOrders||=[]).push(resolve));",
   "  if(a.action!=='prestashop_read')return {data:{error:'Acción no simulada'},error:null};",
   "  let rows=[];",
-  "  if(resource==='orders'&&a.page===0)rows=Array.from({length:24},(_,i)=>({",
+  "  if(resource==='orders'){window.__orderReadCalls=(window.__orderReadCalls||0)+1;const count=window.__qaOrderCount||24,start=a.page*a.page_size;rows=Array.from({length:Math.max(0,Math.min(a.page_size,count-start))},(_,offset)=>{const i=start+offset;return ({",
   "   id:String((shop==='hortimatic'?7000:8000)+i),reference:'QA-R'+i,date_add:day+' 12:00:00',",
   "   total_paid_tax_incl:'12.500000',total_paid_tax_excl:'10.330000',total_shipping_tax_excl:'0',total_wrapping_tax_excl:'0',id_currency:'1',payment:i%3===0?'Bizum':i%3===1?'Transferencia bancaria':'Tarjeta',valid:'1',current_state:'21',id_customer:'0'",
-  "  }));",
+  "  });});}",
   "  if(resource==='products'&&a.page===0)rows=[{id:'101',name:'QA Producto A',reference:'',ean13:'',weight:'0'},{id:'102',name:'QA Producto B',reference:'SKU102',ean13:'1234567890123',weight:'0.1'},{id:'103',name:'QA Producto C',reference:'SKU103',ean13:'1234567890123',weight:'0.2'}];",
   "  if(resource==='products'&&a.product_ids)rows=a.product_ids.map(id=>({id,name:'QA Producto',wholesale_price:'3',id_default_image:'40'}));",
   "  if(resource==='order_histories')rows=(a.order_ids||[]).map(id=>({id:String(200000+Number(id)),id_order:id,id_employee:'2',date_add:day+' 12:00:00'}));",
@@ -52,7 +52,7 @@ try{
   "   id:String(100000+Number(id)),id_order:id,product_id:'11',product_attribute_id:Number(id)%2?'10':'20',product_reference:Number(id)%2?'SKU-QA-10':'SKU-QA-0',product_name:Number(id)%2?'Producto QA 10 mg':'Producto QA 0 mg',product_quantity:'1',",
   "   total_price_tax_incl:'12.50',total_price_tax_excl:'10.33'",
   "  }));",
-  "  return {data:{ok:true,store:shop,resource,page:a.page,rows,possibly_more:false},error:null};",
+  "  return {data:{ok:true,store:shop,resource,page:a.page,rows,possibly_more:resource==='orders'&&(a.page+1)*a.page_size<(window.__qaOrderCount||24)},error:null};",
   " }"
  ].join('\n');
  assert(src.includes(rpcMarker)&&src.includes(fnMarker),'Contrato mock no encontrado');
@@ -82,15 +82,15 @@ try{
  await page.setViewportSize({width:1440,height:960});
  assert.equal(await page.evaluate(()=>window.__qaHomeContextCalls),1,'Un solo contexto autenticado sirve a todos los widgets PrestaShop de Inicio');
  const financial=page.locator('[data-financial-margin]');await financial.scrollIntoViewIfNeeded();
- await financial.locator('.home-financial-margin b').filter({hasText:'303,84'}).waitFor();
+ await financial.locator('.home-financial-margin b').filter({hasText:'357,60'}).waitFor();
  await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
  await page.evaluate(()=>{window.__holdHomeOrders=true;window.__releaseHomeOrders=[];});
  await financial.locator('button').click();await page.waitForFunction(()=>window.__releaseHomeOrders.length===2);
  assert.equal(await financial.locator('button').isDisabled(),true,'Una consulta en curso no dispara duplicados');
- assert.match(await financial.innerText(),/Comprobando conexión/);
+ await financial.locator('details summary').click();assert.match(await financial.innerText(),/Comprobando conexión/);
  await page.evaluate(()=>{window.__holdHomeOrders=false;window.__releaseHomeOrders.splice(0).forEach(resolve=>resolve());});
  await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
- assert.match(await financial.innerText(),/303,84/,'La lectura termina con el margen y conserva el resultado contable');
+ assert.match(await financial.innerText(),/357,60/,'La lectura termina con el margen y conserva el resultado contable');
  const h=await page.locator('[data-home-widget="shop-h"]').boundingBox();
  const n=await page.locator('[data-home-widget="shop-n"]').boundingBox();
  assert(h&&n&&Math.abs(h.y-n.y)<12&&n.x>h.x+8,'Ambas tiendas deben verse paralelas en escritorio');
@@ -214,6 +214,7 @@ try{
  assert.equal(await orders.locator('tbody td').first().evaluate(el=>getComputedStyle(el).paddingTop),'5px','La densidad elegida modifica realmente las filas');
  await page.locator('[data-home-command="column-up"][data-id="orders"][data-column="products"]').click();
  assert.deepEqual((await orders.locator('thead th').allTextContents()).slice(0,3).map(x=>x.trim()),['Pedido','Productos','Referencia'],'Ordenar columnas cambia la tabla');
+ for(const width of [390,905,1920]){await page.setViewportSize({width,height:960});const rows=await page.locator('.home-column-item').evaluateAll(ns=>ns.map(n=>{const r=n.getBoundingClientRect(),c=n.querySelector('input').getBoundingClientRect();return {height:r.height,checkboxWidth:c.width,checkboxHeight:c.height};}));assert(rows.length>0);assert(rows.every(r=>r.height<=56&&r.checkboxWidth<=20&&r.checkboxHeight<=20),'Column inspector uses compact rows and checkboxes at '+width);}await page.setViewportSize({width:1440,height:960});
  await page.locator('[data-home-column="employee"]').uncheck();
  assert(!(await orders.locator('thead th').allTextContents()).includes('Atendido por'),'Ocultar columna no la elimina de otras tablas');
  await page.locator('[data-home-config="width"]').selectOption('8');
@@ -286,6 +287,10 @@ try{
  await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
  await page.evaluate(()=>window.__holdHomeOrders=true);
  await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
+ assert.equal(await page.getByText(/Última lectura guardada; actualizando/).count(),0,'Una lectura reciente se reutiliza sin volver a bloquear Inicio');
+ await page.evaluate(()=>{window.__realDateNow=Date.now;Date.now=()=>window.__realDateNow()+121000;});
+ await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));
+ await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));
  await page.getByText(/Última lectura guardada; actualizando/).first().waitFor();
  assert(await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').isVisible(),'El resumen previo se representa mientras se verifica una lectura nueva');
  await page.evaluate(()=>{window.__holdHomeOrders=false;for(const release of window.__releaseHomeOrders||[])release();window.__releaseHomeOrders=[];});
@@ -297,6 +302,9 @@ try{
  assert.equal(await page.getByText(/Última lectura guardada; actualizando/).count(),0,'Una revisión distinta de conexión no reutiliza los datos de la anterior');
  await page.evaluate(()=>{window.__holdHomeOrders=false;for(const release of window.__releaseHomeOrders||[])release();window.__releaseHomeOrders=[];});
  await page.locator('[data-home-widget="shop-h"] .home-ps-metrics').waitFor();
+ await page.locator('[data-financial-margin]').scrollIntoViewIfNeeded();await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled);
+ await page.evaluate(()=>{window.__qaOrderCount=260;});await page.locator('[data-financial-margin] button').click();await page.waitForFunction(()=>!document.querySelector('[data-financial-margin] button').disabled&&document.querySelector('[data-financial-margin]').textContent.includes('520/520'));
+ const monthlyReads=await page.evaluate(()=>window.__orderReadCalls);await clickModuleLink(page,page.locator('#nav [data-route="cajas"]'));await clickModuleLink(page,page.locator('#nav [data-route="inicio"]'));await page.locator('[data-financial-margin]').scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('[data-financial-margin]').textContent.includes('520/520'));assert.equal(await page.evaluate(()=>window.__orderReadCalls),monthlyReads,'A completed monthly result above 250 orders per shop survives navigation without another native order read');
  const taskWidget=page.locator('[data-home-widget="tasks"]');await taskWidget.getByRole('button',{name:'Día',exact:true}).click();await taskWidget.locator('[data-ht-date]').fill('2026-11-12');await taskWidget.locator('[data-ht-date]').blur();await taskWidget.getByRole('button',{name:'Abrir Tareas',exact:true}).click();await page.locator('.tasks-calendar.week').waitFor();assert.equal(await page.locator('.task-day').count(),7);assert(await page.evaluate(()=>window.__qaTaskCalls.some(a=>a.p_from==='2026-11-09'&&a.p_to==='2026-11-15')),'The calendar opens the selected date in Tasks');
  assert.deepEqual(errors,[],'Sin errores Javascript');
  console.log('HOME WIDGET ACTIONS PASS: tiendas, ventas, 10 pedidos, filtros, paginación, scroll, resize, guardado verificado, pedido detallado, caja y seis tamaños');

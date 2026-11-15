@@ -1,3 +1,4 @@
+import {approximateOrderGain} from './prestashop-margin.js';
 import {esc,money} from './utils.js';
 import {homeMarginTotal} from './home-order-enrichment.js';
 import {sourceCents} from './prestashop-insights.js';
@@ -37,11 +38,12 @@ export function commercialMarginWidget(data,{id,from,to}){
 }
 
 /** Compact companion to the accounting result; no accounting data is rewritten. */
-export function commercialMarginCompact(data,range){
- const pending=Object.entries(data).filter(([,read])=>read?.loading),failures=Object.entries(data).filter(([,read])=>read?.error);
- const activity=pending.map(([shop,read])=>(shop==='hortimatic'?'Hortimatic':shop==='newoldsmok'?'NewOldSmok':shop)+': '+read.progress).join(' · ');
- const s=commercialMarginSummary(data,range),rows=Object.values(data).flatMap(r=>r?.rows||[]).filter(r=>String(r.valid)==='1'&&r.currency_code==='EUR'&&Number.isFinite(r.margin_value));
- const revenue=rows.every(r=>Number.isFinite(r.margin_revenue))?rows.reduce((n,r)=>n+r.margin_revenue,0):null;
- const percent=s.complete&&revenue>0?s.amount/revenue*100:null;
- return '<section class="home-financial-margin" aria-label="Margen comercial del periodo" aria-busy="'+!!pending.length+'"><span class="home-financial-margin-title">Margen de las ventas</span><b>'+esc(s.complete?money(s.amount):s.covered?money(s.amount)+' · parcial':pending.length?'Calculando margen…':failures.length?'No se pudo completar la consulta':'Pendiente de consulta')+(percent===null?'':' · '+esc(percent.toLocaleString('es-ES',{maximumFractionDigits:1}))+' %')+'</b><small>'+esc(range.from)+' — '+esc(range.to)+' · '+s.covered+'/'+s.count+' pedidos con coste</small>'+(activity?'<small role="status">'+esc(activity)+'</small>':'')+failures.map(([shop,read])=>'<small role="status">'+esc((shop==='hortimatic'?'Hortimatic':shop==='newoldsmok'?'NewOldSmok':shop)+': '+read.error)+'</small>').join('')+'<small>Venta de productos sin IVA menos su coste de PrestaShop. Porcentaje sobre esa venta. Excluye gastos generales e internos.</small><button type="button" class="btn secondary" data-home-command="financial-margin-refresh" '+(pending.length?'disabled':'')+'>'+(pending.length?'Calculando…':'Actualizar margen')+'</button></section>';
+export function commercialMarginCompact(data,range,settings={}){
+ const vat=settings.purchase_vat_rate??settings.default_sales_vat_rate,re=settings.purchase_re_rate;
+ const estimated=Object.fromEntries(Object.entries(data).map(([shop,read])=>[shop,read?{...read,rows:(read.rows||[]).map(order=>{const gain=approximateOrderGain(order,{rows:read.detailsByOrder?.get(String(order.id))||[],possibly_more:!read.complete},{vat,re});return {...order,margin_value:gain.margin,margin_revenue:gain.revenue};})}:read]));
+ const pending=Object.entries(data).filter(([,read])=>read?.loading),failures=Object.entries(data).filter(([,read])=>read?.error),s=commercialMarginSummary(estimated,range);
+ const measured=Object.values(estimated).flatMap(r=>r?.rows||[]).filter(r=>String(r.valid)==='1'&&r.currency_code==='EUR'&&Number.isFinite(r.margin_value));
+ const revenue=measured.reduce((n,r)=>n+r.margin_revenue,0),percent=s.complete&&revenue>0?s.amount/revenue*100:null;
+ const label=s.complete?money(s.amount):s.covered?money(s.amount)+' · parcial':pending.length?'Calculando…':failures.length?'Consulta fallida':'Pendiente de costes';
+ return '<section class="home-financial-margin kpi" aria-label="Ganancia estimada de las ventas" aria-busy="'+!!pending.length+'"><span class="home-financial-margin-title">GANANCIA ESTIMADA</span><b>'+esc(label)+'</b><small>'+esc(range.from)+' — '+esc(range.to)+(percent===null?'':' · '+esc(percent.toLocaleString('es-ES',{maximumFractionDigits:1}))+' %')+'</small><div class="home-gain-actions"><details><summary aria-label="Ver cálculo de ganancia">ⓘ Cálculo</summary><div role="status">'+esc(s.covered+'/'+s.count+' pedidos con coste. Ingresos cobrados con IVA menos coste neto × (1 + IVA compra '+String(vat??'sin configurar')+' % + RE '+String(re??'sin configurar')+' %). Incluye portes cobrados; no descuenta gastos generales, internos ni coste de transporte. IVA de compra '+(settings.purchase_vat_rate==null?'estimado con el tipo general configurado en Totus.':'configurado.'))+pending.map(([shop,read])=>'<p>'+esc(shop+': '+read.progress)+'</p>').join('')+failures.map(([shop,read])=>'<p>'+esc(shop+': '+read.error)+'</p>').join('')+'</div></details><button type="button" class="btn link" data-home-command="financial-margin-refresh" '+(pending.length?'disabled':'')+'>'+(pending.length?'Calculando…':'Actualizar')+'</button></div></section>';
 }

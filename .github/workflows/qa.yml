@@ -5,6 +5,15 @@ on:
     branches: [totus-central]
   workflow_dispatch:
 jobs:
+  conventional-assistant:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Preserve authenticated expense, receipt and product journeys
+        run: node --test tests/assistant-own-auth.mjs tests/codex-own-auth.mjs tests/assistant-operations.mjs tests/assistant-attachments.mjs tests/assistant-chat.mjs tests/agent-access-qa.mjs tests/stock-workflow-qa.mjs tests/productos-request-qa.mjs tests/productos-write-qa.mjs tests/productos-create-qa.mjs tests/write-safety-qa.mjs tests/stability-gate-qa.mjs
   product-column-pointer:
     runs-on: ubuntu-24.04
     env:
@@ -33,6 +42,7 @@ jobs:
         with:
           node-version: 22
       - run: node tests/stability-gate-qa.mjs
+      - run: node tests/stability-runner-server-qa.mjs
       - run: node tests/service-deployment-guard-qa.mjs
       - run: node tests/profile-directory-qa.mjs
       - run: node tests/product-stock-summary-qa.mjs

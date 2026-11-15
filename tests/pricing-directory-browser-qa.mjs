@@ -5,7 +5,7 @@ const browser=await chromium.launch({headless:true});
 try{
  const page=await browser.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
- const click=async(action,id)=>page.locator(action==='close-modal'?'#modalHost .close-btn':'[data-action="'+action+'"]'+(id?'[data-id="'+id+'"]':'')).first().click();
+ const click=async(action,id)=>{if(action==='providers-manage'&&!await page.locator('.pricing-reference-tools').getAttribute('open'))await page.locator('.pricing-reference-tools>summary').click();return page.locator(action==='close-modal'?'#modalHost .close-btn':'[data-action="'+action+'"]'+(id?'[data-id="'+id+'"]':'')).first().click();};
  const read=table=>page.evaluate(table=>structuredClone(window.__mockDb[table]),table);
  const saved=async message=>{await page.getByText(message,{exact:true}).waitFor();await page.evaluate(()=>document.getElementById('toastHost').replaceChildren());};
  await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});

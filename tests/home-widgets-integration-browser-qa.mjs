@@ -67,7 +67,7 @@ try{
   assert.equal(overflow,false,'La página no desborda a '+width+' px');
   const kpis=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.filter(card=>['home.income','home.expenses','home.result','home.internal'].includes(card.dataset.homeType)).map(card=>{const r=card.getBoundingClientRect();return {top:Math.round(r.top),height:r.height};}));
   for(const top of new Set(kpis.map(card=>card.top))){const row=kpis.filter(card=>card.top===top);assert(Math.max(...row.map(card=>card.height))-Math.min(...row.map(card=>card.height))<2,'Los KPI de una fila mantienen la misma altura a '+width);}
-  const strip=await page.locator('.home-margin-strip').boundingBox(),board=await page.locator('.home-widget-grid').boundingBox();assert(Math.abs(strip.width-board.width)<2,'El margen ocupa una franja completa a '+width);
+  const gain=await page.locator('.home-margin-strip').boundingBox(),peer=await page.locator('[data-home-widget=internal]').boundingBox();assert(Math.abs(gain.height-peer.height)<2,'Ganancia tiene la misma altura de tarjeta que Gastos internos a '+width+' '+JSON.stringify({gain,peer}));assert.equal(await page.locator('.home-financial-kpis>.home-widget-frame').count(),5);
   if(width===390){
    const income=await page.locator('[data-home-widget="income"]').boundingBox(),expense=await page.locator('[data-home-widget="expense"]').boundingBox();
    assert(income&&expense&&Math.abs(income.y-expense.y)<24&&expense.x>income.x,'Stitch: los cuatro KPI usan composición móvil 2×2');
@@ -221,6 +221,10 @@ try{
  await page.waitForFunction(()=>window.__homeStyles.length===0);
  assert.equal(await page.evaluate(()=>window.__homePrefs.revision),3,'Retirar estilo no modifica las preferencias del Inicio');
 
+ // A custom financial position must not pull other cards across intervening widgets.
+ await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('0');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===4);
+ const customOrder=await page.locator('[data-home-widget]').evaluateAll(cards=>cards.map(card=>card.dataset.homeWidget));assert(customOrder.indexOf('income')<customOrder.indexOf('opening')&&customOrder.indexOf('opening')<customOrder.indexOf('expense'),'Grouping equivalent cards cannot override the users saved non-contiguous positions');
+ await page.setViewportSize({width:1440,height:960});await page.locator('[data-home-command="edit"]').click();await selectHomeWidget('income');if(await page.locator('.home-editor-advanced').getAttribute('open')===null)await page.locator('.home-editor-advanced>summary').click();await page.locator('[data-home-config="position"]').selectOption('1');await page.locator('[data-home-config="width"]').selectOption('6');await page.locator('.home-toolbar-actions [data-home-command="save"]').click();await page.waitForFunction(()=>window.__homePrefs.revision===5);const customIncome=await page.locator('[data-home-widget="income"]').boundingBox(),customBoard=await page.locator('.home-widget-grid').boundingBox();assert(customIncome.width>customBoard.width*.45&&customIncome.width<customBoard.width*.55,'A saved six-column financial card retains its own width rather than being forced into the common row');
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{

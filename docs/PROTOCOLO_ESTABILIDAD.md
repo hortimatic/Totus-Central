@@ -23,6 +23,8 @@ Consultar `stability/circuits.json`. Los recorridos afectados se ejecutan antes 
 
 ## Limpieza y publicación
 
+El control `tools/stability-gate.mjs` compara también la matriz con la rama base: rechaza eliminar circuitos, consumidores, pruebas o invariantes existentes. El circuito `conventional-assistant` exige las pruebas del acceso propio, gastos/adjuntos, cotejos y etapas de Productos cuando cambia el puente. CI ejecuta además el trabajo independiente `conventional-assistant`. Una transición futura de un contrato requiere revisar expresamente esta protección y mantener pruebas del recorrido sustituto; nunca quitar la prueba para ocultar una regresión.
+
 Eliminar código muerto solo tras comprobar importaciones, rutas, RPC, consumidores del asistente y recuperación. No borrar migraciones, diarios, documentos originales, referencias únicas de operaciones o ramas con trabajo no integrado. Identificar duplicados por contenido y relación, nunca solo por nombre.
 
 Conservar preferencias y apariencia en las zonas nuevas. No ampliar permisos ni mostrar datos privados por corregir un fallo. Las funciones nuevas deben probar también denegaciones de acceso.

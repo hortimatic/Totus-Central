@@ -304,7 +304,8 @@
         "src/interface-controls.css",
         "index.html",
         "src/account-document-page.js",
-        "src/account-ui.js"
+        "src/account-ui.js",
+        "src/stitch-layout.js"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -324,13 +325,64 @@
         "tests/productos-table-browser-qa.mjs",
         "tests/productos-table-layout-browser-qa.mjs",
         "tests/dashboard-report-browser-qa.mjs",
-        "tests/account-document-page-qa.mjs"
+        "tests/account-document-page-qa.mjs",
+        "tests/pricing-integral-browser-qa.mjs",
+        "tests/pricing-directory-browser-qa.mjs",
+        "tests/layout-audit.mjs"
       ],
       "invariants": [
         "presentation controls never write business records",
         "existing native column preferences retain ownership",
         "task creation retains permissions",
         "document authorship retained"
+      ]
+    },
+    {
+      "id": "conventional-assistant",
+      "paths": [
+        "supabase/functions/totus-assistant",
+        "supabase/review_patches/033_agent_own_operations.sql",
+        "src/agent-identity.js",
+        "supabase/migrations/20261028200500_assistant_own_chat_operations.sql"
+      ],
+      "tests": [
+        "tests/assistant-own-auth.mjs",
+        "tests/codex-own-auth.mjs",
+        "tests/assistant-operations.mjs",
+        "tests/assistant-attachments.mjs",
+        "tests/assistant-chat.mjs",
+        "tests/agent-access-qa.mjs",
+        "tests/stock-workflow-qa.mjs",
+        "tests/productos-request-qa.mjs",
+        "tests/productos-write-qa.mjs",
+        "tests/productos-create-qa.mjs",
+        "tests/write-safety-qa.mjs"
+      ],
+      "invariants": [
+        "own verified active identity only",
+        "normal business RPC and RLS",
+        "expense tax/payment/document states independent",
+        "receipt original coverage and current revision",
+        "product prepare/commit/readback with same request recovery",
+        "no arbitrary SQL or secret exposure"
+      ]
+    },
+    {
+      "id": "stability-tooling",
+      "paths": [
+        "tools/stability-gate.mjs",
+        "tests/local-static-server.mjs",
+        ".github/workflows/qa.yml",
+        "stability/circuits.json"
+      ],
+      "tests": [
+        "tests/stability-gate-qa.mjs",
+        "tests/stability-runner-server-qa.mjs"
+      ],
+      "invariants": [
+        "existing consumers and checks cannot disappear silently",
+        "isolated fixture server starts without hidden environment preparation",
+        "fixture server is closed after success or failure"
       ]
     }
   ]

@@ -4,6 +4,8 @@ Contrato 4. Este documento describe el código del cambio; comprobar su instalac
 
 ## Inicio de cualquier chat
 
+Actualización 15/11/2026: ver [recorridos auditados](RECORRIDOS_ASISTENTE_20261115.md). Los ejemplos del alias genérico se conservan como contrato histórico, pero no acreditan qué cuenta está seleccionada hoy. Usar la cuenta activa vinculada con `private.totus_agent_submit` y exigir su UUID/correo verificados. Nunca asumir que el correo técnico antiguo sigue activo.
+
 1. Leer `docs/INICIO_CHATGPT_ACTUAL.md` de `hortimatic/Totus-Central`, rama `totus-central`. No reconstruir instrucciones buscando conversaciones antiguas.
 2. Descubrir GitHub, Supabase y Microsoft SharePoint/OneDrive personal entre las herramientas realmente conectadas. El proyecto Supabase es `awmojepsasikxocoeqtu`; OneDrive es `Apps/Totus Central`, drive `5F6E3002ABE1051C`. No buscar un sitio empresarial ni crear otra carpeta raíz.
 3. Consultar capacidades, solicitar sesión propia y recoger el resultado en una llamada posterior:

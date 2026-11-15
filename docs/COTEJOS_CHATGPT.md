@@ -1,7 +1,7 @@
 # Recepciones de mercancía · Totus Central
 
 ## Para Diego y su equipo
-1. Entra en https://hortimatic.github.io/Totus-Central/ → PrestaShop → Recepciones y cotejo.
+1. Entra en https://totuscentral.totuscode.com/ → PrestaShop → Recepciones y cotejo.
 2. Pulsa **Nueva recepción**, elige tienda y proveedor. Si falta, **+ Nuevo proveedor** lo crea en la lista común y lo deja seleccionado sin perder los archivos elegidos.
 3. Introduce referencia y fecha. Puedes seleccionar varios documentos en **Proveedor** y varios en **PrestaShop** en esa misma pantalla.
 4. Pulsa **Guardar recepción y documentos**. Si una subida falla, la recepción y los documentos correctos se conservan. Usa **Reintentar archivos pendientes**: no crees otro pedido. La cola vive solo en memoria del navegador; si cierras la pestaña tendrás que seleccionar otra vez los archivos pendientes.
@@ -25,6 +25,8 @@ Se aplica únicamente a la misma tienda, proveedor, nombres, variante y unidad. 
 En el caso del 22/10/2026 se guardaron las dos referencias concretas de pods Pack3 → unidades. La equivalencia 11 mg/10 mg se confirmó solo para ese pedido; no se convirtió en una regla general.
 
 ## Conexiones: comprobar antes de declarar que no se puede
+
+Actualización 15/11/2026: consultar [recorridos del asistente](RECORRIDOS_ASISTENTE_20261115.md). Con cuenta propia, listar primero `ops_stock_receipts` por `operation=read`, seleccionar tienda/referencia y después llamar a `totus_stock_context` con su `p_id` real. `p_id=null` no lista recepciones: devuelve un error. Las llamadas `public.totus_stock_*` descritas a continuación se envían mediante `operation=rpc` del trabajador autenticado; no ejecutar SQL con una identidad humana inventada.
 - **Supabase**: registros, texto extraído y cotejos. **OneDrive**: originales y copias. **GitHub**: código y manuales.
 - El 23/10/2026 se comprobaron los tres complementos habilitados en la cuenta y la lectura de un PDF personal de OneDrive mediante SharePoint. Esto no da a un chat herramientas que no tenga activadas; al iniciar sesión hay que descubrir las herramientas de ese chat.
 - Con Supabase conectado, public.totus_stock_context ya devuelve el texto disponible. Para un documento con extracción completa no hace falta un lector adicional de OneDrive para leer ese texto.

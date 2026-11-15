@@ -1,6 +1,8 @@
 # ChatGPT y Totus Central: conexión de Gastos
 Vigente: 31/10/2026. Este documento sustituye las instrucciones anteriores de esta conexión.
 
+Actualización de acceso 15/11/2026: [RECORRIDOS_ASISTENTE_20261115.md](RECORRIDOS_ASISTENTE_20261115.md). Identificar primero la cuenta ChatGPT activa y vinculada; enviar los trabajos mediante `private.totus_agent_submit('<correo verificado>', '<acción>', <payload>)`. Los ejemplos de alias de este documento no deben usarse para seleccionar una cuenta por suposición. La validación reversible real se ha comprobado con la cuenta activa, sin conservar el gasto ficticio.
+
 ## Al comenzar cualquier chat
 Lee este manual desde la rama vigente de GitHub. Comprueba primero:
 ```sql
