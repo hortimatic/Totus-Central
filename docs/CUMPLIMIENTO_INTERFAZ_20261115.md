@@ -7,7 +7,7 @@ Referencia de partida: producción `733c0d69f8cfe24f4667d8b5130455e03b6ec062`. U
 | Petición | Comprobación concreta |
 |---|---|
 | Una misma herramienta, homogénea y compacta | Cabeceras, pestañas, botones, márgenes y formularios usan la escala de `interface-controls.css` en los veinte módulos. Probar también estilos personales grandes. |
-| Reducir contenedores vacíos | Los indicadores se ajustan a sus textos. Las tarjetas de Inicio no duplican marcos ni títulos aunque el usuario haya guardado otros tamaños. Se conserva la información del trimestre como metadato. |
+| Reducir contenedores vacíos | Los indicadores se ajustan a sus textos. Las tarjetas de Inicio no duplican marcos ni títulos aunque el usuario haya guardado otros tamaños. Se conserva la información del trimestre como metadato. Al eliminar títulos repetidos solo se considera la cabecera inmediata del widget; los nombres de cada caja se conservan después de cualquier redibujado. |
 | Simetría en resúmenes PrestaShop | Filtros y métricas regulares, margen a todo el ancho, filas de productos alineadas y acciones al pie. No se modifica la tienda o el periodo para lograr simetría. |
 | Móvil con tipografía utilizable | Texto, campos y controles se ajustan al ancho; las tablas desplazan sus columnas dentro de su contenedor. No convertir un texto en una letra por línea para hacerlo caber. |
 | Columnas iguales y con guardado | Cabecera, búsqueda, lista y pie de Guardar distribución / Restablecer columnas. El panel completo debe quedar dentro de la ventana y conservar sus manejadores de guardado. |

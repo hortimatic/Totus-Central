@@ -52,6 +52,8 @@ try{
  assert.equal(await page.locator('[data-home-widget="activity"] svg').count(),1,'Mantiene la gráfica y sus funciones');
  assert.equal(await page.locator('.home-margin-strip[data-financial-margin]').count(),1,'El margen tiene una franja propia sin alargar un KPI');
  assert.equal(await page.locator('[data-home-widget="result"] [data-financial-margin]').count(),0,'El resultado contable conserva exclusivamente su contenido');
+ const openingTitles=async()=>page.locator('[data-home-widget="opening"] .opening-card').evaluateAll(cards=>cards.map(card=>card.querySelector('h3')?.textContent?.trim()||''));
+ const initialOpeningTitles=await openingTitles();assert(initialOpeningTitles.length>=3&&initialOpeningTitles.every(Boolean),'Every cash drawer retains its shop and drawer title');
  const cash=await page.locator('[data-home-widget="opening"]').innerText();
  for(const label of ['Vape','Head','NewOldSmok'])assert(cash.includes(label),'Conserva la caja '+label);
  for(const width of [320,390,768,1024,1280,1366,1440,1600,1920,2560]){
@@ -239,6 +241,7 @@ try{
  await columnPanel.getByRole('button',{name:'Guardar distribución',exact:true}).click();await columnPanel.waitFor({state:'detached'});await page.waitForFunction(()=>window.__homePrefs.revision===6);
  await orderCard.locator('[data-home-command="order-columns"]').click();assert.equal(await columnPanel.locator('[data-home-column=employee]').isChecked(),!checked);
  await columnPanel.getByRole('button',{name:'Restablecer columnas',exact:true}).click();await columnPanel.getByRole('button',{name:'Guardar distribución',exact:true}).click();await columnPanel.waitFor({state:'detached'});await page.waitForFunction(()=>window.__homePrefs.revision===7);
+ assert.deepEqual(await openingTitles(),initialOpeningTitles,'Repeated dashboard redraws retain every cash drawer title');
  assert.deepEqual(errors,[],'Sin errores de Javascript');
  console.log('INICIO MODULAR E2E PASS: seis anchos, cajas por tienda, gráfica original, edición, tamaño, duplicación, ocultar/restaurar, guardado simulado y regreso de módulo');
 }finally{
