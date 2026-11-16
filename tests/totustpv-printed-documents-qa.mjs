@@ -18,12 +18,16 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
  const withLogo={...document,merchant_logo_origin:'https://native-fixture.invalid',merchant:{...document.merchant,logo_path:'/img/logo.png'}};
  for(const [origin,path] of [['javascript:alert(1)','/img/logo.png'],['https://fixture.invalid/path','/img/logo.png'],['https://fixture.invalid','/img/../secret.png'],['https://fixture.invalid','/img/logo.svg'],['https://fixture.invalid','/img/logo.png?secret=1']])assert.equal(receiptLogoUrl(origin,path),null);
  assert.doesNotMatch(receiptHtml(withLogo,{showLogo:false}),/tpv-receipt-logo/);
+ const customer={email:'cliente-laboratorio@example.invalid',invoice:{name:'Cliente ficticio',company:'Empresa ficticia',address1:'Calle ficticia 1',postcode:'28001',city:'Madrid',country:'España',phone:'600000000',comment:'Aviso <img src=x onerror=alert(1)>'},delivery:{name:'Destinatario ficticio',address1:'Entrega ficticia 2',city:'Madrid'}};
+ const customerOptions={showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true};
+ assert.doesNotMatch(receiptHtml({...document,customer}),/cliente-laboratorio|Cliente ficticio/,'Customer fields are opt-in');
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
  for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],
   ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false,showOrderReference:false,numberLines:true})],
-  ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})]]){
+  ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})],
+  ['receipt-customer',receiptHtml({...document,customer},customerOptions)],['gift-customer',receiptHtml({...document,customer,kind:'gift'},customerOptions)]]){
   await page.setContent(prepareTpvPrintHtml(html,'TotusTPV · prueba 58 mm'));
   const dimensions=await page.evaluate(()=>window.fitPrint(document));assert.equal(dimensions.paperMm,58);assert.ok(dimensions.heightMm<(kind==='receipt-custom'?400:220));
   assert.equal(await page.locator('script').count(),0,'Document values must remain text, not executable markup');
@@ -36,9 +40,11 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
    assert.match(await page.locator('tbody tr').first().innerText(),/^1\. Café/);
    assert.match(await page.locator('body').innerText(),/Gracias por tu compra/);assert.equal(await page.locator('.tpv-document').evaluate(el=>getComputedStyle(el).fontSize),'16px');}
   else assert.match(await page.locator('body').innerText(),/Bizum/);
+  if(kind==='receipt-customer')assert.match(await page.locator('.tpv-receipt-customer').innerText(),/Cliente ficticio[\s\S]*Empresa ficticia[\s\S]*600000000[\s\S]*cliente-laboratorio[\s\S]*Aviso <img[\s\S]*Destinatario ficticio/);
+  if(kind==='gift-customer')assert.doesNotMatch(await page.locator('body').innerText(),/Cliente ficticio|cliente-laboratorio|600000000/);
   const pdf=await page.pdf({preferCSSPageSize:true,printBackground:true,path:`artifacts/native-lab/${kind}-58mm.pdf`});
   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
   await page.screenshot({path:`artifacts/native-lab/${kind}-58mm.png`,clip:{x:0,y:0,width:220,height:await page.locator('body').evaluate(el=>Math.ceil(el.getBoundingClientRect().height))}});
  }
- console.log('PASS 58 mm paper / 48 mm content: receipt, gift, cash report, configured 16px monospace receipt and loaded logos, escaped values and PDF layout. Browser simulation; logo delivery intercepted; physical printer and drawer not tested.');
+ console.log('PASS 58 mm paper / 48 mm content: receipt, gift, cash report, configured 16px monospace receipt, loaded logos, optional customer fields, gift privacy, escaped values and PDF layout. Browser simulation; logo delivery intercepted; physical printer and drawer not tested.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

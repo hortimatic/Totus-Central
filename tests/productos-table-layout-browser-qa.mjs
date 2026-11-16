@@ -33,7 +33,11 @@ try{for(const width of [390,680,969,1280,1920,2560]){
  // The asynchronous account-save status can wrap and move the entire table.
  // Finish that visible transition before measuring a physical pointer target.
  await page.waitForFunction(()=>document.querySelector('[data-pr-layout-status]')?.textContent==='Guardado automáticamente en tu cuenta.');
- await handle.scrollIntoViewIfNeeded();await handle.hover();const rect=await handle.boundingBox();
+ await handle.scrollIntoViewIfNeeded();
+ // Nearest scrolling can leave a fractional-pixel strip below the viewport
+ // on Linux. Center through the browser's real scroll API before a real drag.
+ await handle.evaluate(node=>node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
+ await handle.hover();const rect=await handle.boundingBox();
  if(!rect||rect.y<0||rect.y+rect.height>900){await page.screenshot({path:'qa-artifacts/resize-failure-'+width+'.png'});console.error('RESIZE VISIBILITY DIAGNOSTIC',JSON.stringify({width,rect}));}
  assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle at '+width);
  await page.evaluate(()=>{window.resizeEvents=[];document.addEventListener('pointerdown',event=>resizeEvents.push({type:event.type,button:event.button,target:event.target.outerHTML.slice(0,500),x:event.clientX,y:event.clientY}),true);});

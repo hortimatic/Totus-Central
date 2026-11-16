@@ -2,6 +2,13 @@ import {receiptOptions,receiptLogoUrl} from './receipt-options.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
+function customerHtml(customer,o){if(!o.showCustomer||!customer?.invoice)return '';
+ const address=a=>[a.address1,a.address2,[a.postcode,a.city].filter(Boolean).join(' '),a.country].filter(Boolean).map(esc).join(' · '),invoice=customer.invoice;
+ return `<section class="tpv-receipt-customer" aria-label="Cliente"><strong>Cliente</strong><div>${esc(invoice.name)}</div>
+  ${o.showCustomerCompany&&invoice.company?`<div>${esc(invoice.company)}</div>`:''}<p>${address(invoice)}</p>
+  ${o.showCustomerPhone&&invoice.phone?`<div>Tel. ${esc(invoice.phone)}</div>`:''}${o.showCustomerEmail&&customer.email?`<div>${esc(customer.email)}</div>`:''}
+  ${o.showAddressComment&&invoice.comment?`<p style="white-space:pre-wrap">${esc(invoice.comment)}</p>`:''}
+  ${o.showDeliveryAddress&&customer.delivery?`<strong>Entrega</strong><div>${esc(customer.delivery.name)}</div><p>${address(customer.delivery)}</p>`:''}</section>`;}
 export function receiptHtml(document,options,{preview=false}={}){
  if(!preview&&!document?.existing_document||!['receipt','gift'].includes(document?.kind)||document.currency!=='EUR'||!Array.isArray(document.lines))throw Error('Documento no válido.');
  const gift=document.kind==='gift',merchant=document.merchant,o=receiptOptions(options),logo=receiptLogoUrl(document.merchant_logo_origin,merchant.logo_path);
@@ -9,6 +16,7 @@ export function receiptHtml(document,options,{preview=false}={}){
  return `<article class="tpv-document" aria-label="Documento de venta" style="font-family:${o.fontFamily==='monospace'?'monospace':'Arial,sans-serif'};font-size:${o.fontSize}px"><header>${o.showLogo?logo?`<img class="tpv-receipt-logo" src="${esc(logo)}" alt="${esc(merchant.name)}" referrerpolicy="no-referrer" style="display:block;max-width:100%;max-height:70px;object-fit:contain;margin:0 auto 8px">`:preview?'<div class="tpv-sample-logo" aria-label="Ejemplo de logo">LOGO</div>':'':''}<h3>${gift?'Ticket regalo':esc(o.title)}</h3><strong>${esc(merchant.name)}</strong>
   <p>${[...(o.showAddress?[merchant.address,merchant.address2,merchant.postcode,merchant.city]:[]),merchant.registration,o.showPhone?merchant.phone:''].filter(Boolean).map(esc).join(' · ')}</p>
   <small>${preview?'Vista previa · datos de ejemplo':'Preproducción · documento de pruebas'}</small></header><p>${preview?('Ejemplo de ticket'+(o.showOrderReference?' · REF-EJEMPLO':'')):`Pedido #${esc(document.order_id)}${o.showOrderReference?` · ${esc(document.reference)}`:''}`}${o.showDate?`<br>${esc(date)}`:''}</p>
+  ${gift?'':customerHtml(document.customer,o)}
   <table><thead><tr><th>Artículo</th><th>Ud.</th>${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${document.lines.map((line,index)=>`<tr><td>${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}</td><td>${esc(line.quantity)}</td>${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>`).join('')}</tbody></table>
   ${gift?'':`<dl>${o.showDiscounts&&document.discount_cents?`<div><dt>Descuentos de ticket</dt><dd>−${money(document.discount_cents)}</dd></div>`:''}<div><dt>Total</dt><dd><strong>${money(document.total_cents)}</strong></dd></div>
    ${o.showPayments?Object.entries(document.payments).map(([method,cents])=>`<div><dt>${esc(paymentLabel(method))}</dt><dd>${money(cents)}</dd></div>`).join(''):''}</dl>${preview?'':'<small>La factura nativa está disponible en Documentos de este pedido.</small>'}`}
@@ -17,6 +25,7 @@ export function receiptHtml(document,options,{preview=false}={}){
 }
 export function receiptPreviewHtml(options){return receiptHtml({kind:'receipt',currency:'EUR',created_at:'2026-11-16 12:30:00',
  merchant:{name:'Tu establecimiento',address:'Dirección del establecimiento',city:'Localidad',phone:'Teléfono',registration:'Datos fiscales'},
+ customer:{email:'cliente@ejemplo.invalid',invoice:{name:'Cliente de ejemplo',company:'Empresa de ejemplo',address1:'Dirección del cliente',postcode:'00000',city:'Localidad',country:'País',phone:'Teléfono del cliente',comment:'Comentario de ejemplo'},delivery:{name:'Destinatario de ejemplo',address1:'Dirección de entrega',postcode:'00000',city:'Localidad',country:'País'}},
  lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:2,line_cents:1000}],payments:{cash:900},total_cents:900,discount_cents:100},options,{preview:true});}
 export async function downloadNativePdf(document){
  if(document?.mime!=='application/pdf'||!document.existing_document||!/^totus-(invoice|delivery|credit-note)-[1-9][0-9]*\.pdf$/.test(document.filename||'')||

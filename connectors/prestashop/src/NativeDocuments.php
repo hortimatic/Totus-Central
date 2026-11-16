@@ -7,6 +7,27 @@ final class NativeDocuments
 {
     public static function merchantLogoPath($filename): ?string
     {return is_string($filename)&&preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/iD',$filename)===1?'/img/'.$filename:null;}
+    public static function customerForOrder(\Order $order,int $counterCustomer): ?array
+    {
+        Protocol::ensure(\Validate::isLoadedObject($order),'DOCUMENT_ORDER_INVALID');
+        if((int)$order->id_customer===$counterCustomer)return null;
+        $customer=new \Customer((int)$order->id_customer);
+        if(!\Validate::isLoadedObject($customer))return null;
+        $addresses=[];
+        foreach(['invoice'=>'id_address_invoice','delivery'=>'id_address_delivery'] as $kind=>$field){
+            $address=new \Address((int)$order->$field);
+            if(!\Validate::isLoadedObject($address)||(int)$address->id_customer!==(int)$customer->id)return null;
+            $country=new \Country((int)$address->id_country,(int)$order->id_lang);
+            $addresses[$kind]=['name'=>trim($address->firstname.' '.$address->lastname),'company'=>(string)$address->company,
+                'address1'=>(string)$address->address1,'address2'=>(string)$address->address2,'postcode'=>(string)$address->postcode,
+                'city'=>(string)$address->city,'country'=>\Validate::isLoadedObject($country)?(string)$country->name:'',
+                'phone'=>implode(' / ',array_unique(array_filter([(string)$address->phone,(string)$address->phone_mobile]))),
+                'comment'=>(string)$address->other];
+        }
+        // Explicit printable fields only: never serialize the Customer object,
+        // authentication fields, security keys or unrelated addresses.
+        return ['email'=>(string)$customer->email]+$addresses;
+    }
     public static function read($module,array $profile,array $query,int $account): array
     {
         $id=$query['operation_id']??'';$actor=$query['actor_id']??'';$kind=$query['kind']??'receipt';
@@ -44,6 +65,7 @@ final class NativeDocuments
                 'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl'])])];
         return ['kind'=>$kind,'order_id'=>(int)$order->id,'reference'=>(string)$order->reference,'created_at'=>(string)$order->date_add,
             'merchant'=>$merchant+['logo_path'=>self::merchantLogoPath(\Configuration::get('PS_SHOP_LOGO',null,null,(int)$order->id_shop))],
+            ...($kind==='gift'?[]:['customer'=>self::customerForOrder($order,(int)($profile['counter_customer_id']??0))]),
             'currency'=>(new \Currency((int)$order->id_currency))->iso_code,'lines'=>$lines,
             ...($kind==='gift'?[]:['total_cents'=>(int)$sale['total_cents'],'discount_cents'=>(int)round(100*(float)$order->total_discounts_tax_incl),
                 'payments'=>$sale['payments'],'payment_intent'=>$sale['payment_intent']]),
