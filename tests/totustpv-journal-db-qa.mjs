@@ -337,6 +337,12 @@ try {
  await denied(()=>prefs(qaScope,{display:{showPrices:'false'}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:{canChangeTax:true}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:null}),/INVALID/);
+ check((await prefs(qaScope,{receipt:{title:'Mi justificante',footer:'Gracias\nHasta pronto',fontSize:14,fontFamily:'monospace',showReferences:false}})).receipt.fontSize,14);
+ check((await prefs(qaScope,{viewMode:'grid'})).receipt.footer,'Gracias\nHasta pronto');
+ check((await prefs(qaScope,{receipt:{showDate:false}})).receipt.title,'Mi justificante');
+ check((await prefs()).receipt.showReferences,false);
+ for(const receipt of [null,{unknown:true},{fontSize:'12'},{fontSize:12.5},{fontSize:17},{showDate:'false'},{title:''},{title:'x'.repeat(81)},
+  {footer:'x'.repeat(501)},{fontFamily:'url(evil)'},{dateFormat:'injected'},{title:'Header\nInjected'}])await denied(()=>prefs(qaScope,{receipt}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','name']}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['photo']}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','secret']}),/INVALID/);

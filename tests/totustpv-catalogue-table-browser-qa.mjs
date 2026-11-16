@@ -12,7 +12,11 @@ try{
   window.tableFixture={prefs:{viewMode:'table',initialCategoryId:0,columns:['photo','name','reference','stock','price']},queries:[],writes:[]};
   const items=Array.from({length:50},(_,n)=>({id:(n+1)+':0',nativeProductId:n+1,name:'Artículo '+String(n+1).padStart(2,'0'),reference:'REF'+(n+1),stock:50-n,priceCents:(n+1)*100}));
   const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',connectionId:'connection',shopId:1}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
-   selectSession:async()=>{},categories:async()=>[],searchProducts:async q=>{tableFixture.queries.push(q);
+   selectSession:async()=>{},categories:async()=>[],history:async()=>[{id:'sale-fixture',status:'confirmed',reference:'Pedido de ejemplo',totalCents:150}],
+   document:async({kind})=>({kind,existing_document:true,currency:'EUR',order_id:1,reference:'EJEMPLO',created_at:'2026-11-16 12:00:00',
+    merchant:{name:'Tienda ficticia',address:'Dirección oculta de ejemplo',registration:'Datos fiscales',phone:'Teléfono de ejemplo'},
+    lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:1,line_cents:150}],payments:{cash:150},total_cents:150,discount_cents:0}),
+   searchProducts:async q=>{tableFixture.queries.push(q);
     if(q.sortField==='price'&&tableFixture.priceBuilds>0){tableFixture.priceBuilds--;const result=[];Object.defineProperty(result,'building',{value:{done:50-tableFixture.priceBuilds*10,total:50}});return result;}
     const key={name:'name',stock:'stock',price:'priceCents',reference:'reference',id:'nativeProductId'}[q.sortField]||'name';
     const ordered=[...items].sort((a,b)=>(typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key]),'es',{numeric:true}))*(q.sortDirection==='desc'?-1:1));
@@ -74,11 +78,37 @@ try{
  for(const label of ['Mostrar precios en las tarjetas de artículos','Mostrar existencias en las tarjetas de artículos','Mostrar referencias en las tarjetas de artículos'])await page.getByLabel(label,{exact:true}).uncheck();
  await page.getByLabel('Mostrar primero el último artículo añadido al ticket',{exact:true}).check();
  await page.locator('[data-tpv-form=preferences] select[name=viewMode]').selectOption('grid');
+ await page.locator('[name=receipt-title]').fill('Mi compra');
+ await page.locator('[name=receipt-footer]').fill('Gracias por tu visita\n<img src=x onerror=alert(1)>');
+ await page.locator('[name=receipt-fontFamily]').selectOption('monospace');
+ await page.locator('[name=receipt-fontSize]').selectOption('16');
+ await page.locator('[name=receipt-showAddress]').uncheck();
+ assert.equal(await page.locator('[data-tpv-receipt-preview] h3').innerText(),'Mi compra','The paper preview follows current unsaved settings');
+ assert.equal(await page.locator('[data-tpv-receipt-preview] img, [data-tpv-receipt-preview] script').count(),0,'Footer text never becomes executable markup');
+ assert.equal(await page.locator('[data-tpv-receipt-preview] button').count(),0,'An example is never offered as an existing printable order');
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();
  await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>tableFixture.workspace.hasDraft()),false,'Saved display settings are not an unsaved sale');
  await page.evaluate(()=>tableFixture.workspace.mount(document.querySelector('#tpv')));
  await page.locator('[data-tpv-add="1:0"]').waitFor();
+ await page.locator('.tpv-actions>summary').click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ assert.equal(await page.locator('[name=receipt-fontSize]').inputValue(),'16','Receipt settings survive a fresh entry');
+ assert.equal(await page.locator('[name=receipt-showAddress]').isChecked(),false);
+ for(const width of [1440,768,390]){await page.setViewportSize({width,height:950});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'Settings fit every viewport');
+  if(width>=1000){const control=await page.locator('[name=viewMode]').boundingBox(),preview=await page.locator('.tpv-receipt-preview').boundingBox();
+   assert.ok(control.y>=0&&control.y+control.height<950,'The first controls must be visible beside the preview, not pushed below it');
+   assert.ok(preview.x>control.x+control.width,'Paper preview sits beside its controls on desktop');}
+  await page.screenshot({path:`artifacts/totustpv-table/settings-${width}.png`,fullPage:true});}
+ await page.setViewportSize({width:1440,height:950});await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
+ await page.locator('.tpv-document-actions>summary').click();await page.getByRole('button',{name:'Ticket',exact:true}).click();
+ await page.locator('.tpv-document h3').waitFor();
+ assert.equal(await page.locator('.tpv-document h3').innerText(),'Mi compra','A retrieved sale uses the saved receipt style');
+ assert.equal(await page.locator('.tpv-document').evaluate(el=>getComputedStyle(el).fontSize),'16px');
+ assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/Dirección oculta/);
+ assert.equal(await page.locator('.tpv-document img,.tpv-document script').count(),0);
+ await page.getByRole('button',{name:'Cerrar documento',exact:true}).click();
+ await page.getByRole('button',{name:'Venta',exact:true}).click();
  assert.equal(await page.locator('.tpv-product>b').count(),0,'Hidden product-card prices persist after entry');
  assert.equal(await page.locator('.tpv-product small').first().innerText(),'','Hidden references and stock persist');
  await page.locator('[data-tpv-add="1:0"]').click();await page.locator('[data-tpv-add="2:0"]').click();

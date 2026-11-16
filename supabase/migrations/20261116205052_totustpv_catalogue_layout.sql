@@ -4,11 +4,13 @@ alter table private.totus_tpv_workspace_preferences add constraint totus_tpv_wor
 alter table private.totus_tpv_workspace_preferences
  add column catalogue_columns jsonb not null default '["photo","name","reference","stock","price"]',
  add column display_options jsonb not null default '{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}',
+ add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
  add column sort_field text not null default 'name' check(sort_field in ('name','reference','stock','id','cost','manufacturer','supplier','price')),
  add column sort_direction text not null default 'asc' check(sort_direction in ('asc','desc'));
 create or replace function public.totus_tpv_workspace_preferences(p_connection uuid,p_shop bigint,p_drawer uuid,p_preferences jsonb default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); ctx jsonb; saved private.totus_tpv_workspace_preferences;
+ receipt_defaults constant jsonb:='{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}';
 begin
  if actor is null then raise exception 'TPV_AUTH_REQUIRED';end if;
  ctx:=public.totus_tpv_context();
@@ -23,7 +25,7 @@ begin
   if exists(select 1 from jsonb_each(p_preferences) e where e.key in ('viewMode','sortField','sortDirection') and jsonb_typeof(e.value) is distinct from 'string'
    or e.key='initialCategoryId' and jsonb_typeof(e.value) not in ('number','string')) then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
   if jsonb_typeof(p_preferences) is distinct from 'object' or length(p_preferences::text)>4000
-   or p_preferences-array['viewMode','initialCategoryId','columns','sortField','sortDirection','display']<>'{}'::jsonb
+   or p_preferences-array['viewMode','initialCategoryId','columns','sortField','sortDirection','display','receipt']<>'{}'::jsonb
    or coalesce(p_preferences->>'viewMode',saved.view_mode,'grid') not in ('grid','compact','list','table')
    or coalesce(p_preferences->>'initialCategoryId',saved.initial_category_id::text,'0') !~ '^(0|[1-9][0-9]{0,9})$'
    or coalesce(p_preferences->>'initialCategoryId',saved.initial_category_id::text,'0')::bigint>2147483647
@@ -44,22 +46,37 @@ begin
     or exists(select 1 from jsonb_each(p_preferences->'display') e where jsonb_typeof(e.value) is distinct from 'boolean')
     then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
   end if;
-  insert into private.totus_tpv_workspace_preferences(actor_id,connection_id,shop_id,drawer_id,view_mode,initial_category_id,catalogue_columns,sort_field,sort_direction,display_options)
+  if p_preferences?'receipt' then
+   if jsonb_typeof(p_preferences->'receipt') is distinct from 'object' then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
+   if (p_preferences->'receipt')-array['title','footer','fontFamily','fontSize','dateFormat','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate']<>'{}'::jsonb
+    or exists(select 1 from jsonb_each(p_preferences->'receipt') e where
+      e.key in ('showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate') and jsonb_typeof(e.value) is distinct from 'boolean'
+      or e.key in ('title','footer','fontFamily','dateFormat') and jsonb_typeof(e.value) is distinct from 'string'
+      or e.key='fontSize' and (jsonb_typeof(e.value) is distinct from 'number' or e.value::text !~ '^(1[0-6])$'))
+    or (p_preferences->'receipt'?'title' and (length(btrim(p_preferences->'receipt'->>'title')) not between 1 and 80 or p_preferences->'receipt'->>'title' ~ '[[:cntrl:]]'))
+    or (p_preferences->'receipt'?'footer' and (length(p_preferences->'receipt'->>'footer')>500 or translate(p_preferences->'receipt'->>'footer',E'\n\r\t','') ~ '[[:cntrl:]]'))
+    or (p_preferences->'receipt'?'fontFamily' and p_preferences->'receipt'->>'fontFamily' not in ('arial','monospace'))
+    or (p_preferences->'receipt'?'dateFormat' and p_preferences->'receipt'->>'dateFormat' not in ('native','short','long'))
+    then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
+  end if;
+  insert into private.totus_tpv_workspace_preferences(actor_id,connection_id,shop_id,drawer_id,view_mode,initial_category_id,catalogue_columns,sort_field,sort_direction,display_options,receipt_options)
    values(actor,p_connection,p_shop,p_drawer,coalesce(p_preferences->>'viewMode',saved.view_mode,'grid'),
     coalesce(p_preferences->>'initialCategoryId',saved.initial_category_id::text,'0')::bigint,
     coalesce(p_preferences->'columns',saved.catalogue_columns,'["photo","name","reference","stock","price"]'),
     coalesce(p_preferences->>'sortField',saved.sort_field,'name'),coalesce(p_preferences->>'sortDirection',saved.sort_direction,'asc'),
-    coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}')||coalesce(p_preferences->'display','{}'))
+    coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}')||coalesce(p_preferences->'display','{}'),
+    coalesce(saved.receipt_options,receipt_defaults)||coalesce(p_preferences->'receipt','{}'))
    on conflict(actor_id,connection_id,shop_id,drawer_id) do update set view_mode=excluded.view_mode,
     initial_category_id=excluded.initial_category_id,catalogue_columns=excluded.catalogue_columns,
-    sort_field=excluded.sort_field,sort_direction=excluded.sort_direction,display_options=excluded.display_options,updated_at=clock_timestamp();
+    sort_field=excluded.sort_field,sort_direction=excluded.sort_direction,display_options=excluded.display_options,receipt_options=excluded.receipt_options,updated_at=clock_timestamp();
   select * into saved from private.totus_tpv_workspace_preferences
    where actor_id=actor and connection_id=p_connection and shop_id=p_shop and drawer_id=p_drawer;
  end if;
  return jsonb_build_object('viewMode',coalesce(saved.view_mode,'grid'),'initialCategoryId',coalesce(saved.initial_category_id,0),
   'columns',coalesce(saved.catalogue_columns,'["photo","name","reference","stock","price"]'),
   'sortField',coalesce(saved.sort_field,'name'),'sortDirection',coalesce(saved.sort_direction,'asc'),
-  'display',coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}'));
+  'display',coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}'),
+  'receipt',coalesce(saved.receipt_options,receipt_defaults));
 end $$;
 revoke all on function public.totus_tpv_workspace_preferences(uuid,bigint,uuid,jsonb) from public,anon;
 grant execute on function public.totus_tpv_workspace_preferences(uuid,bigint,uuid,jsonb) to authenticated;

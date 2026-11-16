@@ -8,7 +8,7 @@ Conector QA propio 0.1.9 y servicio autenticado `totus-tpv` v6 activos. La relec
 
 El PR 212 se ha integrado en `7796c354971b47398cb54a28c8c8ad72201c0e7f` tras todos sus controles. Incluye acceso automático al puesto, entrada comprensible, fotos, categorías, vistas y preferencias de mostrador. La comprobación del commit servido y de la interfaz en la sesión remota confirmó esa base. La interfaz de lotes pertenece a la ampliación siguiente y todavía no está publicada.
 
-Prueba remota de esta fecha: pedidos 46544–46548 con cinco formas/repartos de pago, seis abonos por 10,50 € y siete unidades repuestas. Stock final del artículo QA: 14 unidades. El pedido 46549 no pertenece a esas pruebas y no se modifica. La caja compartida sigue abierta. El primer intento incierto conserva su incidencia y no se reenvía.
+Prueba remota de esta fecha: pedidos 46544–46548 con cinco formas/repartos de pago, seis abonos por 10,50 € y siete unidades repuestas. Stock final del artículo QA: 14 unidades. El pedido 46549 no pertenece a esas pruebas y no se modifica. La caja compartida sigue abierta. El primer intento incierto se ha cerrado desde la sesión normal publicada a las 23:11 CET, sin reenviarlo. La relectura SQL confirmó estado `cancelled`, pedido nulo, revisor y fecha conservados, ejecución finalizada, cero pedidos observados, efecto nativo falso y revisión de cobro `not-collected`. El motivo identifica el efectivo como simulación QA; no se hizo reintegro real ni se borró el intento.
 
 Prueba aislada de lotes: 202 aserciones SQL y navegador en 1440/768/390, con escaneos rápidos repetidos y recuperación parcial sin segundo envío. Todavía no hay entrada de lote verificada contra la tienda remota. Véase [circuito de mercancía](TOTUSTPV_ENTRADAS_MERCANCIA_20261116.md).
 

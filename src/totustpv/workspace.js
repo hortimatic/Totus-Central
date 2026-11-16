@@ -1,6 +1,7 @@
 import {createTpvPracticeAdapter} from './practice-adapter.js';
 import {cashTenderPreview} from './model.js';
-import {receiptHtml as nativeReceiptHtml,downloadNativePdf,printReceipt} from './documents.js';
+import {receiptHtml as nativeReceiptHtml,receiptPreviewHtml,downloadNativePdf,printReceipt} from './documents.js';
+import {receiptOptions,receiptOptionsHtml,receiptOptionsFromForm} from './receipt-options.js';
 import {createTpvCustomerPanel} from './customers.js';
 import {createCashReportsPanel} from './cash-reports.js';
 import {createStockIntake} from './stock-intake.js';
@@ -26,6 +27,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  let scanQueue=[],scanning=false,mobilePane='catalogue';
  let catalogueSort={field:'name',direction:'asc'},catalogueRefreshTimer=null;
  let displayOptions=displayPreferences(),audioFeedback=null;
+ let receiptStyle=receiptOptions();
  let host=null,adapter=null,context=null,session=null,products=[],lines=[],search='',tab='sale',notice='',failure='',
   busy=false,payment=null,receipt=null,history=[],summary=null,generation=0,searchTimer=null,abort=null,
   returnForm=null,paymentValues={},formValues={},formDirty=false,selectedStore='',selectedDrawer='',searchRevision=0,setup=null,
@@ -73,14 +75,17 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    <nav class="module-tabs tpv-main-nav" aria-label="TotusTPV"><button type="button" class="tab ${tab==='sale'?'active':''}" data-tpv-action="sale">Venta</button>
    <button type="button" class="tab ${tab==='history'?'active':''}" data-tpv-action="history">${wording('Tickets de práctica','Pedidos y devoluciones')}</button>
    <button type="button" class="tab ${tab==='session'?'active':''}" data-tpv-action="session">Caja</button><details class="tpv-actions"><summary>Más acciones</summary><div>${live()?`${button('reports','Informes de caja')}${button('drafts','Tickets aparcados')}${canStock()?button('stock','Entrada de stock'):''}${button('settings','Configuración')}`:''}${button('exit','Salir del puesto')}</div></details></nav><div class="tpv-workarea">${status}
-   ${documentPreview?nativeReceiptHtml(documentPreview):''}${live()?customers.html()+reports.html():''}<div data-tpv-body>${tab==='settings'?settingsHtml():tab==='configuration'&&configuration?`<section class="card card-pad"><h3>Configuración de TotusTPV</h3>${configurationHtml()}</section>`:reports.isOpen()?'':!session?openingHtml():tab==='history'?historyHtml():tab==='session'?sessionHtml():tab==='drafts'?draftsHtml():tab==='stock'?stockHtml():receipt?receiptHtml():saleHtml()}</div></div>`;
+   ${documentPreview?nativeReceiptHtml(documentPreview,receiptStyle):''}${live()?customers.html()+reports.html():''}<div data-tpv-body>${tab==='settings'?settingsHtml():tab==='configuration'&&configuration?`<section class="card card-pad"><h3>Configuración de TotusTPV</h3>${configurationHtml()}</section>`:reports.isOpen()?'':!session?openingHtml():tab==='history'?historyHtml():tab==='session'?sessionHtml():tab==='drafts'?draftsHtml():tab==='stock'?stockHtml():receipt?receiptHtml():saleHtml()}</div></div>`;
   host.querySelectorAll('label').forEach(el=>el.classList.add('field'));
   reflectPaymentMethod();
   host.querySelectorAll('button,select,input').forEach(el=>{if(busy&&!(scanning&&el.matches('[data-tpv-search]')))el.disabled=true;});
   if(scanInputState){const next=host.querySelector('[data-tpv-search]');if(next){next.value=scanInputState.value;if(scanInputState.focused){next.focus();next.setSelectionRange(scanInputState.start,scanInputState.end);}}}
   catalogueTable.mount(host);
  }
- function settingsHtml(){return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===catalogueView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===initialCategoryId?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,formValues.preferences[key]==='on'])):displayOptions)}</fieldset><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p><button class="btn primary" type="submit">Guardar mostrador</button></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
+ function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,formValues.preferences[key]==='on'])):displayOptions)}</fieldset>${receiptOptionsHtml(receiptSettingsDraft())}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p><button class="btn primary" type="submit">Guardar mostrador</button></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
+ function receiptSettingsDraft(){return formValues.preferences?receiptOptionsFromForm(new Map(Object.entries(formValues.preferences))):receiptStyle;}
+ function updateReceiptPreview(target){if(!target.name?.startsWith('receipt-'))return;
+  const preview=host?.querySelector('[data-tpv-receipt-preview]');if(preview)preview.innerHTML=receiptPreviewHtml(receiptOptionsFromForm(new FormData(target.form)));}
  function configurationHtml(){const c=configuration,store=formValues.configure?.store||c.stores[0]?.id,
   drawers=c.drawers.filter(row=>row.store_id===store);
   return `<form data-tpv-form="configure" class="tpv-configuration"><h4>Asignar un puesto de preproducción</h4><p>${esc(c.origin)} · conexión verificada, revisión ${c.revision}. Selecciona establecimientos y usuarios ya registrados en Central.</p>
@@ -257,7 +262,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(target.dataset.tpvDocument&&live())return work(async()=>{const doc=await adapter.document({saleId:target.dataset.saleId,kind:target.dataset.tpvDocument,refundId:target.dataset.refundId});
    if(doc.mime==='application/pdf'){await downloadNativePdf(doc);notice='Documento nativo descargado.';}else documentPreview=doc;});
   if(action==='close-document'){documentPreview=null;render();return;}
-  if(action==='print-document'&&documentPreview){printReceipt(documentPreview);return;}
+  if(action==='print-document'&&documentPreview){printReceipt(documentPreview,receiptStyle);return;}
   if(action==='assign'&&canAssign()&&readConfiguration)return work(async()=>{
    if(lines.length||payment||returnForm||customers.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
    configuration=await readConfiguration();configurationId=crypto.randomUUID();if(adapter&&context)tab='configuration';});
@@ -336,6 +341,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer));
   const saved=workspacePreferences&&drawer?await workspacePreferences(drawer):null;
   displayOptions=displayPreferences(saved?.display);
+  receiptStyle=receiptOptions(saved?.receipt);
   catalogueView=['grid','compact','list','table'].includes(saved?.viewMode)?saved.viewMode:'grid';
   catalogueTable.setColumns(saved?.columns);
   catalogueSort={field:['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(saved?.sortField)?saved.sortField:'name',direction:saved?.sortDirection==='desc'?'desc':'asc'};
@@ -376,7 +382,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     if(!['grid','compact','list','table'].includes(viewMode)||initial!==0&&!categories.some(c=>c.id===initial))throw Error('Selecciona una categoría disponible.');
     const drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer));
     const display=Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,fields.get(key)==='on']));
-    await workspacePreferences(drawer,{viewMode,initialCategoryId:initial,display});displayOptions=display;catalogueView=viewMode;initialCategoryId=initial;notice='Mostrador guardado en tu cuenta.';
+    const receipt=receiptOptionsFromForm(fields);
+    await workspacePreferences(drawer,{viewMode,initialCategoryId:initial,display,receipt});receiptStyle=receipt;displayOptions=display;catalogueView=viewMode;initialCategoryId=initial;notice='Mostrador guardado en tu cuenta.';
    }else if(kind==='configure'){
     if(!canAssign()||!configureWorkstation||!configuration||fields.get('accepted')!=='on')throw new Error('Revisa la configuración del puesto.');
     const result=await configureWorkstation({action:'configure',operationId:configurationId,revision:configuration.revision,
@@ -432,6 +439,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   }catch(error){output.textContent=error.message||'Revisa los importes del cobro.';output.dataset.state='invalid';confirm.disabled=true;}}
  function change(event){
   if(!host||busy||!allowed()||mountedActor!==identity())return;
+  updateReceiptPreview(event.target);
   if(catalogueTable.change(event.target))return;
   if(stockIntake.input(event.target))return;
   if(event.target.hasAttribute('data-tpv-report-id'))return work(()=>reports.change(event.target));
@@ -453,6 +461,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    else {failure='La cantidad debe ser entera y no superar las existencias disponibles.';event.target.reportValidity();}}
  }
  function input(event){if(!host||busy||!allowed()||mountedActor!==identity())return;
+  updateReceiptPreview(event.target);
   if(catalogueTable.input(event.target))return;
   if(stockIntake.input(event.target))return;
   if(event.target.dataset.tpvQuantity&&!payment&&can('create')){
