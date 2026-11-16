@@ -26,3 +26,13 @@ El plan real empezaba por direcciones y usaba tabla temporal y filesort antes de
 El conector incorpora un hook nativo para la lista sin filtros y orden por ID descendente. Conserva el contador, parámetros, columnas añadidas por otros módulos, límite y desplazamiento. Cualquier filtro real u otra ordenación conserva la consulta anterior. Se reconocen las fechas vacías anidadas que envía el formulario nativo. No modifica núcleo, índices, parámetros globales, estados, stock ni datos históricos. Una meta de diagnóstico del administrador muestra únicamente un código fijo del plan aplicado, sin datos del cliente ni SQL.
 
 La prueba nativa compara todas las filas y campos de tres páginas, indicador de cliente nuevo, parámetros y contador, y verifica que filtros de pago/fecha/cliente nuevo y otras ordenaciones no cambian. También compara una proyección personalizada y los campos de fecha vacíos.
+
+Activación real: versión 0.1.6, SHA256 del paquete `9b465dfe9a0fa9ab5822080439f6c753125b8cf39f7024da686c8f70e14dd19a`. Se reconoció la marca guardada `ajax_filter=1` y la ordenación nativa en minúsculas. La meta del administrador confirmó `recent_orders_and_exists`. El documento pasó a estar disponible en aproximadamente 3,1 segundos frente a la apertura inicial superior a 24 segundos. Búsqueda real del pedido 46542: un resultado; restablecimiento: 46.504 pedidos. No se realizó ninguna escritura de comercio.
+
+## Independencia del ordenador y limpieza
+
+La aplicación se sirve desde Totus Central y su servicio autenticado; el conector reside en la web QA. No utiliza el laboratorio local, puertos localhost, una base de datos de este ordenador ni un servicio de IA para ejecutar ventas. La impresora USB es un periférico del puesto; la apertura directa del cajón sigue pendiente y no se ha instalado un agente local.
+
+Se detuvo la MariaDB desechable verificando la ruta de su ejecutable. Se retiraron 25 ramas remotas con PR fusionado y SHA coincidente y 23 ramas locales equivalentes, excluyendo los árboles de trabajo asociados y cualquier trabajo sin integración demostrada. La primera limpieza atómica se canceló sin borrar nada al detectar una referencia remota ya retirada; se releyeron todas las referencias antes del lote definitivo.
+
+Los binarios, bases ficticias y paquetes generados del laboratorio se retiran del directorio de artefactos. Las pruebas y fuentes permanecen versionadas; las capturas de aceptación se conservan como evidencia, sin ser dependencias de ejecución.

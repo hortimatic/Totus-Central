@@ -14,11 +14,15 @@ final class OrderGridPerformance
             || $criteria->getOrderBy()!=='id_order' || strtoupper((string)$criteria->getOrderWay())!=='DESC'
             || !preg_match('/^[a-zA-Z0-9_]+$/D',$prefix))return false;
         self::$lastStatus='filtered';
-        foreach($criteria->getFilters() as $value)if(!self::emptyFilter($value))return false;
+        foreach($criteria->getFilters() as $name=>$value){
+            // Persisted AJAX navigation marker, not a native order predicate.
+            if($name==='ajax_filter'&&$value==='1')continue;
+            if(!self::emptyFilter($value))return false;
+        }
         self::$lastStatus='changed_grid';
-        $from=$query->getQueryPart('from');
+        $from=$query->getQueryPart('from');$order=$query->getQueryPart('orderBy');
         if(count($from)!==1 || $from[0]['table']!==$prefix.'orders' || $from[0]['alias']!=='o'
-            || $query->getQueryPart('orderBy')!==['o.id_order DESC'])return false;
+            || count($order)!==1 || strtoupper(trim($order[0]))!=='O.ID_ORDER DESC')return false;
         $connection=$query->getConnection();
         $sub=$connection->createQueryBuilder()->select('IF(count(so.id_order) > 0, 0, 1)')->from($prefix.'orders','so')
             ->where('so.id_customer = o.id_customer')->andWhere('so.id_order < o.id_order')->setMaxResults(1)->getSQL();
