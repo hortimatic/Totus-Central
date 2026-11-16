@@ -64,12 +64,13 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
   async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
    need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);forget('submitted-sale',operationId);prepared.delete(operationId);return receipt(result);},
-  async searchProducts({search='',page=0,productId=0,categoryId=0}={}){const data=await call('catalogue',{search,page,productId,categoryId,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+  async searchProducts({search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc'}={}){const data=await call('catalogue',{search,page,productId,categoryId,sortField,sortDirection,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
    need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
+   if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
     stock:row.stock,priceCents:row.preview_cents,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
-    barcode:row.ean,upc:row.upc,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
-   Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page}});return items;},
+    barcode:row.ean,upc:row.upc,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
+   Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined}});return items;},
   async quote({lines,adjustment,coupon}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
    const intent={...cartIntent(lines,adjustment,coupon),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};

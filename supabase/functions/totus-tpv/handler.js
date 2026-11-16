@@ -12,6 +12,12 @@ import {createStockReceiptService} from '../../../src/totustpv/server/stock-rece
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive=value=>Number.isSafeInteger(value)&&value>0;
+export function catalogueForActor(data,canReadCosts){
+ need(Array.isArray(data?.items),'TPV_CATALOGUE_INVALID');
+ const fields=['id','product_id','attribute_id','name','variant_name','reference','ean','upc','choose_variant','minimum_quantity',
+  'stock','unit_tax_incl','unit_tax_excl','preview_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
+ return {...data,items:data.items.map(item=>Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]])))};
+}
 const check=response=>{if(response?.error)throw new Error(/^TPV_[A-Z0-9_]{1,90}$/.test(response.error.message||'')?response.error.message:'TPV_STORAGE_UNAVAILABLE');
  need(response&&Object.hasOwn(response,'data'),'TPV_STORAGE_UNAVAILABLE');return response.data;};
 const headers={'Content-Type':'application/json','Cache-Control':'no-store',
@@ -49,7 +55,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
-    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId'],
+    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
     history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
@@ -230,8 +236,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
     return respond(await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind}));
    }
-   if(input.action==='catalogue')return respond({...await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
-    pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId,categoryId:input.categoryId??0}),image_origin:TOTUS_QA_POLICY.origin});
+   if(input.action==='catalogue'){
+    need(input.sortField!=='cost'||row.canReadCosts===true,'TPV_COST_FORBIDDEN');
+    const data=await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
+     pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId,categoryId:input.categoryId??0,sortField:input.sortField??'name',sortDirection:input.sortDirection??'asc'});
+    return respond({...catalogueForActor(data,row.canReadCosts),image_origin:TOTUS_QA_POLICY.origin});
+   }
    if(['returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action)){
     const refunds=createRefundService({rpc,transport,scope});
     if(input.action==='returnable')return respond(await refunds.returnable(input.saleId));

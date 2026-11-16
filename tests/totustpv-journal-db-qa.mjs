@@ -62,6 +62,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116175354_totustpv_failed_sale_review.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116180903_totustpv_workspace_preferences.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116192744_totustpv_stock_receipts.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116205052_totustpv_catalogue_layout.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -327,6 +328,15 @@ try {
  await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
  check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
  check((await prefs()).viewMode,'list');await denied(()=>prefs({...qaScope,drawerId:id(999)}),/FORBIDDEN/);
+ check((await prefs(qaScope,{columns:['name','photo','stock'],sortField:'stock',sortDirection:'desc'})).sortField,'stock');
+ check((await prefs()).columns,['name','photo','stock']);check((await prefs()).viewMode,'list');
+ check((await prefs(qaScope,{viewMode:'table'})).sortDirection,'desc');
+ await denied(()=>prefs(qaScope,{columns:['name','name']}),/INVALID/);
+ await denied(()=>prefs(qaScope,{columns:['photo']}),/INVALID/);
+ await denied(()=>prefs(qaScope,{columns:['name','secret']}),/INVALID/);
+ await denied(()=>prefs(qaScope,{sortField:'injected;drop'}),/INVALID/);
+ await denied(()=>prefs(qaScope,{sortField:null}),/INVALID/);
+ await denied(()=>prefs(qaScope,{columns:null}),/INVALID/);
  await denied(()=>prefs(qaScope,{viewMode:'bad',initialCategoryId:0}),/INVALID/);
  await db.exec(`set request.jwt.claim.sub='${id(9)}'`);await denied(()=>prefs(),/FORBIDDEN|ACCESS/);
  await db.exec('reset role');

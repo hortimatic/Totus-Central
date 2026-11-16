@@ -16,6 +16,9 @@ final class NativeCatalogue
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
+        $sort=$query['sort_field']??'name';$direction=$query['sort_direction']??'asc';
+        Protocol::ensure(is_string($sort)&&in_array($sort,['name','reference','stock','id','cost','manufacturer','supplier'],true)&&
+            in_array($direction,['asc','desc'],true),'CATALOGUE_SORT_INVALID');
         $search=$query['search']??'';
         Protocol::ensure(is_string($search)&&strlen($search)<=480&&!preg_match('/[\x00-\x1f]/',$search)&&
             mb_check_encoding($search,'UTF-8')&&mb_strlen($search,'UTF-8')<=120,'CATALOGUE_QUERY_INVALID');$search=trim($search);
@@ -35,9 +38,12 @@ final class NativeCatalogue
             $preview=new \Cart();$preview->id_customer=$customerId;$preview->id_currency=(int)$profile['currency_id'];
             $preview->id_address_invoice=(int)$address->id;$preview->id_address_delivery=(int)$address->id;$manager->setCart($preview);
             $parameters=[$shop,$shop,$language];
-            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,ps.cache_default_attribute
+            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,ps.cache_default_attribute,ps.wholesale_price,
+                COALESCE(m.name,\'\') manufacturer_name,COALESCE(supplier.name,\'\') supplier_name
                 FROM `'._DB_PREFIX_.'product` p JOIN `'._DB_PREFIX_.'product_shop` ps ON ps.id_product=p.id_product AND ps.id_shop=?
                 JOIN `'._DB_PREFIX_.'product_lang` pl ON pl.id_product=p.id_product AND pl.id_shop=? AND pl.id_lang=?
+                LEFT JOIN `'._DB_PREFIX_.'manufacturer` m ON m.id_manufacturer=p.id_manufacturer
+                LEFT JOIN `'._DB_PREFIX_.'supplier` supplier ON supplier.id_supplier=p.id_supplier
                 WHERE ps.active=1 AND ps.available_for_order=1 AND ps.advanced_stock_management=0 AND p.is_virtual=0 AND p.cache_is_pack=0';
             if($categoryId>0){
                 $category=$db->prepare('SELECT c.nleft,c.nright FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? WHERE c.id_category=? AND c.active=1');
@@ -60,13 +66,25 @@ final class NativeCatalogue
                     WHERE pa.id_product=p.id_product AND al.name LIKE ? ESCAPE '!'))";
                 array_push($parameters,$needle,$needle,$needle,$needle,$shop,$needle,$needle,$needle,$shop,$language,$needle);
             }
-            $sql.=' ORDER BY pl.name,p.id_product LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
+            $total=0;
+            if($productId===0){$count=$db->prepare('SELECT COUNT(*) FROM ('.$sql.') catalogue_matches');$count->execute($parameters);$total=(int)$count->fetchColumn();}
+            $stockRestriction=\StockAvailable::addSqlShopRestriction(null,$shop,'sa');
+            $stock='COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product=p.id_product AND sa.id_product_attribute=0'.$stockRestriction.'),0)';
+            $orders=['name'=>'TRIM(pl.name)','reference'=>'p.reference','stock'=>$stock,'id'=>'p.id_product',
+                'cost'=>'ps.wholesale_price','manufacturer'=>'COALESCE(m.name,\'\')','supplier'=>'COALESCE(supplier.name,\'\')'];
+            $sql.=' ORDER BY '.$orders[$sort].' '.strtoupper($direction).',p.id_product '.strtoupper($direction).' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
             if($productId>0){
                 Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');$parent=$products[0];
-                $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc FROM `'._DB_PREFIX_.'product_attribute` pa
+                $count=$db->prepare('SELECT COUNT(*) FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=?');
+                $count->execute([$shop,$productId]);$total=(int)$count->fetchColumn();
+                $variantStock='COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product=pa.id_product AND sa.id_product_attribute=pa.id_product_attribute'.$stockRestriction.'),0)';
+                $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute),\'\')';
+                $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute',
+                    'cost'=>'pa.id_product_attribute','manufacturer'=>'pa.id_product_attribute','supplier'=>'pa.id_product_attribute'];
+                $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
                     JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                    WHERE pa.id_product=? ORDER BY pa.id_product_attribute LIMIT '.($size+1).' OFFSET '.($page*$size));
+                    WHERE pa.id_product=? ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).' LIMIT '.($size+1).' OFFSET '.($page*$size));
                 $s->execute([$shop,$productId]);$variants=$s->fetchAll(\PDO::FETCH_ASSOC);$more=count($variants)>$size;
                 foreach(array_slice($variants,0,$size) as $variant)$rows[]=self::item($parent,(int)$variant['id_product_attribute'],false,
                     $variant,$profile,$context,(int)$address->id,$customerId);
@@ -87,8 +105,8 @@ final class NativeCatalogue
                     $rows[]=self::item($product,$attribute,$choose,$variant,$profile,$context,(int)$address->id,$customerId);
                 }
             }
-            return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'currency'=>$context->currency->iso_code,
-                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false];
+            return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
+                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction];
         }finally{$manager->restorePreviousContext();}
     }
     private static function categories(array $profile): array
@@ -111,6 +129,8 @@ final class NativeCatalogue
         else{$native=new \Product($id,false,(int)$profile['language_id'],(int)$profile['shop_id']);$minimum=(int)$native->minimal_quantity;}
         $cover=\Image::getCover($id);$image=(int)($cover['id_image']??0);
         return ['id'=>$id.':'.$attribute,'product_id'=>$id,'attribute_id'=>$attribute,'name'=>(string)$product['name'],
+            'manufacturer'=>(string)($product['manufacturer_name']??''),'supplier'=>(string)($product['supplier_name']??''),
+            'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
             'variant_name'=>$label,'reference'=>(string)($variant['reference']??$product['reference']),
             'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'choose_variant'=>$choose,
             'minimum_quantity'=>max(1,$minimum),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),

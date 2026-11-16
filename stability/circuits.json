@@ -409,6 +409,8 @@
         "tests/totustpv-payment-readback-qa.mjs",
         "tests/totustpv-practice-qa.mjs",
         "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-catalogue-table-browser-qa.mjs",
         "tests/totustpv-workspace.html",
         "tests/totustpv-quote-contract-qa.mjs",
         "supabase/migrations/20261115182617_totustpv_durable_checkout.sql",

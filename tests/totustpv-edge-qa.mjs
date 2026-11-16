@@ -1,9 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCentralTpvHandler} from '../supabase/functions/totus-tpv/handler.js';
+import {createCentralTpvHandler,catalogueForActor} from '../supabase/functions/totus-tpv/handler.js';
 import {nativeStepId} from '../src/totustpv/server/native-request-service.js';
 const actor='00000000-0000-4000-8000-000000000001',drawer='00000000-0000-4000-8000-000000000002',
  session='00000000-0000-4000-8000-000000000003',connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';
+test('catalogue response excludes procurement data without server-observed Products permission',()=>{
+ const native={items:[{id:'1:0',name:'Artículo',stock:3,preview_cents:150,cost_base_cents:75,unexpected_private_field:'not public'}]};
+ for(const permission of [false,undefined,'true'])assert.deepEqual(catalogueForActor(native,permission).items[0],{id:'1:0',name:'Artículo',stock:3,preview_cents:150});
+ assert.equal(catalogueForActor(native,true).items[0].cost_base_cents,75);
+ assert.equal(Object.hasOwn(catalogueForActor(native,true).items[0],'unexpected_private_field'),false);
+});
 function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false}={}){
  const calls=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
