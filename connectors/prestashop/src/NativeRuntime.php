@@ -76,7 +76,10 @@ final class NativeRuntime
             $row['actor_id']===$actorId && (int)$row['api_account_id']===$account,'OPERATION_SCOPE_MISMATCH');
         $statement=$native->prepare('SELECT * FROM `'._DB_PREFIX_.'totus_tpv_effects` WHERE operation_id=?');
         $statement->execute([$operationId]);$effect=$statement->fetch(\PDO::FETCH_ASSOC);
-        if(!$effect)return ['status'=>'uncertain','operation_id'=>$operationId,'retry_command_forbidden'=>true];
+        if(!$effect)return ['status'=>'uncertain','operation_id'=>$operationId,'retry_command_forbidden'=>true,
+            'execution_finished'=>$row['status']==='uncertain' && $row['error_code']!==null,
+            'effect_observed'=>false,'native_command'=>$row['command'],
+            'failure_code'=>preg_match('/^TOTUS_[A-Z0-9_]{1,90}$/D',(string)$row['error_code'])?$row['error_code']:null];
         foreach(['installation_id','api_account_id','shop_id','actor_id','command','fingerprint'] as $key)
             Protocol::ensure((string)$effect[$key]===(string)$row[$key],'OPERATION_RECEIPT_MISMATCH');
         $receipt=json_decode($effect['result_json'],true,32,JSON_THROW_ON_ERROR);

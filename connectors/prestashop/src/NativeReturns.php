@@ -30,11 +30,23 @@ final class NativeReturns
             (int)$row['api_account_id']===$scope['api_account_id'],'RETURN_SALE_SCOPE_INVALID');
         $read=NativeRuntime::readOperation($this->module,$this->profile,$id,$row['actor_id'],$scope['api_account_id']);
         Protocol::ensure(($read['status']??null)==='verified','RETURN_SALE_NOT_VERIFIED');
-        $sale=$read['result'];$order=new \Order((int)$sale['order_id']);
+        $sale=$read['result'];$order=self::nativeOrder((int)$sale['order_id']);
         Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_shop===$scope['shop_id'] &&
-            (int)$order->id_cart===$sale['cart_id'] && $order->module===$this->module->name &&
-            $order->hasBeenDelivered() && $order->hasBeenPaid(),'RETURN_NATIVE_ORDER_INVALID');
+            (int)$order->id_cart===$sale['cart_id'] && $order->module===$this->module->name,'RETURN_NATIVE_ORDER_INVALID');
+        Protocol::ensure($order->hasBeenDelivered(),'RETURN_NATIVE_DELIVERY_REQUIRED');
+        Protocol::ensure($order->hasBeenPaid(),'RETURN_NATIVE_PAYMENT_REQUIRED');
         return [$row,$sale,$order];
+    }
+    private static function nativeOrder(int $id): \Order
+    {
+        // This object is used only after verifying our native sale receipt.
+        // BO presentation overrides may return false without a controller.
+        // Keep the Order type required by native refund services, but resolve
+        // delivery/shipping from core history rather than a BO request action.
+        return new class($id) extends \Order {
+            public function hasBeenDelivered(){return \OrderCore::hasBeenDelivered();}
+            public function hasBeenShipped(){return \OrderCore::hasBeenShipped();}
+        };
     }
     private static function rounded($value): int
     {Protocol::ensure(is_numeric($value)&&is_finite((float)$value)&&(float)$value>=0,'RETURN_AMOUNT_INVALID');return (int)round(100*\Tools::ps_round((float)$value,2));}

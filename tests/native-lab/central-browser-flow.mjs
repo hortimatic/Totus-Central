@@ -26,7 +26,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
    window.fixtureWorkspace.mount(document.querySelector('#root'));
   },{actor});
   await mount();
-  await page.getByRole('button',{name:'Abrir puesto de preproducción'}).click();
+  await page.getByRole('button',{name:'Entrar al mostrador'}).click();
   await page.getByRole('button',{name:'Abrir caja',exact:true}).click();
   if(width===1440){
    await page.getByRole('button',{name:'Elegir cliente',exact:true}).click();
@@ -71,7 +71,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
    await page.locator('[name=draftLabel]').fill('Ticket recuperado del navegador');
    await page.getByRole('button',{name:'Aparcar ticket',exact:true}).click();
    await page.locator('[data-tpv-draft-id]').waitFor();
-   await page.reload();await mount();await page.getByRole('button',{name:'Abrir puesto de preproducción'}).click();
+   await page.reload();await mount();await page.getByRole('button',{name:'Entrar al mostrador'}).click();
    await page.getByRole('button',{name:'Tickets aparcados',exact:true}).click();
    await page.getByRole('button',{name:'Recuperar ticket',exact:true}).click();
    await page.locator('[data-tpv-line-kind]').waitFor();

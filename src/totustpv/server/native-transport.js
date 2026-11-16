@@ -52,6 +52,10 @@ export function createTpvNativeTransport(connection, scope, {
   const base=new URL(connection.endpoint);
   requireValue(base.origin === connection.website_origin && base.pathname.replace(/\/$/,'') === '/api' &&
     !base.search && !base.hash, 'TPV_NATIVE_ORIGIN_MISMATCH');
+  // Native WebserviceRequest::fetch trims the key. Match that canonical form
+  // before HTTP Basic encoding, including clipboard line breaks, without
+  // changing the stored credential or removing interior characters.
+  if(typeof connection.secret==='string')connection.secret=connection.secret.trim();
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
   const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
@@ -78,7 +82,7 @@ export function createTpvNativeTransport(connection, scope, {
         /^price\[totus_(?:incl|excl)\]\[(?:country|state|county|currency|group|quantity|product_attribute|decimals|use_tax|use_reduction|only_reduction|use_ecotax)\]$/.test(key);
       const extensionQuery=extensionResource&&method==='GET'&&['actor_id','operation_id','sale_operation_id'].includes(key)&&uuid(value);
       const catalogueQuery=['totus_tpv_catalogue','totus_tpv_customers'].includes(resource)&&method==='GET'&&
-        (key==='search'||['page','page_size','product_id','customer_id','address_id'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
+        (key==='search'||['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
       const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note'].includes(value);
       requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
         value.length<=1000 && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
@@ -88,7 +92,15 @@ export function createTpvNativeTransport(connection, scope, {
     const response=await request(target.href,{method,headers:{...headers,...(body?{'Content-Type':nativeCommand?'application/json':'application/xml'}:{})},
       ...(body?{body}:{}),redirect:'error',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000)});
     if(!response.ok) {
-      await response.body?.cancel();
+      // Only the connector's fixed machine code crosses this boundary. Native
+      // errors may contain private data; never relay their arbitrary text.
+      let reason=null;
+      try{const body=await boundedJson(response,65536);
+       const errors=Array.isArray(body?.errors)?body.errors:[];
+       const code=errors.length===1?errors[0]?.message:null;
+       if(typeof code==='string'&&/^TOTUS_[A-Z0-9_]{1,60}$/.test(code))reason=code.slice(6);
+      }catch{}
+      if(reason)throw new Error('TPV_NATIVE_REMOTE_'+reason);
       throw new Error(`TPV_NATIVE_HTTP_${response.status}`);
     }
     const type=response.headers.get('content-type') || '';
@@ -144,11 +156,12 @@ export function createTpvNativeTransport(connection, scope, {
       extensionScope();requireValue(uuid(saleOperationId),'TPV_NATIVE_OPERATION_INVALID');
       return call('totus_tpv_returns','GET',{sale_operation_id:saleOperationId,actor_id:scope.actorId},undefined,false,true);
     },
-    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId}={}){
+    async readNativeCategories(){extensionScope();return call('totus_tpv_catalogue','GET',{categories_only:'1'},undefined,false,true);},
+    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0}={}){
       extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
         Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&
-        (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId)),'TPV_CATALOGUE_QUERY_INVALID');
-      return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),
+        (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');
+      return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
         ...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
     },
     async quoteOwnedCart({operationId,cartId}) {

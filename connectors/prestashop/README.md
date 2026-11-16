@@ -1,8 +1,8 @@
-# Capacidad nativa propia: preparación sin despliegue
+# Capacidad nativa propia de TotusTPV
 
 TotusTPV conserva su interfaz, usuarios, permisos, tiendas y cajas dentro de Totus Central. La API clásica de PrestaShop 8.2.8 sigue siendo la vía de las operaciones que representa correctamente. Para cubrir cálculo completo de carritos, pagos mixtos y devoluciones se está preparando una capacidad propia, acotada a comandos nativos. No se propone actualizar PrestaShop a 9.
 
-Este directorio contiene un paquete propio para PrestaShop 8.2.8 y su controlador Webservice. Está instalado exclusivamente en el laboratorio local desechable. No está instalado ni activado en una tienda remota. Su interfaz de venta permanece en Totus Central.
+Este directorio contiene un paquete propio para PrestaShop 8.2.8 y su controlador Webservice. La versión 0.1.6 está instalada y activa exclusivamente en preproduccion.hortimatic.com. El laboratorio local desechable ha sido retirado. Su interfaz de venta permanece en Totus Central. El estado y sus límites se documentan en `docs/TOTUSTPV_ACTIVACION_QA_20261116.md`.
 
 `node tools/package-totus-native.mjs` produce el ZIP y un manifiesto SHA-256 en `artifacts/totus-native/`. La instalación registra recursos Webservice y cinco tablas propias; no altera el núcleo ni crea automáticamente clientes, transportistas, estados o pedidos. La configuración de permisos exige un empleado nativo con edición de Webservice, selección de una cuenta existente y token de formulario. Conserva sus permisos anteriores y no muestra ni modifica la clave.
 

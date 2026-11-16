@@ -22,7 +22,7 @@ const headers={'Content-Type':'application/json','Cache-Control':'no-store',
  */
 export function createCentralTpvHandler({factory,env,request=fetch,resolve,onError=()=>{}}){
  return async function handle(req){
-  let audit=null;
+  let audit=null,stage='request';
   const respond=async(body,status=200)=>{
    if(audit){const record=audit;audit=null;try{await record.admin.rpc('totus_api_call',{p_id:record.id,
     p_revision:record.revision,p_call:record.call,p_result:{ok:status<400}});}catch{}}
@@ -38,16 +38,17 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     secret=JSON.parse(env.get('SUPABASE_SECRET_KEYS')||'{}').default||env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
    need(url&&key&&secret,'TPV_SERVER_CONFIGURATION_REQUIRED');
    const options={auth:{persistSession:false,autoRefreshToken:false}};
-   const authenticated=await factory(url,key,options).auth.getUser(bearer);
+   stage='authentication';const authenticated=await factory(url,key,options).auth.getUser(bearer);
    const user=authenticated?.data?.user;if(authenticated?.error||!uuid(user?.id))return respond({error:'TPV_AUTH_REQUIRED'},401);
    const scoped=factory(url,key,{...options,global:{headers:{Authorization:'Bearer '+bearer}}});
    const input=await boundedJson(req,65536);
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
-    ['context','configure','open','catalogue','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+    ['context','configure','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
-    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId'],
+    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId'],
+    categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
     history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
     'customer-write':['action','selection','operationId','resource','operation','recordId','fields'],
@@ -69,7 +70,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      positive(input.selection.shopId)&&uuid(input.selection.drawerId)&&uuid(input.storeId)&&uuid(input.operatorId)&&
      Object.keys(input.selection).every(key=>['connectionId','shopId','drawerId'].includes(key)),'TPV_CONFIGURATION_INVALID');
     // Existing normal-user admin and store/RLS paths precede loading a key.
-    const manager=check(await scoped.rpc('totus_api_manager'));
+    stage='configuration-context';const manager=check(await scoped.rpc('totus_api_manager'));
     need(manager?.connections?.some(row=>row.id===input.selection.connectionId&&row.revision===input.revision),'TPV_CONTEXT_STALE');
     const metadata=check(await scoped.rpc('totus_sales_context'));
     const website=metadata.websites?.find(row=>row.connection_id===input.selection.connectionId&&row.origin===TOTUS_QA_POLICY.origin&&row.status==='active');
@@ -77,13 +78,13 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const drawer=check(await scoped.from('ops_cash_drawers').select('id,store_id,active').eq('id',input.selection.drawerId).eq('store_id',input.storeId).eq('active',true).maybeSingle());
     need(drawer,'TPV_CONFIGURATION_INVALID');
     const admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
-    const connection=check(await rpc('totus_api_server',{p_id:input.selection.connectionId,p_revision:input.revision}));
+    stage='configuration-connection';const connection=check(await rpc('totus_api_server',{p_id:input.selection.connectionId,p_revision:input.revision}));
     await beginAudit(admin,input.selection.connectionId,input.revision);
     const setupScope={actorId:user.id,connectionId:input.selection.connectionId,connectionRevision:input.revision,storeId:input.storeId,
      shopId:input.selection.shopId,drawerId:input.selection.drawerId,sessionId:input.operationId,currency:'EUR',environment:'qa'};
     const optionsFor=extension=>({request,resolve,qaPolicy:TOTUS_QA_POLICY,nativeExtension:extension,
      allowNativeCommand:async({command})=>{need(command==='setup.qa','TPV_NATIVE_COMMAND_DISABLED');check(await scoped.rpc('totus_api_manager'));return true;}});
-    let transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor(null));
+    stage='configuration-profile';let transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor(null));
     let native=await transport.inspectNativeProfile();
     need(native?.verified===true&&native.environment==='qa'&&native.native_version==='8.2.8'&&native.protocol===1&&
      uuid(native.installation_id)&&native.shop_id===setupScope.shopId,'TPV_NATIVE_PROFILE_INVALID');
@@ -92,7 +93,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      setupScope.currency=native.currency;setupScope.nativeInstallationId=native.installation_id;
      transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor({verified:true,
       installationId:native.installation_id,connectionId:setupScope.connectionId,connectionRevision:setupScope.connectionRevision,shopId:setupScope.shopId,protocol:1}));
-     const result=await createNativeRequestService({rpc,transport,scope:setupScope}).execute({operationId:input.operationId,command:'setup.qa',payload:{confirm_qa:true}});
+     stage='configuration-setup';const result=await createNativeRequestService({rpc,transport,scope:setupScope}).execute({operationId:input.operationId,command:'setup.qa',payload:{confirm_qa:true}});
      if(result.status!=='verified')return respond(result);
      native=await transport.readNativeProfile();
     }
@@ -101,7 +102,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      ['cash','card'].every(method=>methods.includes(method))&&methods.every(method=>Object.hasOwn(OPERATOR_PAYMENT_MODES,method)&&
       typeof native.payment_labels?.[method]==='string'),'TPV_PAYMENT_METHOD_NOT_CONFIGURED');
     native={...native,payment_labels:Object.fromEntries(methods.map(method=>[method,native.payment_labels[method]]))};
-    return respond(check(await rpc('totus_tpv_configure',{p_actor:user.id,p_operator:input.operatorId,p_connection:setupScope.connectionId,
+    stage='configuration-assignment';return respond(check(await rpc('totus_tpv_configure',{p_actor:user.id,p_operator:input.operatorId,p_connection:setupScope.connectionId,
      p_revision:input.revision,p_store:input.storeId,p_drawer:setupScope.drawerId,p_website:website.key,p_native:native,p_permissions:input.permissions})));
    }
    async function context(){const result=check(await scoped.rpc('totus_tpv_context'));
@@ -116,7 +117,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
     const sessionId=input.action==='open'?input.operationId:input.selection.sessionId;
-    need(input.action==='cash-reports'?row.canReconcile===true:uuid(sessionId)&&(input.action==='open'?!row.session||row.session.id===sessionId:row.session?.id===sessionId),
+    need(['cash-reports','categories'].includes(input.action)?row.canReconcile===true:uuid(sessionId)&&(input.action==='open'?!row.session||row.session.id===sessionId:row.session?.id===sessionId),
      'TPV_CASH_SESSION_MISMATCH');
     return {row,scope:{actorId:user.id,connectionId:row.connectionId,connectionRevision:row.connectionRevision,
      storeId:row.storeId,shopId:row.shopId,drawerId:row.drawerId,sessionId,currency:row.nativeProfile.currency,environment:'qa'}};
@@ -163,7 +164,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   await authorize({action:['catalogue','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
+   if(input.action!=='categories')await authorize({action:['catalogue','resolve-incident','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
+   if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
    if(['customers','customer-metadata','customer-write'].includes(input.action)||
      input.action==='prepare'&&input.customerId!==undefined&&input.customerId!==row.nativeProfile.counter_customer_id){
     const directory=check(await scoped.rpc('totus_directory_context',{p_kind:'clientes',p_action:input.action==='customer-write'?
@@ -179,6 +181,24 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     allowNativeCommand:async({command,operationId})=>{await authorize({action:'sell'});
      if(command==='return.commit')check(await rpc('totus_tpv_refund_journal',{p_action:'get',p_id:operationId,p_scope:scope,p_data:{}}));
      return true;}});
+   if(input.action==='categories')return respond(await transport.readNativeCategories());
+   if(input.action==='resolve-incident'){
+    const record=await ledger.get({scope,operationId:input.operationId});
+    need(record&&['uncertain','cancelled'].includes(record.status)&&record.orderId==null,'TPV_INCIDENT_REVIEW_FORBIDDEN');
+    let proof={};
+    if(record.status!=='cancelled'){
+     const native=await transport.readNativeOperation(record.id,{sourceActorId:record.scope.actorId});
+     need(native?.operation_id===record.id&&native.status==='uncertain'&&native.execution_finished===true&&
+      native.effect_observed===false&&native.native_command==='sale.commit'&&/^TOTUS_[A-Z0-9_]{1,90}$/.test(native.failure_code||''),'TPV_INCIDENT_NATIVE_PROOF_REQUIRED');
+     const response=await transport.read('orders',{'filter[id_cart]':`[${record.expected.cartId}]`,display:'[id,id_cart]',limit:'0,2'});
+     const observed=Array.isArray(response)&&response.length===0?[]:response?.orders;
+     need(Array.isArray(observed)?observed.length===0:observed&&typeof observed==='object'&&Object.keys(observed).length===0,'TPV_INCIDENT_ORDER_EXISTS');
+     proof={operationId:record.id,cartId:record.expected.cartId,executionFinished:true,effectObserved:false,ordersObserved:0,
+      nativeCommand:native.native_command,nativeCode:native.failure_code,checkedAt:Date.now()};
+    }
+    return respond(check(await rpc('totus_tpv_resolve_incident',{p_scope:scope,p_id:record.id,p_reason:input.reason,
+     p_settlement:input.settlementReview,p_proof:proof})));
+   }
    if(input.action==='customer-write')return respond(await (await import('../../../src/totustpv/server/customer-service.js')).writeTpvCustomer({
     input,scope,websiteKey:row.websiteKey,websiteName:row.storeName+' · preproducción',connection,rpc,request,resolve}));
    if(input.action==='customers')return respond(await transport.readNativeCustomers({search:input.search??'',page:input.page??0,customerId:input.customerId??0}));
@@ -205,8 +225,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
     return respond(await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind}));
    }
-   if(input.action==='catalogue')return respond(await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
-    pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId}));
+   if(input.action==='catalogue')return respond({...await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
+    pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId,categoryId:input.categoryId??0}),image_origin:TOTUS_QA_POLICY.origin});
    if(['returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action)){
     const refunds=createRefundService({rpc,transport,scope});
     if(input.action==='returnable')return respond(await refunds.returnable(input.saleId));
@@ -281,7 +301,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const checkout=createCheckoutService({authorize,ledger,native,settlements});
    const command={operationId:input.operationId,selection:input.selection,payments:input.payments};
    return respond(input.action==='recover'?await checkout.reconcile(command):await checkout.submit(command));
-  }catch(error){try{onError(error);}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
+  }catch(error){try{onError(error,{stage});}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
    ...(error?.message==='TPV_CUSTOMER_FIELDS_REJECTED'&&typeof error.detail==='string'?{detail:error.detail}:{})},400);}
  };
 }

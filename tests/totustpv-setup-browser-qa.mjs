@@ -23,7 +23,9 @@ try{
   };
  });
  assert.equal(await page.evaluate(()=>tpvSetupQA.reads),0,'No extra startup request');
- await page.getByRole('button',{name:'Comprobar puesto',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'Comprobar conexión',exact:true}).isVisible(),false,'Administration is outside the daily entry');
+ await page.getByText('Administrar tiendas y cajas',{exact:true}).click();
+ await page.getByRole('button',{name:'Comprobar conexión',exact:true}).click();
  await page.locator('.tpv-setup article').nth(1).waitFor();
  assert.equal(await page.evaluate(()=>tpvSetupQA.reads),1);
  const mapped=page.locator('.tpv-setup article').filter({hasText:'Portal QA'});
@@ -39,10 +41,10 @@ try{
   await page.screenshot({path:`artifacts/totustpv-setup/${width}.png`,fullPage:true});
  }
  await page.evaluate(()=>tpvSetupQA.fail=true);
- await page.getByRole('button',{name:'Comprobar puesto',exact:true}).click();
+ await page.getByRole('button',{name:'Comprobar conexión',exact:true}).click();
  await page.getByRole('alert').filter({hasText:'Consulta temporalmente'}).waitFor();
  assert.equal(await page.locator('.tpv-setup article').count(),0,'Failed refresh clears stale verification');
- await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
  assert.deepEqual(errors,[]);
  console.log('PASS TPV setup UI: lazy authenticated context, exact website/business/drawer links, unassigned preproduction, blocked checkout, refresh failure without stale status and three widths. Fictional server metadata only.');
