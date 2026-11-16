@@ -323,7 +323,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    }else if(kind==='open'){
     const drawer=context.drawers.find(d=>d.storeId===storeId&&d.id===drawerId);if(!drawer)throw new Error('Selecciona una caja de esta tienda.');
     session=await adapter.openSession({storeId,drawerId:drawer.id,openingCents:inputCents(fields.get('opening'))});
-    tab='sale';receipt=null;lines=[];selectedCustomer=null;customers.reset();await reloadProducts();notice='';
+    tab='sale';receipt=null;lines=[];selectedCustomer=null;customers.reset();if(live())await loadWorkspacePreferences();await reloadProducts();notice='';
    } else if(kind==='pay'){
     const method=fields.get('method'),cash=method==='cash'?payment.totalCents:method==='mixed'?inputCents(fields.get('cashPart')):0;
     if(cash>payment.totalCents||method==='mixed'&&(cash===0||cash===payment.totalCents))throw new Error('El pago mixto necesita una parte de efectivo y otra en el segundo medio.');
@@ -378,8 +378,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(event.target.matches('[data-tpv-config-store]')){if(formValues.configure)delete formValues.configure.drawer;render();return;}
   if(event.target.dataset.tpvLineKind&&!payment&&can('edit')){const line=lines.find(l=>l.productId===event.target.dataset.tpvLineKind);
    if(line){line.discountKind=event.target.value;line.discountValue='';render();}return;}
-  if(event.target.matches('[data-tpv-store]')&&!session){selectedStore=event.target.value;selectedDrawer='';reports.reset();render();return;}
-  if(event.target.matches('[data-tpv-drawer]')&&!session){selectedDrawer=event.target.value;reports.reset();render();return;}
+  if(event.target.matches('[data-tpv-store]')&&!session){selectedStore=event.target.value;selectedDrawer=context.drawers.find(d=>d.storeId===selectedStore)?.id||'';reports.reset();if(live())return work(async()=>{await adapter.selectWorkstation({storeId:selectedStore,drawerId:selectedDrawer});await loadWorkspacePreferences();});render();return;}
+  if(event.target.matches('[data-tpv-drawer]')&&!session){selectedDrawer=event.target.value;reports.reset();if(live())return work(async()=>{await adapter.selectWorkstation({storeId:selectedStore||context.stores[0]?.id,drawerId:selectedDrawer});await loadWorkspacePreferences();});render();return;}
   if(event.target.matches('[data-tpv-method]')){
    reflectPaymentMethod();return;
   }

@@ -78,5 +78,30 @@ try{
  await page.evaluate(()=>window.fixture.setAccount({id:'other-operator',active:true}));
  await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
+ await page.evaluate(async()=>{
+  window.fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');
+  const drawers=[{id:'a',name:'Caja A',storeId:'shop',connectionId:'connection',shopId:1},{id:'b',name:'Caja B',storeId:'shop',connectionId:'connection',shopId:1}];
+  const saved=new Map([['a',{viewMode:'compact',initialCategoryId:2}],['b',{viewMode:'list',initialCategoryId:1}]]);
+  window.settingsFixture={saved,reads:[],queries:[],selected:[],open:true};
+  const w=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,
+   createLiveAdapter:()=>({mode:'qa',context:async()=>({stores:[{id:'shop',name:'QA'}],drawers,sessions:settingsFixture.open?[{id:'session',storeId:'shop',drawerId:'a',status:'open'}]:[]}),
+    selectSession:async()=>{},selectWorkstation:async s=>settingsFixture.selected.push(s),categories:async()=>[{id:1,label:'Aromas'},{id:2,label:'Varios'}],
+    searchProducts:async q=>{settingsFixture.queries.push(q);return [{id:'1:0',name:'Artículo QA',reference:'QA1',stock:10,priceCents:150}];}}),
+   workspacePreferences:async(drawer,value)=>{settingsFixture.reads.push(drawer.id);if(value)saved.set(drawer.id,value);return saved.get(drawer.id);}});
+  window.settingsFixture.workspace=w;w.mount(document.querySelector('#tpv'));
+ });
+ await page.locator('.tpv-view-compact').waitFor();assert.equal(await page.locator('[data-tpv-category]').inputValue(),'2');
+ assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),2);
+ await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ await page.locator('[name=viewMode]').selectOption('list');await page.locator('[name=initialCategoryId]').selectOption('1');
+ await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
+ assert.deepEqual(await page.evaluate(()=>settingsFixture.saved.get('a')),{viewMode:'list',initialCategoryId:1});
+ await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
+ assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);
+ assert.equal(await page.evaluate(()=>settingsFixture.workspace.hasDraft()),false,'Presentation filters are not an edited sale');
+ await page.evaluate(()=>{settingsFixture.open=false;settingsFixture.workspace.mount(document.querySelector('#tpv'));});
+ await page.locator('[data-tpv-drawer]').waitFor();await page.locator('[data-tpv-drawer]').selectOption('b');
+ await page.waitForFunction(()=>settingsFixture.reads.at(-1)==='b');
+ assert.equal(await page.evaluate(()=>settingsFixture.selected.at(-1).drawerId),'b');
  assert.deepEqual(errors,[]);console.log('PASS TotusTPV workspace: cash/change, lost response, reload/recovery, mixed payment, refund without restocking, cash close, per-user isolation and four viewport sizes. Synthetic data only.');
 }finally{await page.close();await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
