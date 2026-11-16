@@ -13,7 +13,8 @@ try{
   const items=Array.from({length:50},(_,n)=>({id:(n+1)+':0',nativeProductId:n+1,name:'Artículo '+String(n+1).padStart(2,'0'),reference:'REF'+(n+1),stock:50-n,priceCents:(n+1)*100}));
   const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',connectionId:'connection',shopId:1}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
    selectSession:async()=>{},categories:async()=>[],searchProducts:async q=>{tableFixture.queries.push(q);
-    const key={name:'name',stock:'stock',reference:'reference',id:'nativeProductId'}[q.sortField]||'name';
+    if(q.sortField==='price'&&tableFixture.priceBuilds>0){tableFixture.priceBuilds--;const result=[];Object.defineProperty(result,'building',{value:{done:50-tableFixture.priceBuilds*10,total:50}});return result;}
+    const key={name:'name',stock:'stock',price:'priceCents',reference:'reference',id:'nativeProductId'}[q.sortField]||'name';
     const ordered=[...items].sort((a,b)=>(typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key]),'es',{numeric:true}))*(q.sortDirection==='desc'?-1:1));
     const result=ordered.slice((q.page||0)*20,((q.page||0)+1)*20);Object.defineProperty(result,'hasMore',{value:((q.page||0)+1)*20<items.length});return result;}};
   tableFixture.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,createLiveAdapter:()=>adapter,
@@ -30,6 +31,21 @@ try{
  assert.equal(await page.locator('td[data-tpv-column=stock]').first().innerText(),'50','Changing direction resets pagination');
  assert.equal(await page.evaluate(()=>tableFixture.queries.at(-1).page),0);
  assert.equal(await page.evaluate(()=>tableFixture.prefs.sortDirection),'desc');
+ await page.evaluate(()=>tableFixture.priceBuilds=2);
+ await page.locator('[data-tpv-sort=price]').click();
+ await page.getByRole('status').filter({hasText:'Ordenando el catálogo por precio'}).waitFor();
+ assert.equal(await page.locator('.tpv-catalogue-table tbody tr').count(),0,'No partially priced page is presented as a sorted result');
+ await page.locator('.tpv-catalogue-table').waitFor();
+ assert.match(await page.locator('td[data-tpv-column=price]').first().innerText(),/1,00/);
+ await page.getByRole('button',{name:'Siguiente',exact:true}).click();
+ assert.match(await page.locator('td[data-tpv-column=price]').first().innerText(),/21,00/);
+ await page.evaluate(()=>tableFixture.priceBuilds=50);
+ await page.locator('[data-tpv-sort=price]').click();
+ await page.getByRole('button',{name:'Volver al orden por nombre',exact:true}).click();
+ await page.locator('.tpv-catalogue-table').waitFor();
+ assert.equal(await page.evaluate(()=>tableFixture.prefs.sortField),'name','An operator can leave a slow price build');
+ await page.waitForTimeout(1200);
+ assert.equal(await page.evaluate(()=>tableFixture.queries.at(-1).sortField),'name','Cancelled progress does not resume price polling');
  await page.locator('.tpv-columns>summary').click();
  await page.locator('[data-tpv-columns-panel] .tc-settings-header').waitFor();
  assert.equal(await page.locator('[data-tpv-columns-panel] .tc-settings-header').count(),1,'Common Central configurator');
@@ -53,5 +69,22 @@ try{
   await page.getByRole('button',{name:'Cerrar columnas',exact:true}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);
   await page.screenshot({path:`artifacts/totustpv-table/${width}.png`,fullPage:true});}
- assert.deepEqual(errors,[]);console.log('PASS catalogue table: common column editor, role-limited costs, persisted visibility/order, whole-result sort/page parameters, reset page on direction and three viewport sizes. Synthetic catalogue source.');
+ await page.setViewportSize({width:1440,height:950});
+ await page.locator('.tpv-actions>summary').click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ for(const label of ['Mostrar precios en las tarjetas de artículos','Mostrar existencias en las tarjetas de artículos','Mostrar referencias en las tarjetas de artículos'])await page.getByLabel(label,{exact:true}).uncheck();
+ await page.getByLabel('Mostrar primero el último artículo añadido al ticket',{exact:true}).check();
+ await page.locator('[data-tpv-form=preferences] select[name=viewMode]').selectOption('grid');
+ await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();
+ await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>tableFixture.workspace.hasDraft()),false,'Saved display settings are not an unsaved sale');
+ await page.evaluate(()=>tableFixture.workspace.mount(document.querySelector('#tpv')));
+ await page.locator('[data-tpv-add="1:0"]').waitFor();
+ assert.equal(await page.locator('.tpv-product>b').count(),0,'Hidden product-card prices persist after entry');
+ assert.equal(await page.locator('.tpv-product small').first().innerText(),'','Hidden references and stock persist');
+ await page.locator('[data-tpv-add="1:0"]').click();await page.locator('[data-tpv-add="2:0"]').click();
+ assert.equal(await page.locator('.tpv-ticket-line strong').first().innerText(),'Artículo 02');
+ await page.locator('[data-tpv-add="1:0"]').click();
+ assert.equal(await page.locator('.tpv-ticket-line strong').first().innerText(),'Artículo 01','Adding another unit moves that product to the newest position');
+ assert.equal(await page.locator('[data-tpv-quantity="1:0"]').inputValue(),'2');
+ assert.deepEqual(errors,[]);console.log('PASS catalogue table/display: common column editor, role-limited costs, saved columns and card preferences, whole-result sort/page and progress cancellation, ticket ordering and three viewport sizes. Synthetic catalogue source; no audible-device claim.');
 }finally{await page.close();await browser.close();if(server)await new Promise(r=>server.close(r));}

@@ -446,6 +446,8 @@
         "tests/totustpv-practice-qa.mjs",
         "tests/totustpv-workspace-browser-qa.mjs",
         "tests/totustpv-quote-contract-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-catalogue-table-browser-qa.mjs",
         "tests/totustpv-central-qa.mjs",
         "tests/totustpv-central-browser-qa.mjs",
         "tests/totustpv-setup-qa.mjs",

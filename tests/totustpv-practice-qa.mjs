@@ -35,7 +35,7 @@ test('mixed and card payments do not turn non-cash amounts into physical cash',a
 test('lost response survives a new adapter and recovery does not create another ticket',async()=>{
  const f=fixture(),session=await f.open(),quote=await f.api.quote({sessionId:session.id,lines});
  await f.api.submit({operationId:quote.id,payments:cash,scenario:'lost-response'});
- assert.equal((await f.api.searchProducts({sessionId:session.id}))[0].stock,19);
+ assert.equal((await f.api.searchProducts({sessionId:session.id})).find(p=>p.id==='demo-1').stock,19);
  await assert.rejects(f.api.closeSession({sessionId:session.id,countedCents:10801}),/pendientes/);
  const restored=f.make('actor-a');assert.equal((await restored.recover({operationId:quote.id})).status,'confirmed');
  await restored.recover({operationId:quote.id});
@@ -75,7 +75,7 @@ test('partial practice refunds preserve discounted pennies, caps, original payme
  assert.equal((await f.api.returnable({sessionId:session.id,saleId:quote.id})).lines[0].remainingQty,0);
  await assert.rejects(f.api.refund({operationId:'return-extra',sessionId:session.id,saleId:quote.id,
   items:[{productId:'demo-1',qty:1,restock:true}],refundConfirmed:true}),/supera/);
- assert.equal((await f.api.searchProducts({sessionId:session.id}))[0].stock,19);
+ assert.equal((await f.api.searchProducts({sessionId:session.id})).find(p=>p.id==='demo-1').stock,19);
  assert.equal((await f.api.sessionSummary({sessionId:session.id})).expectedCashCents,10000);
 });
 test('practice card refunds never reduce physical cash; foreign shops and reused IDs are rejected',async()=>{

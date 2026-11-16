@@ -2,9 +2,11 @@
 
 ## Estado actualizado · 16/11/2026, 20:42 CET
 
+Ampliación en desarrollo · 16/11/2026, 23:05 CET: la sesión normal remota ya confirmó el frontend publicado `7796c354`, entrada automática y fotografías del catálogo. El PR 213 permanece como borrador para reunir la entrega completa solicitada, sin publicación parcial del nuevo mostrador. La rama incorpora tabla común y preferencias, índice contextual de ordenación por PVP y opciones de tarjetas/orden del ticket/sonido. Validación local: 218 aserciones SQL, 33 pruebas Node de transporte/caja/adaptadores/práctica, PHP 8.2.35 y navegador con progreso cancelable y recuperación de preferencias en tres tamaños. El índice usa precios sintéticos en su prueba SQLite; todavía requiere verificación MySQL/PrestaShop instalado. La nueva migración de catálogo y estas opciones no están aplicadas en remoto. Las pruebas no acreditan audio o hardware físicos ni resolución de las 149 configuraciones.
+
 Conector QA propio 0.1.9 y servicio autenticado `totus-tpv` v6 activos. La relectura confirma los 30 archivos del servicio; el cambio desde v5 se limita al controlador y al servicio de lotes de mercancía. La migración de lotes está aplicada: RLS activo, acceso directo del navegador denegado y ejecución privilegiada solo desde el servidor. Los asesores no añaden avisos de seguridad respecto a la lectura anterior; esto no afirma que el proyecto entero carezca de avisos.
 
-El PR 212 se ha integrado en `7796c354971b47398cb54a28c8c8ad72201c0e7f` tras todos sus controles. Incluye acceso automático al puesto, entrada comprensible, fotos, categorías, vistas y preferencias de mostrador. La comprobación del commit servido y de la interfaz en la sesión remota sigue pendiente. La interfaz de lotes pertenece a la ampliación siguiente y todavía no está publicada.
+El PR 212 se ha integrado en `7796c354971b47398cb54a28c8c8ad72201c0e7f` tras todos sus controles. Incluye acceso automático al puesto, entrada comprensible, fotos, categorías, vistas y preferencias de mostrador. La comprobación del commit servido y de la interfaz en la sesión remota confirmó esa base. La interfaz de lotes pertenece a la ampliación siguiente y todavía no está publicada.
 
 Prueba remota de esta fecha: pedidos 46544–46548 con cinco formas/repartos de pago, seis abonos por 10,50 € y siete unidades repuestas. Stock final del artículo QA: 14 unidades. El pedido 46549 no pertenece a esas pruebas y no se modifica. La caja compartida sigue abierta. El primer intento incierto conserva su incidencia y no se reenvía.
 

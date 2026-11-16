@@ -1,4 +1,6 @@
 const messages={
+ TPV_NATIVE_REMOTE_TOTUS_CATALOGUE_INDEX_BUILD_EXPIRED:'El catálogo tarda demasiado en ordenarse por precio. Selecciona una categoría o acota la búsqueda y vuelve a intentarlo.',
+ TPV_NATIVE_REMOTE_TOTUS_CATALOGUE_INDEX_LIMIT:'Selecciona una categoría o acota la búsqueda para ordenar este catálogo por precio.',
  TPV_AUTH_REQUIRED:'Vuelve a entrar en tu cuenta para continuar.',
  TPV_WORKSTATION_NOT_CONFIGURED:'Un administrador debe configurar y asignarte este puesto de pruebas.',
  TPV_ASSIGNMENT_OR_CONNECTION_INVALID:'La asignación o la conexión del puesto ha cambiado. Vuelve a abrir el puesto.',

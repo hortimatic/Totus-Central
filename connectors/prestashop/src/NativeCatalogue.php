@@ -17,7 +17,7 @@ final class NativeCatalogue
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
         $sort=$query['sort_field']??'name';$direction=$query['sort_direction']??'asc';
-        Protocol::ensure(is_string($sort)&&in_array($sort,['name','reference','stock','id','cost','manufacturer','supplier'],true)&&
+        Protocol::ensure(is_string($sort)&&in_array($sort,['name','reference','stock','id','cost','manufacturer','supplier','price'],true)&&
             in_array($direction,['asc','desc'],true),'CATALOGUE_SORT_INVALID');
         $search=$query['search']??'';
         Protocol::ensure(is_string($search)&&strlen($search)<=480&&!preg_match('/[\x00-\x1f]/',$search)&&
@@ -68,46 +68,113 @@ final class NativeCatalogue
             }
             $total=0;
             if($productId===0){$count=$db->prepare('SELECT COUNT(*) FROM ('.$sql.') catalogue_matches');$count->execute($parameters);$total=(int)$count->fetchColumn();}
+            if($sort==='price')Protocol::ensure($total<=200000,'CATALOGUE_INDEX_LIMIT');
             $stockRestriction=\StockAvailable::addSqlShopRestriction(null,$shop,'sa');
             $stock='COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product=p.id_product AND sa.id_product_attribute=0'.$stockRestriction.'),0)';
-            $orders=['name'=>'TRIM(pl.name)','reference'=>'p.reference','stock'=>$stock,'id'=>'p.id_product',
+            $orders=['name'=>'TRIM(pl.name)','reference'=>'p.reference','stock'=>$stock,'id'=>'p.id_product','price'=>'p.id_product',
                 'cost'=>'ps.wholesale_price','manufacturer'=>'COALESCE(m.name,\'\')','supplier'=>'COALESCE(supplier.name,\'\')'];
-            $sql.=' ORDER BY '.$orders[$sort].' '.strtoupper($direction).',p.id_product '.strtoupper($direction).' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
+            $pricePage=null;$priceValues=[];
+            $sql.=' ORDER BY '.$orders[$sort].' '.strtoupper($direction).',p.id_product '.strtoupper($direction);
+            if($sort!=='price'||$productId>0)$sql.=' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
+            if($sort==='price'&&$productId===0){
+                $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
+                $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId){
+                    [$attribute]=self::selection($byId[$key],$search,$shop);
+                    return self::previewPrice((int)$byId[$key]['id_product'],$attribute,$context,(int)$address->id,$customerId);
+                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction);
+                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction);
+                $priceValues=$pricePage['prices'];$products=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
+            }
             if($productId>0){
                 Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');$parent=$products[0];
                 $count=$db->prepare('SELECT COUNT(*) FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=?');
                 $count->execute([$shop,$productId]);$total=(int)$count->fetchColumn();
+                if($sort==='price')Protocol::ensure($total<=200000,'CATALOGUE_INDEX_LIMIT');
                 $variantStock='COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product=pa.id_product AND sa.id_product_attribute=pa.id_product_attribute'.$stockRestriction.'),0)';
                 $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute),\'\')';
-                $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute',
+                $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute','price'=>'pa.id_product_attribute',
                     'cost'=>'pa.id_product_attribute','manufacturer'=>'pa.id_product_attribute','supplier'=>'pa.id_product_attribute'];
                 $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
                     JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                    WHERE pa.id_product=? ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).' LIMIT '.($size+1).' OFFSET '.($page*$size));
-                $s->execute([$shop,$productId]);$variants=$s->fetchAll(\PDO::FETCH_ASSOC);$more=count($variants)>$size;
-                foreach(array_slice($variants,0,$size) as $variant)$rows[]=self::item($parent,(int)$variant['id_product_attribute'],false,
-                    $variant,$profile,$context,(int)$address->id,$customerId);
+                    WHERE pa.id_product=? ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).
+                    ($sort==='price'?'':' LIMIT '.($size+1).' OFFSET '.($page*$size)));
+                $s->execute([$shop,$productId]);$variants=$s->fetchAll(\PDO::FETCH_ASSOC);
+                if($sort==='price'){
+                    $byId=[];foreach($variants as $variant)$byId[$productId.':'.$variant['id_product_attribute']]=$variant;ksort($byId,SORT_NATURAL);
+                    $pricePage=self::pricePage(array_keys($byId),static function($key)use($productId,$byId,$context,$address,$customerId){
+                        return self::previewPrice($productId,(int)$byId[$key]['id_product_attribute'],$context,(int)$address->id,$customerId);
+                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction);
+                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction);
+                    $priceValues=$pricePage['prices'];$variants=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
+                }
+                $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
+                foreach(array_slice($variants,0,$size) as $variant){$item=self::item($parent,(int)$variant['id_product_attribute'],false,
+                    $variant,$profile,$context,(int)$address->id,$customerId);if($pricePage)$item['preview_cents']=$priceValues[$item['id']];$rows[]=$item;}
             }else{
-                $more=count($products)>$size;
+                $more=$pricePage?$pricePage['has_more']:count($products)>$size;
                 foreach(array_slice($products,0,$size) as $product){
-                    $attribute=(int)$product['cache_default_attribute'];
-                    if($attribute===0){$s=$db->prepare('SELECT MIN(id_product_attribute) FROM `'._DB_PREFIX_.'product_attribute_shop` WHERE id_product=? AND id_shop=?');
-                        $s->execute([(int)$product['id_product'],$shop]);$attribute=(int)$s->fetchColumn();}
-                    $choose=$attribute>0;$variant=null;
-                    if($choose&&$search!==''){
-                        $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc FROM `'._DB_PREFIX_.'product_attribute` pa
-                            JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                            WHERE pa.id_product=? AND (pa.reference=? OR pa.ean13=? OR pa.upc=?) LIMIT 2');
-                        $s->execute([$shop,(int)$product['id_product'],$search,$search,$search]);$exact=$s->fetchAll(\PDO::FETCH_ASSOC);
-                        if(count($exact)===1){$variant=$exact[0];$attribute=(int)$variant['id_product_attribute'];$choose=false;}
-                    }
-                    $rows[]=self::item($product,$attribute,$choose,$variant,$profile,$context,(int)$address->id,$customerId);
+                    [$attribute,$choose,$variant]=self::selection($product,$search,$shop);
+                    $item=self::item($product,$attribute,$choose,$variant,$profile,$context,(int)$address->id,$customerId);
+                    if($pricePage)$item['preview_cents']=$priceValues[$product['id_product'].':0'];$rows[]=$item;
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction];
+                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,
+                ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
+    }
+    private static function selection(array $product,string $search,int $shop): array
+    {
+        $db=\Db::getInstance()->getLink();$attribute=(int)$product['cache_default_attribute'];
+        if($attribute===0){$s=$db->prepare('SELECT MIN(id_product_attribute) FROM `'._DB_PREFIX_.'product_attribute_shop` WHERE id_product=? AND id_shop=?');
+            $s->execute([(int)$product['id_product'],$shop]);$attribute=(int)$s->fetchColumn();}
+        $choose=$attribute>0;$variant=null;
+        if($choose&&$search!==''){
+            $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc FROM `'._DB_PREFIX_.'product_attribute` pa
+                JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
+                WHERE pa.id_product=? AND (pa.reference=? OR pa.ean13=? OR pa.upc=?) LIMIT 2');
+            $s->execute([$shop,(int)$product['id_product'],$search,$search,$search]);$exact=$s->fetchAll(\PDO::FETCH_ASSOC);
+            if(count($exact)===1){$variant=$exact[0];$attribute=(int)$variant['id_product_attribute'];$choose=false;}
+        }
+        return [$attribute,$choose,$variant];
+    }
+    private static function previewPrice(int $id,int $attribute,$context,int $address,int $customer): int
+    {
+        $specific=null;$incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
+        Protocol::ensure(is_numeric($incl)&&$incl>=0,'CATALOGUE_PRICE_INVALID');return (int)round(100*\Tools::ps_round((float)$incl,2));
+    }
+    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction): array
+    {
+        $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$boundary=null;$db=\Db::getInstance()->getLink();
+        foreach(['specific_price','specific_price_rule'] as $table){
+            $s=$db->prepare('SELECT MIN(boundary) FROM (SELECT `from` boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `from`>?
+                UNION ALL SELECT DATE_ADD(`to`,INTERVAL 1 SECOND) boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `to`>=?) price_boundaries');
+            $s->execute([(int)$profile['shop_id'],$local,(int)$profile['shop_id'],$local]);$value=$s->fetchColumn();
+            if($value&&($boundary===null||strcmp($value,$boundary)<0))$boundary=$value;
+        }
+        $validUntil=$now+300000;if($boundary){$at=(new \DateTimeImmutable($boundary))->getTimestamp()*1000;if($at>$now)$validUntil=min($validUntil,$at);}
+        $groups=$customer->getGroups();sort($groups,SORT_NUMERIC);$settings=[];
+        foreach(['PS_TAX','PS_TAX_ADDRESS_TYPE','PS_PRICE_ROUND_MODE','PS_ROUND_TYPE','PS_ECOTAX_TAX_RULES_GROUP_ID','PS_SPECIFIC_PRICE_PRIORITIES'] as $key)$settings[$key]=\Configuration::get($key);
+        $identity=['protocol'=>1,'installation'=>$profile['installation_id'],'epoch'=>\Configuration::get('TOTUS_TPV_CATALOGUE_EPOCH'),
+            'shop'=>(int)$profile['shop_id'],'language'=>(int)$profile['language_id'],'currency'=>(int)$context->currency->id,
+            'conversion'=>(string)$context->currency->conversion_rate,'customer'=>(int)$customer->id,'groups'=>$groups,
+            'address'=>(int)$address->id,'country'=>(int)$address->id_country,'state'=>(int)$address->id_state,
+            'postcode'=>(string)$address->postcode,'vat'=>(string)$address->vat_number,'settings'=>$settings,
+            'search'=>$search,'category'=>$category,'product'=>$product];
+        $storage=NativeRuntime::connection();$index=new NativeCatalogueIndex($storage,_DB_PREFIX_.'totus_tpv_catalogue_index');
+        $result=$index->page($identity,$ids,$reader,$page*$size,$size,$direction,$validUntil,$now);
+        // Only disposable, expired presentation indexes are pruned. Native
+        // commands, receipts and financial journals are never part of this table.
+        try{$prune=$storage->prepare('DELETE FROM `'._DB_PREFIX_.'totus_tpv_catalogue_index` WHERE expires_at<? LIMIT 5');$prune->execute([$now-300000]);}catch(\Throwable $ignored){}
+        return $result;
+    }
+    private static function building(array $index,int $page,int $size,$context,string $direction): array
+    {
+        return ['items'=>[],'page'=>$page,'page_size'=>$size,'has_more'=>false,'total_count'=>$index['total'],
+            'currency'=>$context->currency->iso_code,'payable_cart_quote'=>false,'catalogue_copied'=>false,
+            'source'=>'native-product-price','sort_field'=>'price','sort_direction'=>$direction,
+            'building'=>['done'=>$index['done'],'total'=>$index['total']],'price_snapshot_at'=>$index['snapshot_at']];
     }
     private static function categories(array $profile): array
     {

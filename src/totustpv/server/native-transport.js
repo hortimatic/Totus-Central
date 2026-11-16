@@ -82,7 +82,7 @@ export function createTpvNativeTransport(connection, scope, {
         /^price\[totus_(?:incl|excl)\]\[(?:country|state|county|currency|group|quantity|product_attribute|decimals|use_tax|use_reduction|only_reduction|use_ecotax)\]$/.test(key);
       const extensionQuery=extensionResource&&method==='GET'&&['actor_id','operation_id','sale_operation_id'].includes(key)&&uuid(value);
       const catalogueQuery=['totus_tpv_catalogue','totus_tpv_customers'].includes(resource)&&method==='GET'&&
-        (key==='search'||key==='sort_field'&&['name','reference','stock','id','cost','manufacturer','supplier'].includes(value)||key==='sort_direction'&&['asc','desc'].includes(value)||['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
+        (key==='search'||key==='sort_field'&&['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(value)||key==='sort_direction'&&['asc','desc'].includes(value)||['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
       const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note'].includes(value);
       requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
         value.length<=1000 && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
@@ -161,7 +161,7 @@ export function createTpvNativeTransport(connection, scope, {
       extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
         Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&
         (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647&&
-        ['name','reference','stock','id','cost','manufacturer','supplier'].includes(sortField)&&['asc','desc'].includes(sortDirection),'TPV_CATALOGUE_QUERY_INVALID');
+        ['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(sortField)&&['asc','desc'].includes(sortDirection),'TPV_CATALOGUE_QUERY_INVALID');
       return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
         sort_field:sortField,sort_direction:sortDirection,...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
     },

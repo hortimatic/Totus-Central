@@ -331,6 +331,12 @@ try {
  check((await prefs(qaScope,{columns:['name','photo','stock'],sortField:'stock',sortDirection:'desc'})).sortField,'stock');
  check((await prefs()).columns,['name','photo','stock']);check((await prefs()).viewMode,'list');
  check((await prefs(qaScope,{viewMode:'table'})).sortDirection,'desc');
+ check((await prefs(qaScope,{display:{showPrices:false,ticketNewestFirst:true}})).display.showPrices,false);
+ check((await prefs()).display.showStock,true);
+ check((await prefs(qaScope,{columns:['name','price']})).display.ticketNewestFirst,true);
+ await denied(()=>prefs(qaScope,{display:{showPrices:'false'}}),/INVALID/);
+ await denied(()=>prefs(qaScope,{display:{canChangeTax:true}}),/INVALID/);
+ await denied(()=>prefs(qaScope,{display:null}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','name']}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['photo']}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','secret']}),/INVALID/);

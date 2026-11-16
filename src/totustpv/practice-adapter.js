@@ -96,7 +96,7 @@ export function createTpvPracticeAdapter({actorId,storage,now=Date.now,uuid=()=>
    const data=read(),session=getSession(data,sessionId),needle=String(search).toLocaleLowerCase('es');
    return catalogue.filter(p=>`${p.name} ${p.reference}`.toLocaleLowerCase('es').includes(needle))
     .map(product=>({...copy(product),stock:stockFor(data,session,product)})).sort((a,b)=>{
-     const key={name:'name',reference:'reference',stock:'stock',id:'id',cost:'costCents',manufacturer:'manufacturer',supplier:'supplier'}[sortField]||'name',
+     const key={name:'name',reference:'reference',stock:'stock',price:'priceCents',id:'id',cost:'costCents',manufacturer:'manufacturer',supplier:'supplier'}[sortField]||'name',
       left=a[key]??'',right=b[key]??'',order=typeof left==='number'&&typeof right==='number'?left-right:String(left).localeCompare(String(right),'es',{numeric:true});
      return (order||String(a.id).localeCompare(String(b.id),'es',{numeric:true}))*(sortDirection==='desc'?-1:1);});
   },
