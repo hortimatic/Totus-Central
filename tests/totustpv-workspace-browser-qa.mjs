@@ -7,7 +7,7 @@ const page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 try{
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
- await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
  await page.locator('[data-tpv-view]').selectOption('list');
  assert.equal(await page.locator('.tpv-view-list').count(),1);
@@ -23,7 +23,7 @@ try{
  await page.locator('[name=scenario]').selectOption('lost-response');
  await page.getByRole('button',{name:'Confirmar venta de práctica'}).click();
  await page.getByText('Respuesta pendiente de recuperar',{exact:true}).waitFor();
- await page.reload();await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.reload();await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Tickets de práctica',exact:true}).click();
  await page.getByRole('button',{name:'Recuperar',exact:true}).click();
  await page.getByText('Venta de práctica registrada',{exact:true}).waitFor();
@@ -74,9 +74,9 @@ try{
   return leaving;
  });
  assert.equal(staleLeave,false,'A confirmation belonging to another account cannot release the current workspace');
- await page.getByRole('button',{name:'Practicar sin ventas reales'}).waitFor();
+ await page.getByRole('button',{name:'Probar con datos ficticios'}).waitFor();
  await page.evaluate(()=>window.fixture.setAccount({id:'other-operator',active:true}));
- await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
  await page.evaluate(async()=>{
   window.fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');

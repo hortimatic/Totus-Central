@@ -5,7 +5,7 @@ const server=await startLocalServer({enabled:true}),browser=await chromium.launc
 try{for(const width of [1440,390]){
  const page=await browser.newPage({viewport:{width,height:950}});
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
- await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
+ await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
  await page.getByRole('button',{name:/Artículo de práctica/}).click();
  await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();

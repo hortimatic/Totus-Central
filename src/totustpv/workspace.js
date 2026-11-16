@@ -49,12 +49,14 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   </div>`;}
  function render() {
   if(!host)return;
-  if(!adapter||!context){host.innerHTML=`<section class="card card-pad tpv-activation"><h3>Preparar TotusTPV</h3>
-   <p>Selecciona el puesto de preproducción para probar pedidos, pagos y existencias. Las tiendas en producción quedan fuera de este circuito de pruebas.</p>
-   <div class="inline-actions">${createLiveAdapter?button('live','Abrir puesto de preproducción','primary',busy):''}${readSetup?button('setup',busy?'Comprobando puesto…':'Comprobar puesto','secondary',busy):''}${button('practice','Practicar sin ventas reales','secondary',busy)}${onConfigure&&canConfigure()?button('configure','Conexiones de tienda','secondary',busy):''}</div>
-   ${canAssign()&&readConfiguration?button('assign','Configurar puesto de pruebas','secondary',busy):''}
-   ${configuration?configurationHtml():''}${setup?setupHtml():''}
-   <p class="muted">La práctica usa artículos y cajas ficticios. El puesto de preproducción usa la web de pruebas.</p>${failure?`<p role="alert">${esc(failure)}</p>`:notice?`<p role="status">${esc(notice)}</p>`:''}</section>`;return;}
+  if(!adapter||!context){host.innerHTML=`<section class="tpv-activation" aria-busy="${busy}">
+   <header><span class="tpv-entry-eyebrow">MOSTRADOR</span><h3>${busy?'Abriendo tu caja…':'Tu tienda, lista para trabajar'}</h3>
+   <p>${busy?'Estamos recuperando tus tiendas, cajas y preferencias.':'Entra con tu cuenta y continúa en la caja de tu establecimiento.'}</p></header>
+   ${failure?`<p class="note bad" role="alert">${esc(failure)}</p>`:notice?`<p class="note" role="status">${esc(notice)}</p>`:''}
+   ${!busy?`<div class="tpv-entry-options"><article><h4>Entrar al mostrador</h4><p>Elige tu tienda y caja. Si ya tienes una caja abierta, recuperarás la sesión.</p>${createLiveAdapter?button('live',failure?'Volver a intentar':'Entrar al mostrador','primary'):''}<small>Disponible ahora en la tienda de pruebas. Los pedidos y las existencias se registran en esa tienda.</small></article>
+   <article><h4>Aprender a usarlo</h4><p>Practica una venta, un cobro o un cierre de caja con artículos ficticios.</p>${button('practice','Probar con datos ficticios')}<small>La práctica no crea pedidos ni mueve dinero o existencias.</small></article></div>`:'<p class="tpv-entry-loading" role="status">Consultando tus cajas disponibles…</p>'}
+   ${!busy&&(canAssign()&&readConfiguration||readSetup||onConfigure&&canConfigure())?`<details class="tpv-entry-administration" ${configuration||setup?'open':''}><summary>Administrar tiendas y cajas</summary><p>Prepara el acceso de los empleados y comprueba la conexión del establecimiento.</p><div class="inline-actions">${canAssign()&&readConfiguration?button('assign','Asignar tienda y caja'):''}${readSetup?button('setup','Comprobar conexión'):''}${onConfigure&&canConfigure()?button('configure','Gestionar conexiones'):''}</div>${configuration?configurationHtml():''}${setup?setupHtml():''}</details>`:''}
+   </section>`;return;}
   const status=failure?`<p class="note bad" role="alert">${esc(failure)}</p>`:notice?`<p class="note" role="status">${esc(notice)}</p>`:'';
   host.innerHTML=`<div class="tpv-practice-banner"><strong>${wording('Modo práctica','Preproducción · Hortimatic')}</strong><span>${wording('Datos ficticios · sin cobros ni pedidos en PrestaShop','Los cobros crean pedidos y modifican stock en la web de pruebas.')}</span>${button('exit','Salir del puesto')}</div>
    ${contextBar()}<nav class="module-tabs" aria-label="TotusTPV"><button type="button" class="tab ${tab==='sale'?'active':''}" data-tpv-action="sale">Venta</button>
@@ -266,7 +268,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  }
  async function openLive(required){
   const candidate=bindAdapter(createLiveAdapter()),observed=await candidate.context();
-  if(!observed.drawers?.length){if(required)throw Error('Este operador no tiene un puesto de preproducción configurado. Un administrador debe completar su asignación.');return false;}
+  if(!observed.drawers?.length){if(required)throw Error('Todavía no tienes una caja asignada. Pide al responsable de tu tienda que te dé acceso desde Administrar tiendas y cajas.');notice='Todavía no tienes una caja asignada. Puedes practicar mientras el responsable de tu tienda prepara tu acceso.';return false;}
   adapter=candidate;context=observed;session=context.sessions.find(s=>s.status==='open')||null;
   if(session)await adapter.selectSession(session);
   else {const drawer=context.drawers[0];selectedStore=drawer.storeId;selectedDrawer=drawer.id;await adapter.selectWorkstation({storeId:selectedStore,drawerId:selectedDrawer});}
