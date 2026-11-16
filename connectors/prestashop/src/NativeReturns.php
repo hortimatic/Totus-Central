@@ -32,8 +32,9 @@ final class NativeReturns
         Protocol::ensure(($read['status']??null)==='verified','RETURN_SALE_NOT_VERIFIED');
         $sale=$read['result'];$order=new \Order((int)$sale['order_id']);
         Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_shop===$scope['shop_id'] &&
-            (int)$order->id_cart===$sale['cart_id'] && $order->module===$this->module->name &&
-            $order->hasBeenDelivered() && $order->hasBeenPaid(),'RETURN_NATIVE_ORDER_INVALID');
+            (int)$order->id_cart===$sale['cart_id'] && $order->module===$this->module->name,'RETURN_NATIVE_ORDER_INVALID');
+        Protocol::ensure($order->hasBeenDelivered(),'RETURN_NATIVE_DELIVERY_REQUIRED');
+        Protocol::ensure($order->hasBeenPaid(),'RETURN_NATIVE_PAYMENT_REQUIRED');
         return [$row,$sale,$order];
     }
     private static function rounded($value): int

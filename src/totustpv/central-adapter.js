@@ -7,6 +7,11 @@ const clone=value=>structuredClone(value);
 const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?
  Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
 const canonical=value=>JSON.stringify(ordered(value));
+export function catalogueImageUrl(origin,path){
+ try{const base=new URL(origin);if(base.protocol==='https:'&&base.href===base.origin+'/'&&
+  typeof path==='string'&&/^\/img\/p\/(?:[0-9]\/)+[0-9]+\.jpg$/.test(path))return base.origin+path;}catch{}
+ return null;
+}
 export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID()}={}){
  need(typeof invoke==='function'&&actorId&&storage,'No se puede preparar el puesto.');
  let stations=[],selected=null,session=null,prepared=new Map(),returnSources=new Map(),customer=null,activeDraft=null;
@@ -45,7 +50,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
    stations=data.workstations;need(stations.every(row=>row.environment==='qa'),'Entorno de pruebas no válido.');
    return {stores:[...new Map(stations.map(row=>[row.storeId,{id:row.storeId,name:row.storeName}])).values()],
-    drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName})),
+    drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName,connectionId:row.connectionId,shopId:row.shopId})),
     sessions:stations.filter(row=>row.session).map(row=>({...row.session,storeId:row.storeId,drawerId:row.drawerId}))};},
   async selectSession(value){selected=stations.find(row=>row.drawerId===value.drawerId&&row.storeId===value.storeId);
    need(selected?.session?.id===value.id,'La sesión de caja ha cambiado.');session=clone(value);return clone(session);},
@@ -54,11 +59,15 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const id=await operation('open',{storeId,drawerId,openingCents}),result=await call('open',{openingCents},id);
    need(result.id===id&&result.status==='open','No se ha confirmado la apertura de caja.');
    session={id,storeId,drawerId,status:'open',openingCents};forget('open',id);return clone(session);},
-  async searchProducts({search='',page=0,productId=0}={}){const data=await call('catalogue',{search,page,productId,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+  async categories(){const data=await call('categories');need(Array.isArray(data.categories)&&data.has_more===false,'No se han podido consultar todas las categorías de esta tienda.');
+   return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
+  async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
+   need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);prepared.delete(operationId);return receipt(result);},
+  async searchProducts({search='',page=0,productId=0,categoryId=0}={}){const data=await call('catalogue',{search,page,productId,categoryId,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
    need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
     stock:row.stock,priceCents:row.preview_cents,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
-    barcode:row.ean,upc:row.upc}));
+    barcode:row.ean,upc:row.upc,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page}});return items;},
   async quote({lines,adjustment,coupon}){
    const intent={...cartIntent(lines,adjustment,coupon),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};

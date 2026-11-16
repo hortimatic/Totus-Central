@@ -11,6 +11,9 @@ final class NativeCatalogue
         (float)$value>=$min&&(float)$value<=$max,'CATALOGUE_QUERY_INVALID');return (int)$value;}
     public static function read(array $query,array $profile): array
     {
+        $categoriesOnly=self::integer((string)($query['categories_only']??'0'),0,1);
+        if($categoriesOnly===1)return self::categories($profile);
+        $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
         $search=$query['search']??'';
@@ -36,6 +39,13 @@ final class NativeCatalogue
                 FROM `'._DB_PREFIX_.'product` p JOIN `'._DB_PREFIX_.'product_shop` ps ON ps.id_product=p.id_product AND ps.id_shop=?
                 JOIN `'._DB_PREFIX_.'product_lang` pl ON pl.id_product=p.id_product AND pl.id_shop=? AND pl.id_lang=?
                 WHERE ps.active=1 AND ps.available_for_order=1 AND ps.advanced_stock_management=0 AND p.is_virtual=0 AND p.cache_is_pack=0';
+            if($categoryId>0){
+                $category=$db->prepare('SELECT c.nleft,c.nright FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? WHERE c.id_category=? AND c.active=1');
+                $category->execute([$shop,$categoryId]);$bounds=$category->fetch(\PDO::FETCH_ASSOC);
+                Protocol::ensure($bounds!==false,'CATALOGUE_CATEGORY_INVALID');
+                $sql.=' AND EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'category_product` cp JOIN `'._DB_PREFIX_.'category` tree ON tree.id_category=cp.id_category JOIN `'._DB_PREFIX_.'category_shop` ts ON ts.id_category=tree.id_category AND ts.id_shop=? WHERE cp.id_product=p.id_product AND tree.active=1 AND tree.nleft>=? AND tree.nright<=?)';
+                array_push($parameters,$shop,(int)$bounds['nleft'],(int)$bounds['nright']);
+            }
             if($productId>0){$sql.=' AND p.id_product=?';$parameters[]=$productId;}
             if($search!==''){
                 $needle='%'.strtr($search,['!'=>'!!','%'=>'!%','_'=>'!_']).'%';
@@ -80,6 +90,14 @@ final class NativeCatalogue
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'currency'=>$context->currency->iso_code,
                 'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false];
         }finally{$manager->restorePreviousContext();}
+    }
+    private static function categories(array $profile): array
+    {
+        $s=\Db::getInstance()->getLink()->prepare('SELECT c.id_category,cl.name,c.id_parent,COALESCE(parent.name,\'\') parent_name FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? JOIN `'._DB_PREFIX_.'category_lang` cl ON cl.id_category=c.id_category AND cl.id_shop=? AND cl.id_lang=? LEFT JOIN `'._DB_PREFIX_.'category_lang` parent ON parent.id_category=c.id_parent AND parent.id_shop=cl.id_shop AND parent.id_lang=cl.id_lang WHERE c.active=1 AND c.id_category>1 ORDER BY cl.name,c.id_category LIMIT 2001');
+        $s->execute([(int)$profile['shop_id'],(int)$profile['shop_id'],(int)$profile['language_id']]);$rows=$s->fetchAll(\PDO::FETCH_ASSOC);
+        Protocol::ensure(count($rows)<=2000,'CATEGORY_METADATA_LIMIT');
+        return ['categories'=>array_map(static fn($r)=>['id'=>(int)$r['id_category'],'name'=>(string)$r['name'],
+            'parentId'=>(int)$r['id_parent'],'parentName'=>$r['id_parent']>2?(string)$r['parent_name']:''],$rows),'has_more'=>false];
     }
     private static function item(array $product,int $attribute,bool $choose,?array $variant,array $profile,$context,int $address,int $customer): array
     {

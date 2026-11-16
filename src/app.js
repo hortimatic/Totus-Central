@@ -89,12 +89,14 @@ const businessWriter=createBusinessWriter({rpc});
 const mobileNavigation=createMobileNavigation();
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
-const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),
+const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
  createLiveAdapter:()=>{const actorId=state.user.id;return createCentralTpvAdapter({actorId,storage:localStorage,invoke:tpvClient(actorId)});},
  readConfiguration:createTpvConfigurationReader({actor:()=>state.user,rpc,
   readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)}),
   readOperators:()=>select('profiles',{columns:'id,full_name,active',order:'full_name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})}),
  configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),
+ workspacePreferences:(drawer,preferences=null)=>rpc('totus_tpv_workspace_preferences',{
+  p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  canCustomer:action=>can('clientes',action),
  readSetup:()=>totusTpvSetup.read(),
  confirm:(message,options={})=>confirmAction(message,{title:'TotusTPV',acceptLabel:options.acceptLabel||'Salir'}),

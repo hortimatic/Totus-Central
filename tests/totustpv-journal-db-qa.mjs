@@ -58,6 +58,8 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116142221_totustpv_order_lookup.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116150203_totustpv_cash_reports.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116172741_totustpv_server_permission_helper.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116175354_totustpv_failed_sale_review.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116180903_totustpv_workspace_preferences.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -303,5 +305,14 @@ try {
  const secured=await db.query(`select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace
    where n.nspname='private' and c.relname in ('totus_tpv_assignments','totus_tpv_sessions','totus_tpv_operations','totus_tpv_payment_events') and c.relrowsecurity`);
  check(secured.rows[0].n,4);
+ const prefs=async(selected=qaScope,value=null)=>(await db.query('select public.totus_tpv_workspace_preferences($1,$2,$3,$4::jsonb) result',[selected.connectionId,selected.shopId,selected.drawerId,value===null?null:JSON.stringify(value)])).rows[0].result;
+ await db.exec('set role anon');await denied(()=>prefs(),/permission denied/);
+ await db.exec('reset role;set role authenticated');
+ await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
+ check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
+ check((await prefs()).viewMode,'list');await denied(()=>prefs({...qaScope,drawerId:id(999)}),/FORBIDDEN/);
+ await denied(()=>prefs(qaScope,{viewMode:'bad',initialCategoryId:0}),/INVALID/);
+ await db.exec(`set request.jwt.claim.sub='${id(9)}'`);await denied(()=>prefs(),/FORBIDDEN|ACCESS/);
+ await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
 } finally {await db.close();}

@@ -51,6 +51,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
   }
 
   async function reconcileRecord(scope, record, token = null) {
+    if(record.status==='cancelled')return result(record,{retryOrderForbidden:true});
     let orderId = record.orderId ?? null;
     try {
       const orders = await native.ordersForCart({scope,cartId:record.expected.cartId});

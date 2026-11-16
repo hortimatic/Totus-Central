@@ -9,7 +9,15 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.getByRole('button',{name:'Practicar sin ventas reales'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
+ await page.locator('[data-tpv-view]').selectOption('list');
+ assert.equal(await page.locator('.tpv-view-list').count(),1);
+ await page.locator('[data-tpv-view]').selectOption('compact');
+ assert.equal(await page.locator('.tpv-view-compact').count(),1);
+ await page.locator('[data-tpv-view]').selectOption('grid');
  await page.getByRole('button',{name:/Artículo de práctica/}).click();
+ await page.locator('[data-tpv-quantity]').fill('2');
+ assert.match(await page.locator('.tpv-ticket-total').innerText(),/16,02/);
+ await page.locator('[data-tpv-quantity]').fill('1');
  await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();
  await page.locator('[name=received]').fill('10,00');
  await page.locator('[name=scenario]').selectOption('lost-response');
