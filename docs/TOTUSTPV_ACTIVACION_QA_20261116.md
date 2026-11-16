@@ -15,7 +15,7 @@ Esta autorización sustituye únicamente la prohibición anterior de instalar el
 
 ## Todavía pendiente
 
-Publicar la interfaz actual, configurar el puesto mediante la sesión normal de Central y realizar la aceptación remota completa. Las pruebas nativas locales no acreditan todavía ese recorrido remoto.
+La interfaz 73d54699 ya está publicada y abierta con la sesión normal de Central. Muestra la configuración integrada del puesto. Queda configurar la asignación y realizar la aceptación remota completa. Las pruebas nativas locales no acreditan todavía ese recorrido remoto.
 
 La lista real de pedidos de preproducción muestra 46.504 registros; la apertura inicial superó 24 segundos. La tabla de pedidos ocupa aproximadamente 36,22 MiB con índices. Esto no demuestra que deba borrarse el historial. Continúa el diagnóstico de consultas e índices, sin modificar pedidos, documentos ni stock.
 
@@ -35,4 +35,4 @@ La aplicación se sirve desde Totus Central y su servicio autenticado; el conect
 
 Se detuvo la MariaDB desechable verificando la ruta de su ejecutable. Se retiraron 25 ramas remotas con PR fusionado y SHA coincidente y 23 ramas locales equivalentes, excluyendo los árboles de trabajo asociados y cualquier trabajo sin integración demostrada. La primera limpieza atómica se canceló sin borrar nada al detectar una referencia remota ya retirada; se releyeron todas las referencias antes del lote definitivo.
 
-Los binarios, bases ficticias y paquetes generados del laboratorio se retiran del directorio de artefactos. Las pruebas y fuentes permanecen versionadas; las capturas de aceptación se conservan como evidencia, sin ser dependencias de ejecución.
+Se han eliminado los binarios, bases ficticias, paquetes generados y dependencias del laboratorio. También se eliminó el clon del prototipo separado, comprobando antes que su fuente estaba conservada en GitHub y que no tenía servicio local activo. Tras integrar el PR 211 se retiró su rama remota: total 26 ramas remotas y 23 locales retiradas. Las pruebas y fuentes permanecen versionadas; las capturas de aceptación se conservan como evidencia, sin ser dependencias de ejecución.
