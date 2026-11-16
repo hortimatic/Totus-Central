@@ -25,6 +25,7 @@ try{
   stockFixture.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,canStock:()=>true,
    autoOpen:true,createLiveAdapter:()=>adapter});stockFixture.workspace.mount(document.querySelector('#tpv'));
  });
+ await page.getByText('Más acciones',{exact:true}).click();
  await page.getByRole('button',{name:'Entrada de stock',exact:true}).click();
  const scanner=page.locator('[data-tpv-search]');await scanner.waitFor();
  for(const code of ['SCAN1','SCAN1','SCAN1','SCAN2']){await scanner.fill(code);await scanner.press('Enter');}
@@ -38,6 +39,7 @@ try{
  assert.equal(await page.evaluate(()=>stockFixture.creates),1);assert.equal(await page.evaluate(()=>stockFixture.steps),0,'Saving the manifest does not receive stock');
  assert.equal(await page.evaluate(()=>stockFixture.workspace.hasDraft()),false);
  await page.evaluate(()=>stockFixture.workspace.mount(document.querySelector('#tpv')));
+ await page.getByText('Más acciones',{exact:true}).click();
  await page.getByRole('button',{name:'Entrada de stock',exact:true}).click();
  await page.getByRole('button',{name:'Albarán 1582 · Preparada',exact:true}).click();
  await page.getByRole('button',{name:'Confirmar y registrar mercancía',exact:true}).click();
@@ -50,7 +52,7 @@ try{
  assert.deepEqual(await page.evaluate(()=>stockFixture.receipts[0].lines.map(l=>l.quantity)),[3,1]);
  await fs.mkdir('artifacts/totustpv-stock',{recursive:true});
  for(const width of [1440,768,390]){await page.setViewportSize({width,height:950});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,`No overflow ${width}`);
-  await page.screenshot({path:`artifacts/totustpv-stock/${width}.png`,fullPage:true});}
+  await page.screenshot({path:`artifacts/totustpv-stock/${width}.png`,fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,`No overflow ${width}: `+JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>innerWidth+2).slice(-5).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right})))));}
  assert.deepEqual(errors,[]);console.log('PASS stock intake UI: queued rapid scans, repeated quantities, no write before confirmation, persisted manifest recovery, partial-result recovery and three widths. Synthetic native responses only.');
 }finally{await page.close();await browser.close();if(server)await new Promise(r=>server.close(r));}

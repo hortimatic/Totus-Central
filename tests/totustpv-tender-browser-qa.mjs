@@ -8,6 +8,7 @@ try{for(const width of [1440,390]){
  await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
  await page.getByRole('button',{name:/Artículo de práctica/}).click();
+ if(width<761)await page.getByRole('button',{name:'Ver ticket',exact:true}).click();
  await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();
  const status=page.getByRole('status',{name:'Cambio del cobro'}),confirm=page.getByRole('button',{name:'Confirmar venta de práctica'});
  await page.getByRole('button',{name:'Entregado 5 euros',exact:true}).click();

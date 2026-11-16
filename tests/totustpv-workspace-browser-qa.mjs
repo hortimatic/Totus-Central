@@ -92,6 +92,7 @@ try{
  });
  await page.locator('.tpv-view-compact').waitFor();assert.equal(await page.locator('[data-tpv-category]').inputValue(),'2');
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),2);
+ await page.getByText('Más acciones',{exact:true}).click();
  await page.getByRole('button',{name:'Configuración',exact:true}).click();
  await page.locator('[name=viewMode]').selectOption('list');await page.locator('[name=initialCategoryId]').selectOption('1');
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();

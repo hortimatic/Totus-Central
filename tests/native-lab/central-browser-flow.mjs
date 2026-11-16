@@ -65,15 +65,19 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.locator('[data-tpv-search]').fill(reference);
   const product=page.locator(`[data-tpv-add="${productId}:0"]`);await product.waitFor();
   if(width===390)await page.locator('[data-tpv-search]').press('Enter');else await product.click();
+  if(width===390)await page.getByRole('button',{name:'Ver ticket',exact:true}).click();
   await page.locator('[data-tpv-line-kind]').waitFor();
   if(width===390){await page.locator('[data-tpv-line-kind]').selectOption('amount');await page.locator('[data-tpv-line-value]').fill('0,50');
+   await page.getByText('Descuentos, cupón y aparcado',{exact:true}).click();
    await page.locator('[name=discountKind]').selectOption('amount');await page.locator('[name=discountValue]').fill('0,50');
    await page.locator('[name=draftLabel]').fill('Ticket recuperado del navegador');
    await page.getByRole('button',{name:'Aparcar ticket',exact:true}).click();
    await page.locator('[data-tpv-draft-id]').waitFor();
    await page.reload();await mount();await page.getByRole('button',{name:'Entrar al mostrador'}).click();
+   await page.getByText('Más acciones',{exact:true}).click();
    await page.getByRole('button',{name:'Tickets aparcados',exact:true}).click();
    await page.getByRole('button',{name:'Recuperar ticket',exact:true}).click();
+   await page.getByRole('button',{name:'Ver ticket',exact:true}).click();
    await page.locator('[data-tpv-line-kind]').waitFor();
    assert.equal(await page.locator('[data-tpv-line-value]').inputValue(),'0,50');
    assert.equal(await page.locator('[name=discountValue]').inputValue(),'0,50');
@@ -139,6 +143,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.locator('[name=counted]').fill('99,00');
   await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  await page.getByText('Más acciones',{exact:true}).click();
   await page.getByRole('button',{name:'Informes de caja',exact:true}).click();
   await page.getByRole('heading',{name:'Cierre de caja',exact:true}).waitFor();
   assert.match(await page.locator('.tpv-cash-report').innerText(),/99,00/);

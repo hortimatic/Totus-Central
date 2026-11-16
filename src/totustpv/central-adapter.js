@@ -18,11 +18,12 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  const key='totus:tpv:requests:v1:'+actorId;
  function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
- async function operation(kind,payload){const data=saved(),scope=JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]),
+ const scopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]);
+ async function operation(kind,payload,requestedId=null){const data=saved(),scope=scopeKey(),
   fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(payload))))].map(n=>n.toString(16).padStart(2,'0')).join(''),prior=data[kind];
   if(prior?.scope===scope&&prior.fingerprint===fingerprint)return prior.id;
   if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft','stock-receipt'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
-  const id=uuid();data[kind]={id,scope,fingerprint};storage.setItem(key,JSON.stringify(data));return id;}
+  const id=requestedId||uuid();data[kind]={id,scope,fingerprint};storage.setItem(key,JSON.stringify(data));return id;}
  function forget(kind,id){const data=saved();if(data[kind]?.id===id){delete data[kind];storage.setItem(key,JSON.stringify(data));}}
  const selection=()=>{need(selected,'Selecciona un puesto de caja.');return {connectionId:selected.connectionId,shopId:selected.shopId,
   drawerId:selected.drawerId,...(session?{sessionId:session.id}:{})};};
@@ -62,7 +63,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async categories(){const data=await call('categories');need(Array.isArray(data.categories)&&data.has_more===false,'No se han podido consultar todas las categorías de esta tienda.');
    return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
   async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
-   need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);prepared.delete(operationId);return receipt(result);},
+   need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);forget('submitted-sale',operationId);prepared.delete(operationId);return receipt(result);},
   async searchProducts({search='',page=0,productId=0,categoryId=0}={}){const data=await call('catalogue',{search,page,productId,categoryId,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
    need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
@@ -70,6 +71,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     barcode:row.ean,upc:row.upc,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page}});return items;},
   async quote({lines,adjustment,coupon}){
+   const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
    const intent={...cartIntent(lines,adjustment,coupon),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
    const id=await operation('prepare',intent),record=await call('prepare',intent,id);
    need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
@@ -79,14 +81,19 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels||{cash:'',card:''},method)),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
    prepared.set(id,quote);return clone(quote);},
-  async discardQuote(id){await releaseDraft();forget('prepare',id);prepared.delete(id);},
+  async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
+   const status=await call('sale-status',{},id);need(status.status==='ready','Este cobro ya se envió. Recupera su resultado antes de continuar.');}
+   await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);},
+  async pendingSale(){const data=saved(),scope=scopeKey();for(const kind of ['submitted-sale','prepare'])if(data[kind]?.scope===scope)return data[kind].id;
+   const rows=await call('history');return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
   async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
    need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
     ...(row.method==='cash'?{receivedCents:row.receivedCents}:{})}));
    const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true}};
+   need(await operation('submitted-sale',request,operationId)===operationId,'Hay otro cobro pendiente de recuperar.');
    const change=payments.filter(row=>row.method==='cash').reduce((n,row)=>n+row.receivedCents-row.amountCents,0);
-   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);activeDraft=null;}
+   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}
     return receipt(result,{totalCents:quote.totalCents,changeCents:change});
    }catch{ return receipt({id:operationId,status:'uncertain',totalCents:quote.totalCents},{changeCents:change}); }
   },
@@ -95,8 +102,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     need(status.canSubmit!==false,'Este cobro lo preparó otro operador. No vuelvas a cobrarlo.');
     if(status.draftId)activeDraft=await call('get-draft',{draftId:status.draftId});
     prepared.set(operationId,status);return receipt(status,{payment:status,draft:activeDraft});}
-   const result=status.status==='confirmed'?status:await call('recover',{},operationId);
-   if(result.status==='confirmed'){forget('prepare',operationId);activeDraft=null;}return receipt(result,{totalCents:status.totalCents});},
+   const result=['confirmed','cancelled'].includes(status.status)?status:await call('recover',{},operationId);
+   if(['confirmed','cancelled'].includes(result.status)){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}return receipt(result,{totalCents:status.totalCents});},
   async drafts(){return call('drafts');},
   async archiveDraft({draftId,version}){const values={draftId,version},id=await operation('archive-draft',values),result=await call('archive-draft',values,id);
    need(result.status==='archived','No se ha confirmado el archivo del ticket.');forget('archive-draft',id);return result;},

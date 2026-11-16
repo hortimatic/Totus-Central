@@ -21,7 +21,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  onConfigure=null,canConfigure=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,workspacePreferences=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,autoOpen=false}={}) {
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
- let scanQueue=[],scanning=false;
+ let scanQueue=[],scanning=false,mobilePane='catalogue';
  let host=null,adapter=null,context=null,session=null,products=[],lines=[],search='',tab='sale',notice='',failure='',
   busy=false,payment=null,receipt=null,history=[],summary=null,generation=0,searchTimer=null,abort=null,
   returnForm=null,paymentValues={},formValues={},formDirty=false,selectedStore='',selectedDrawer='',searchRevision=0,setup=null,
@@ -52,6 +52,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   </div>`;}
  function render() {
   if(!host)return;
+  host.classList.toggle('tpv-active',!!adapter&&!!context);sizeWorkspace();
   const scanningInput=scanning?host.querySelector('[data-tpv-search]'):null,
    scanInputState=scanningInput?{value:scanningInput.value,start:scanningInput.selectionStart,end:scanningInput.selectionEnd,focused:document.activeElement===scanningInput}:null;
   if(!adapter||!context){host.innerHTML=`<section class="tpv-activation" aria-busy="${busy}">
@@ -63,11 +64,11 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    ${!busy&&(canAssign()&&readConfiguration||readSetup||onConfigure&&canConfigure())?`<details class="tpv-entry-administration" ${configuration||setup?'open':''}><summary>Administrar tiendas y cajas</summary><p>Prepara el acceso de los empleados y comprueba la conexión del establecimiento.</p><div class="inline-actions">${canAssign()&&readConfiguration?button('assign','Asignar tienda y caja'):''}${readSetup?button('setup','Comprobar conexión'):''}${onConfigure&&canConfigure()?button('configure','Gestionar conexiones'):''}</div>${configuration?configurationHtml():''}${setup?setupHtml():''}</details>`:''}
    </section>`;return;}
   const status=failure?`<p class="note bad" role="alert">${esc(failure)}</p>`:notice?`<p class="note" role="status">${esc(notice)}</p>`:'';
-  host.innerHTML=`<div class="tpv-practice-banner"><strong>${wording('Modo práctica','Preproducción · Hortimatic')}</strong><span>${wording('Datos ficticios · sin cobros ni pedidos en PrestaShop','Los cobros crean pedidos y modifican stock en la web de pruebas.')}</span>${button('exit','Salir del puesto')}</div>
-   ${contextBar()}<nav class="module-tabs" aria-label="TotusTPV"><button type="button" class="tab ${tab==='sale'?'active':''}" data-tpv-action="sale">Venta</button>
+  host.innerHTML=`<header class="tpv-workspace-bar">${contextBar()}<span class="tpv-environment" title="${wording('Artículos y cobros ficticios. No se modifica la tienda.','Los cobros crean pedidos y modifican stock en la web de pruebas.')}">${wording('Práctica','Tienda de pruebas')}</span>${button('fullscreen','Pantalla completa')}</header>
+   <nav class="module-tabs tpv-main-nav" aria-label="TotusTPV"><button type="button" class="tab ${tab==='sale'?'active':''}" data-tpv-action="sale">Venta</button>
    <button type="button" class="tab ${tab==='history'?'active':''}" data-tpv-action="history">${wording('Tickets de práctica','Pedidos y devoluciones')}</button>
-   <button type="button" class="tab ${tab==='session'?'active':''}" data-tpv-action="session">Caja</button>${live()?`<button type="button" class="tab ${tab==='reports'?'active':''}" data-tpv-action="reports">Informes de caja</button><button type="button" class="tab ${tab==='drafts'?'active':''}" data-tpv-action="drafts">Tickets aparcados</button><button type="button" class="tab ${tab==='stock'?'active':''}" data-tpv-action="stock">Entrada de stock</button><button type="button" class="tab ${tab==='settings'?'active':''}" data-tpv-action="settings">Configuración</button>`:''}</nav>${status}
-   ${documentPreview?nativeReceiptHtml(documentPreview):''}${live()?customers.html()+reports.html():''}<div data-tpv-body>${tab==='settings'?settingsHtml():tab==='configuration'&&configuration?`<section class="card card-pad"><h3>Configuración de TotusTPV</h3>${configurationHtml()}</section>`:reports.isOpen()?'':!session?openingHtml():tab==='history'?historyHtml():tab==='session'?sessionHtml():tab==='drafts'?draftsHtml():tab==='stock'?stockHtml():receipt?receiptHtml():saleHtml()}</div>`;
+   <button type="button" class="tab ${tab==='session'?'active':''}" data-tpv-action="session">Caja</button><details class="tpv-actions"><summary>Más acciones</summary><div>${live()?`${button('reports','Informes de caja')}${button('drafts','Tickets aparcados')}${canStock()?button('stock','Entrada de stock'):''}${button('settings','Configuración')}`:''}${button('exit','Salir del puesto')}</div></details></nav><div class="tpv-workarea">${status}
+   ${documentPreview?nativeReceiptHtml(documentPreview):''}${live()?customers.html()+reports.html():''}<div data-tpv-body>${tab==='settings'?settingsHtml():tab==='configuration'&&configuration?`<section class="card card-pad"><h3>Configuración de TotusTPV</h3>${configurationHtml()}</section>`:reports.isOpen()?'':!session?openingHtml():tab==='history'?historyHtml():tab==='session'?sessionHtml():tab==='drafts'?draftsHtml():tab==='stock'?stockHtml():receipt?receiptHtml():saleHtml()}</div></div>`;
   host.querySelectorAll('label').forEach(el=>el.classList.add('field'));
   reflectPaymentMethod();
   host.querySelectorAll('button,select,input').forEach(el=>{if(busy&&!(scanning&&el.matches('[data-tpv-search]')))el.disabled=true;});
@@ -97,21 +98,21 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   return payment.lines.map(row=>{const key=row.productId+':'+row.attributeId,source=lines.find(line=>line.productId===key);
    return {...source,productId:key,name:source?.name||'Artículo #'+row.productId+(row.attributeId?' · variante #'+row.attributeId:''),qty:row.qty,
     unitCents:Math.round(row.unitTaxInclMicros/10000),totalCents:row.lineTaxInclCents,pricePending:false};});}
- function saleHtml(){return `<div class="tpv-sale-grid ${payment?'tpv-checkout-grid':''}"><section class="card card-pad tpv-catalogue" aria-label="Artículos" ${payment?'hidden':''}>
+ function saleHtml(){return `<div class="tpv-sale-grid tpv-pane-${mobilePane} ${payment?'tpv-checkout-grid':''}"><div class="tpv-mobile-switch">${button('show-products','Catálogo')}${button('show-ticket','Ticket · '+lines.reduce((n,l)=>n+l.qty,0))}</div><section class="tpv-panel tpv-catalogue" aria-label="Artículos" ${payment?'hidden':''}>
   <label>Buscar artículo o referencia<input type="search" data-tpv-search placeholder="Nombre o referencia" value="${esc(search)}" autocomplete="off"></label>
   <div class="tpv-catalogue-controls">${live()?`<label>Categoría<select data-tpv-category><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===categoryId?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label>`:''}<label>Vista<select data-tpv-view>${[['grid','Fotos'],['compact','Compacta'],['list','Lista']].map(([id,label])=>`<option value="${id}" ${id===catalogueView?'selected':''}>${label}</option>`).join('')}</select></label></div>
   <div class="tpv-product-list tpv-view-${catalogueView}">${products.map(p=>`<button type="button" class="tpv-product" data-tpv-add="${esc(p.id)}" ${p.stock<=0||!can('create')||payment?'disabled':''}>
    ${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy" decoding="async" width="88" height="88" referrerpolicy="no-referrer">`:''}<span><strong>${esc(p.name)}</strong><small>${esc(p.reference)} · ${p.stock} disponibles${p.chooseVariant?' · Elegir variante':''}</small></span><b>${money(p.priceCents)}</b></button>`).join('')||'<p class="tpv-empty">No hay artículos con esa búsqueda.</p>'}</div>
   ${live()?`<div class="inline-actions">${variantProduct?button('back-products','Volver a productos'):''}${button('catalogue-previous','Anterior','secondary',productPage===0)}<span>Página ${productPage+1}</span>${button('catalogue-next','Siguiente','secondary',!products.hasMore)}</div>`:''}</section>
-  <section class="card card-pad tpv-ticket" aria-label="Ticket actual"><header><h3>${wording('Ticket de práctica','Venta actual')}</h3>${draftInfo?`<small>Ticket recuperado · ${esc(draftInfo.label)}</small>`:''}<span>${esc(wording('Cliente de mostrador ficticio',selectedCustomer?selectedCustomer.name+' · '+selectedCustomer.addressLabel:'Cliente de mostrador'))}</span>${live()&&!payment&&canCustomer('view')?button('customers','Elegir cliente'):''}</header>
+  <section class="tpv-panel tpv-ticket" aria-label="Ticket actual"><header><h3>${wording('Ticket de práctica','Venta actual')}</h3>${draftInfo?`<small>Ticket recuperado · ${esc(draftInfo.label)}</small>`:''}<span>${esc(wording('Cliente de mostrador ficticio',selectedCustomer?selectedCustomer.name+' · '+selectedCustomer.addressLabel:'Cliente de mostrador'))}</span>${live()&&!payment&&canCustomer('view')?button('customers','Elegir cliente'):''}</header>
   <div class="tpv-ticket-lines">${shownLines().map(l=>`<div class="tpv-ticket-line"><div><strong>${esc(l.name)}</strong><small>${l.pricePending?'Precio pendiente de recalcular':money(l.unitCents)+' / ud.'}</small></div>
    <label class="tpv-quantity">Unidades<input type="number" min="${l.minimumQty||1}" max="10000" step="1" data-tpv-quantity="${esc(l.productId)}" value="${l.qty}" ${payment||!can('create')?'disabled':''}></label>
    <b>${l.pricePending?'—':money(l.totalCents??l.unitCents*l.qty)}</b><button type="button" class="btn secondary" aria-label="Quitar ${esc(l.name)}" data-tpv-remove="${esc(l.productId)}" ${payment||!can('create')?'disabled':''}>×</button>
    ${live()&&!payment&&can('edit')?`<div class="tpv-line-discount"><label>Descuento por unidad<select data-tpv-line-kind="${esc(l.productId)}"><option value="">Sin descuento</option><option value="percent" ${l.discountKind==='percent'?'selected':''}>Porcentaje · %</option><option value="amount" ${l.discountKind==='amount'?'selected':''}>Importe · €</option></select></label>${l.discountKind?`<label>Valor<input data-tpv-line-value="${esc(l.productId)}" inputmode="decimal" value="${esc(l.discountValue??'')}"></label>`:''}</div>`:''}</div>`).join('')||'<p class="tpv-empty">Selecciona un artículo para empezar.</p>'}</div>
-  ${!payment?`<div class="tpv-ticket-total"><span>Estimación antes de descuentos</span><strong>${lines.some(l=>l.pricePending)?'Por calcular':money(lines.reduce((n,l)=>n+l.qty*l.unitCents,0))}</strong></div>`:''}
-  ${live()&&!payment?`<form data-tpv-form="ticket" class="tpv-ticket-adjustments"><label>Descuento del ticket<select name="discountKind" ${!can('edit')?'disabled':''}><option value="">Sin descuento manual</option><option value="percent" ${formValues.ticket?.discountKind==='percent'?'selected':''}>Porcentaje · %</option><option value="amount" ${formValues.ticket?.discountKind==='amount'?'selected':''}>Importe · €</option></select></label><label>Valor del descuento<input name="discountValue" inputmode="decimal" value="${esc(formValues.ticket?.discountValue??'')}" ${!can('edit')?'disabled':''}></label><label>Cupón de la tienda<input name="coupon" maxlength="100" value="${esc(formValues.ticket?.coupon??'')}" ${!can('edit')?'disabled':''}></label><label>Nombre para aparcar<input name="draftLabel" maxlength="120" placeholder="Opcional" value="${esc(formValues.ticket?.draftLabel??draftInfo?.label??'')}"></label></form>`:''}
+  ${!payment?`<footer class="tpv-ticket-footer"><div class="tpv-ticket-total"><span>Estimación antes de descuentos</span><strong>${lines.some(l=>l.pricePending)?'Por calcular':money(lines.reduce((n,l)=>n+l.qty*l.unitCents,0))}</strong></div>`:''}
+  ${live()&&!payment?`<details class="tpv-ticket-options" ${formValues.ticket?.discountKind||formValues.ticket?.coupon?'open':''}><summary>Descuentos, cupón y aparcado</summary><form data-tpv-form="ticket" class="tpv-ticket-adjustments"><label>Descuento del ticket<select name="discountKind" ${!can('edit')?'disabled':''}><option value="">Sin descuento manual</option><option value="percent" ${formValues.ticket?.discountKind==='percent'?'selected':''}>Porcentaje · %</option><option value="amount" ${formValues.ticket?.discountKind==='amount'?'selected':''}>Importe · €</option></select></label><label>Valor del descuento<input name="discountValue" inputmode="decimal" value="${esc(formValues.ticket?.discountValue??'')}" ${!can('edit')?'disabled':''}></label><label>Cupón de la tienda<input name="coupon" maxlength="100" value="${esc(formValues.ticket?.coupon??'')}" ${!can('edit')?'disabled':''}></label><label>Nombre para aparcar<input name="draftLabel" maxlength="120" placeholder="Opcional" value="${esc(formValues.ticket?.draftLabel??draftInfo?.label??'')}"></label></form></details>`:''}
   ${!payment?`<div class="inline-actions">${button('clear','Vaciar ticket','secondary',!lines.length&&!draftInfo||!can('create'))}${live()?button('park','Aparcar ticket','secondary',!lines.length||!can('create')):''}${button('payment',wording('Preparar cobro de práctica','Calcular y cobrar'),'primary',!lines.length||!can('create'))}</div>`:''}
-  ${payment?paymentHtml():''}</section></div>`;}
+  ${!payment?'</footer>':''}${payment?paymentHtml():''}</section><div class="tpv-mobile-total"><strong>${money(lines.reduce((n,l)=>n+l.qty*l.unitCents,0))}</strong>${button('show-ticket','Ver ticket','primary',!lines.length)}</div></div>`;}
  function paymentHtml(){return `<form data-tpv-form="pay" class="tpv-payment"><h4>${wording('Cobro de práctica','Cobro · cálculo verificado en la tienda')}</h4>${payment.discountCents?`<p>Descuento del ticket: −${money(payment.discountCents)}</p>`:''}<p class="tpv-payment-amount">Total <strong>${money(payment.totalCents)}</strong></p>
   <label>Forma de pago<select name="method" data-tpv-method>${[...(payment.paymentMethods||['cash','card']),'mixed'].map(key=>`<option value="${key}" ${paymentValues.method===key?'selected':''}>${esc(paymentLabel(key))}${!live()?' · práctica':''}</option>`).join('')}</select></label>
   <label data-tpv-external-method hidden>Segundo medio de pago<select name="externalMethod">${(payment.paymentMethods||['cash','card']).filter(method=>method!=='cash').map(method=>`<option value="${method}" ${paymentValues.externalMethod===method?'selected':''}>${esc(paymentLabel(method))}</option>`).join('')}</select></label>
@@ -170,7 +171,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  async function work(fn){if(busy)return;guard();busy=true;failure='';const run=generation;render();try{await fn();}catch(error){if(run===generation)failure=error.message||'No se pudo completar la operación.';}finally{if(run===generation){busy=false;render();}}}
  async function changeTab(next){reports.reset();tab=next;if(session&&next==='history')history=await adapter.history({sessionId:session.id});if(session&&next==='session')summary=await adapter.sessionSummary({sessionId:session.id});if(session&&next==='drafts')parked=await adapter.drafts();if(session&&next==='stock'){await reloadProducts();await stockIntake.load();}}
  async function recover(operationId){incidentForm=false;const observed=await adapter.recover({operationId});lines=[];payment=null;tab='sale';
-  if(observed.status==='ready'&&observed.payment){if(observed.payment.quoteExpiresAt<=Date.now())throw new Error('Este cálculo ha caducado. Prepara un ticket nuevo; no se ha creado un pedido.');
+  if(observed.status==='ready'&&observed.payment){if(observed.payment.quoteExpiresAt<=Date.now()){
+    await adapter.discardQuote(operationId);receipt=null;notice='El cálculo anterior ha caducado sin crear un pedido. Ya puedes preparar otra venta.';await reloadProducts();return;}
    payment=observed.payment;receipt=null;paymentValues={};draftInfo=observed.draft||null;}else{receipt=observed;if(observed.status==='confirmed')draftInfo=null;}await reloadProducts();}
  function addProduct(p){const existing=lines.find(l=>l.productId===p.id),quantity=existing?existing.qty+1:(p.minimumQty||1);
   if(quantity>p.stock||quantity>10000)throw new Error('No hay unidades suficientes para añadir este artículo.');
@@ -196,6 +198,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const target=event.target.closest('button');if(!target||!host?.contains(target)||busy)return;
   if(!allowed()||mountedActor!==identity()){const root=host;dispose();root.innerHTML='<p role="alert">La sesión ha cambiado. Vuelve a entrar en TotusTPV.</p>';return;}
   const action=target.dataset.tpvAction;
+  if(action==='show-products'||action==='show-ticket'){mobilePane=action==='show-products'?'catalogue':'ticket';render();return;}
+  if(action==='fullscreen'){if(document.fullscreenElement===host)void document.exitFullscreen();else void host.requestFullscreen?.().catch(()=>{failure='No se pudo abrir la pantalla completa. Puedes seguir trabajando en esta ventana.';render();});return;}
   if(target.hasAttribute('data-tpv-stock-refresh'))return work(()=>stockIntake.load());
   if(target.dataset.tpvStockReceipt)return work(()=>stockIntake.select(target.dataset.tpvStockReceipt));
   if(target.dataset.tpvStockRun)return work(async()=>{await stockIntake.run(target.dataset.tpvStockRun);await reloadProducts();notice='Entrada de mercancía verificada.';});
@@ -289,7 +293,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   adapter=candidate;context=observed;session=context.sessions.find(s=>s.status==='open')||null;
   if(session)await adapter.selectSession(session);
   else {const drawer=context.drawers[0];selectedStore=drawer.storeId;selectedDrawer=drawer.id;await adapter.selectWorkstation({storeId:selectedStore,drawerId:selectedDrawer});}
-  await loadWorkspacePreferences();if(session)await reloadProducts();setup=null;return true;
+  await loadWorkspacePreferences();if(session){const pending=adapter.pendingSale?await adapter.pendingSale():null;
+   if(pending)await recover(pending);else await reloadProducts();}setup=null;return true;
  }
  async function loadWorkspacePreferences(){
   categories=adapter.categories?await adapter.categories():[];
@@ -427,13 +432,14 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    const wasFocused=document.activeElement===focus;render();const next=host.querySelector('[data-tpv-search]');
    if(next&&wasFocused){next.focus();next.setSelectionRange(start,start);}
   }catch(error){if(run===generation&&request===searchRevision){failure=error.message;render();}}},150);}
- function dispose(){generation++;searchRevision++;clearTimeout(searchTimer);abort?.abort();host=null;busy=false;scanQueue=[];scanning=false;}
+ function sizeWorkspace(){if(host)host.style.setProperty('--tpv-height',Math.max(360,window.innerHeight-Math.max(0,host.getBoundingClientRect().top)-12)+'px');}
+ function dispose(){generation++;searchRevision++;clearTimeout(searchTimer);abort?.abort();host=null;busy=false;scanQueue=[];scanning=false;mobilePane='catalogue';}
  return {mount(root){dispose();host=root;mountedActor=identity();
    stockIntake.reset();
    incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
    formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;productPage=0;variantProduct=0;stockProduct=null;configuration=null;configurationId=null;documentPreview=null;selectedCustomer=null;customers.reset();reports.reset();parked=[];draftInfo=null;
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}
    abort=new AbortController();for(const [type,handler] of [['click',click],['submit',submit],['change',change],['input',input],['keydown',keydown]])
-   host.addEventListener(type,handler,{signal:abort.signal});render();if(autoOpen&&createLiveAdapter)void work(()=>openLive(false));},dispose,
+   host.addEventListener(type,handler,{signal:abort.signal});window.addEventListener('resize',sizeWorkspace,{signal:abort.signal});document.addEventListener('fullscreenchange',sizeWorkspace,{signal:abort.signal});render();if(autoOpen&&createLiveAdapter)void work(()=>openLive(false));},dispose,
    hasDraft,requestLeave};
 }

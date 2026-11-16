@@ -11,6 +11,7 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   case 'prepare':return {id:body.operationId,status:'ready',expected:{totalCents:801,nativePaymentLabels:{bizum:'Bizum',card:'Tarjeta',cash:'Efectivo',transfer:'Transferencia'}},scope:{currency:'EUR'},quoteExpiresAt:Date.now()+120000};
   case 'submit':dispatches++;throw Error('Lost reply');
   case 'sale-status':return {id:body.operationId,status:'confirmed',orderId:42,totalCents:801};
+  case 'history':return [];
   case 'cash-movement':if(movementLost)throw Error('Lost reply');return {expectedCashCents:9900,payments:{cash:801,card:200}};
   case 'customer-write':return {verified:true,persisted:true,record_id:'7'};
   case 'returnable':return {orderId:42,remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
@@ -27,7 +28,10 @@ test('lost submit is recovered by server status, never resent or reconstructed f
  assert.deepEqual(quote.paymentMethods,['cash','card','bizum','transfer']);
  const result=await adapter.submit({operationId:quote.id,payments:[{method:'cash',amountCents:801,receivedCents:1000}]});
  assert.equal(result.status,'uncertain');assert.equal(result.changeCents,199);assert.equal(f.dispatches(),1);
+ assert.equal(await adapter.pendingSale(),quote.id,'Reload can discover the bound sale without storing customer or payment details');
+ await assert.rejects(adapter.quote({lines:[{productId:'12:3',qty:3}]}),/pendiente de recuperar/);
  assert.equal((await adapter.recover({operationId:quote.id})).orderId,42);assert.equal(f.dispatches(),1);
+ assert.equal(await adapter.pendingSale(),null,'Verified recovery releases the pending pointer');
  const request=f.requests.find(row=>row.action==='prepare');assert.deepEqual(request.lines,[{productId:12,attributeId:3,qty:2,discount:{kind:'percent',value:1000}}]);
  assert.equal(Object.hasOwn(request,'totalCents'),false);
 });
