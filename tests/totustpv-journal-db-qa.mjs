@@ -4,6 +4,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {createPostgresCheckoutLedger} from '../src/totustpv/postgres-journal.js';
 import {createCheckoutService} from '../src/totustpv/checkout-service.js';
 import {createNativeRequestService} from '../src/totustpv/server/native-request-service.js';
+import {createStockReceiptService} from '../src/totustpv/server/stock-receipt-service.js';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope={actorId:id(5),connectionId:id(1),connectionRevision:1,storeId:id(2),shopId:1,
@@ -60,6 +61,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116172741_totustpv_server_permission_helper.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116175354_totustpv_failed_sale_review.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116180903_totustpv_workspace_preferences.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116192744_totustpv_stock_receipts.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -327,6 +329,49 @@ try {
  check((await prefs()).viewMode,'list');await denied(()=>prefs({...qaScope,drawerId:id(999)}),/FORBIDDEN/);
  await denied(()=>prefs(qaScope,{viewMode:'bad',initialCategoryId:0}),/INVALID/);
  await db.exec(`set request.jwt.claim.sub='${id(9)}'`);await denied(()=>prefs(),/FORBIDDEN|ACCESS/);
+ await db.exec('reset role');
+ await db.exec('set role service_role');
+ const stockRpc=async(name,args)=>{
+  const signatures={totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data'],totus_tpv_native_command:['p_action','p_id','p_scope','p_data']};
+  const keys=signatures[name];assert(keys,'Only the expected stock journal may be called');
+  try{return {data:(await db.query(`select public.${name}($1,$2::uuid,$3::jsonb,$4::jsonb) result`,
+   keys.map(key=>typeof args[key]==='object'&&args[key]!==null?JSON.stringify(args[key]):args[key]))).rows[0].result};}
+  catch(error){return {error:{message:error.message}};}
+ };
+ let stockPosts=0,stockReadLost=true;const stockResults=new Map();
+ const stockNative=createNativeRequestService({scope:historicalScope,rpc:stockRpc,transport:{
+  async nativeCommand({operationId,payload}){stockPosts++;stockResults.set(operationId,{verified:true,native_reference:7000+stockPosts,
+   stock_movement_id:7000+stockPosts,shop_id:1,product_id:payload.product_id,attribute_id:payload.attribute_id,quantity:payload.quantity,before:4,after:4+payload.quantity});},
+  async readNativeOperation(operationId){if(stockReadLost){stockReadLost=false;throw Error('Lost read response');}
+   return {operation_id:operationId,status:'verified',result:stockResults.get(operationId)};}
+ }});
+ const stockReceipts=createStockReceiptService({rpc:stockRpc,nativeRequests:stockNative,scope:historicalScope});
+ const stockPayload={reason:'Albarán QA aislado',lines:[{productId:101,attributeId:0,quantity:2,label:'Artículo uno'},
+  {productId:102,attributeId:3,quantity:1,label:'Variante dos'}]};
+ const stockCreated=await stockReceipts.create(id(401),stockPayload);
+ check(stockCreated.status,'pending');check(stockPosts,0);
+ check((await stockReceipts.create(id(401),stockPayload)).lines[0].operationId,stockCreated.lines[0].operationId);
+ await denied(()=>stockReceipts.create(id(401),{...stockPayload,reason:'Distinto'}),/ALREADY_BOUND/);
+ await denied(()=>stockReceipts.create(id(402),{...stockPayload,lines:[stockPayload.lines[0],stockPayload.lines[0]]}),/DUPLICATE_PRODUCT/);
+ await denied(()=>stockReceipts.create(id(402),{...stockPayload,lines:[{...stockPayload.lines[0],quantity:0}]}),/INVALID/);
+ await denied(()=>stockReceipts.create(id(402),{...stockPayload,lines:[{...stockPayload.lines[0],quantity:1.5}]}),/INVALID/);
+ await denied(()=>stockReceipts.create(id(402),{...stockPayload,lines:[{...stockPayload.lines[0],productId:'101'}]}),/INVALID/);
+ await denied(()=>asAdmin(`update private.totus_tpv_sessions set status='closed' where id='${historicalScope.sessionId}';`),/STOCK_RECEIPT_PENDING/);
+ await db.exec('reset role;set role service_role');
+ check((await stockReceipts.advance(id(401))).lines[0].status,'uncertain');check(stockPosts,1);
+ await denied(()=>stockReceipts.cancel(id(401)),/STARTED/);
+ check((await stockReceipts.advance(id(401))).lines[0].status,'verified');check(stockPosts,1);
+ check((await stockReceipts.advance(id(401))).status,'verified');check(stockPosts,2);
+ check((await stockReceipts.advance(id(401))).status,'verified');check(stockPosts,2);
+ check((await stockReceipts.list()).length,1);
+ await stockReceipts.create(id(403),stockPayload);check((await stockReceipts.cancel(id(403))).status,'cancelled');
+ check((await stockReceipts.advance(id(403))).status,'cancelled');check(stockPosts,2);
+ const wrongStock=createStockReceiptService({rpc:stockRpc,nativeRequests:stockNative,scope:{...historicalScope,actorId:id(9)}});
+ await denied(()=>wrongStock.get(id(401)),/FORBIDDEN|ASSIGNMENT/);
+ for(const role of ['anon','authenticated']){await db.exec(`set role ${role}`);
+  await denied(()=>db.query('select public.totus_tpv_stock_receipts($1,$2::uuid,$3::jsonb,$4::jsonb)',
+   ['list',null,JSON.stringify(historicalScope),'{}']),/permission denied/);
+  await denied(()=>stockReceipts.list(),/TPV_STORAGE_UNAVAILABLE/);}
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
 } finally {await db.close();}

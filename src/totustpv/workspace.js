@@ -3,6 +3,7 @@ import {cashTenderPreview} from './model.js';
 import {receiptHtml as nativeReceiptHtml,downloadNativePdf,printReceipt} from './documents.js';
 import {createTpvCustomerPanel} from './customers.js';
 import {createCashReportsPanel} from './cash-reports.js';
+import {createStockIntake} from './stock-intake.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 export function inputCents(value) {
@@ -18,14 +19,16 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  onConfigure=null,canConfigure=()=>false,readSetup=null,createLiveAdapter=null,
- readConfiguration=null,configureWorkstation=null,workspacePreferences=null,canAssign=()=>false,canCustomer=()=>false,autoOpen=false}={}) {
+ readConfiguration=null,configureWorkstation=null,workspacePreferences=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,autoOpen=false}={}) {
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
+ let scanQueue=[],scanning=false;
  let host=null,adapter=null,context=null,session=null,products=[],lines=[],search='',tab='sale',notice='',failure='',
   busy=false,payment=null,receipt=null,history=[],summary=null,generation=0,searchTimer=null,abort=null,
   returnForm=null,paymentValues={},formValues={},formDirty=false,selectedStore='',selectedDrawer='',searchRevision=0,setup=null,
   productPage=0,variantProduct=0,stockProduct=null,configuration=null,configurationId=null,documentPreview=null,selectedCustomer=null,parked=[],draftInfo=null;
  const live=()=>adapter?.mode==='qa';
  const reports=createCashReportsPanel({adapter:()=>adapter});
+ const stockIntake=createStockIntake({adapter:()=>adapter,canEdit:canStock});
  const wording=(practice,actual)=>live()?actual:practice;
  const customers=createTpvCustomerPanel({adapter:()=>adapter,can:canCustomer,onSelect:async value=>{selectedCustomer=value;for(const line of lines)line.pricePending=true;await reloadProducts();},
   onStatus:value=>notice=value,confirmDiscard:()=>askCurrent('¿Descartar los cambios de esta ficha?',{acceptLabel:'Descartar cambios'})});
@@ -49,6 +52,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   </div>`;}
  function render() {
   if(!host)return;
+  const scanningInput=scanning?host.querySelector('[data-tpv-search]'):null,
+   scanInputState=scanningInput?{value:scanningInput.value,start:scanningInput.selectionStart,end:scanningInput.selectionEnd,focused:document.activeElement===scanningInput}:null;
   if(!adapter||!context){host.innerHTML=`<section class="tpv-activation" aria-busy="${busy}">
    <header><span class="tpv-entry-eyebrow">MOSTRADOR</span><h3>${busy?'Abriendo tu caja…':'Tu tienda, lista para trabajar'}</h3>
    <p>${busy?'Estamos recuperando tus tiendas, cajas y preferencias.':'Entra con tu cuenta y continúa en la caja de tu establecimiento.'}</p></header>
@@ -65,7 +70,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    ${documentPreview?nativeReceiptHtml(documentPreview):''}${live()?customers.html()+reports.html():''}<div data-tpv-body>${tab==='settings'?settingsHtml():tab==='configuration'&&configuration?`<section class="card card-pad"><h3>Configuración de TotusTPV</h3>${configurationHtml()}</section>`:reports.isOpen()?'':!session?openingHtml():tab==='history'?historyHtml():tab==='session'?sessionHtml():tab==='drafts'?draftsHtml():tab==='stock'?stockHtml():receipt?receiptHtml():saleHtml()}</div>`;
   host.querySelectorAll('label').forEach(el=>el.classList.add('field'));
   reflectPaymentMethod();
-  host.querySelectorAll('button,select,input').forEach(el=>{if(busy)el.disabled=true;});
+  host.querySelectorAll('button,select,input').forEach(el=>{if(busy&&!(scanning&&el.matches('[data-tpv-search]')))el.disabled=true;});
+  if(scanInputState){const next=host.querySelector('[data-tpv-search]');if(next){next.value=scanInputState.value;if(scanInputState.focused){next.focus();next.setSelectionRange(scanInputState.start,scanInputState.end);}}}
  }
  function settingsHtml(){return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista']].map(([id,label])=>`<option value="${id}" ${id===catalogueView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===initialCategoryId?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores.</p><button class="btn primary" type="submit">Guardar mostrador</button></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
  function configurationHtml(){const c=configuration,store=formValues.configure?.store||c.stores[0]?.id,
@@ -150,11 +156,11 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   <label>Buscar producto o referencia<input type="search" data-tpv-search value="${esc(search)}"></label>
   <div class="tpv-product-list">${products.map(p=>`<button type="button" class="tpv-product" data-tpv-stock="${esc(p.id)}"><strong>${esc(p.name)}</strong><small>${esc(p.reference)} · ${p.stock} disponibles${p.chooseVariant?' · Elegir variante':''}</small></button>`).join('')}</div>
   <div class="inline-actions">${variantProduct?button('back-products','Volver a productos'):''}${button('catalogue-previous','Anterior','secondary',productPage===0)}${button('catalogue-next','Siguiente','secondary',!products.hasMore)}</div>
-  ${stockProduct?`<form data-tpv-form="stock"><h4>${esc(stockProduct.name)}</h4><label>Unidades recibidas<input name="quantity" type="number" min="1" max="10000" step="1" required value="${esc(formValues.stock?.quantity??'1')}"></label><label>Motivo o albarán<input name="reason" required maxlength="500" value="${esc(formValues.stock?.reason??'')}"></label><button class="btn primary" type="submit">Registrar entrada</button></form>`:''}</section>`;}
+  ${stockIntake.html()}</section>`;}
  function rememberForm(target){const form=target.closest('[data-tpv-form]');if(!form||!host?.contains(form))return;
   const values=Object.fromEntries(new FormData(form));formValues[form.dataset.tpvForm]=values;
   if(form.dataset.tpvForm==='pay')paymentValues=values;formDirty=true;}
- const hasDraft=()=>!!host&&(lines.length>0||!!draftInfo||!!payment||!!returnForm||formDirty||receipt?.status==='uncertain'||customers.hasDraft());
+ const hasDraft=()=>!!host&&(lines.length>0||!!draftInfo||!!payment||!!returnForm||formDirty||receipt?.status==='uncertain'||customers.hasDraft()||stockIntake.hasDraft());
  async function askCurrent(message,options){const run=generation,owner=identity();const accepted=await confirm(message,options);
   return accepted===true&&run===generation&&owner===identity()&&!!host;}
  async function requestLeave(){if(busy)return false;if(!hasDraft())return true;
@@ -162,28 +168,39 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    '¿Salir y descartar los cambios sin aparcar? Los tickets aparcados y las operaciones registradas seguirán en el servidor.'));}
  async function reloadProducts(){products=await adapter.searchProducts({sessionId:session.id,search:variantProduct?'':search,page:productPage,productId:variantProduct,categoryId:variantProduct?0:categoryId});}
  async function work(fn){if(busy)return;guard();busy=true;failure='';const run=generation;render();try{await fn();}catch(error){if(run===generation)failure=error.message||'No se pudo completar la operación.';}finally{if(run===generation){busy=false;render();}}}
- async function changeTab(next){reports.reset();tab=next;if(session&&next==='history')history=await adapter.history({sessionId:session.id});if(session&&next==='session')summary=await adapter.sessionSummary({sessionId:session.id});if(session&&next==='drafts')parked=await adapter.drafts();if(session&&next==='stock')await reloadProducts();}
+ async function changeTab(next){reports.reset();tab=next;if(session&&next==='history')history=await adapter.history({sessionId:session.id});if(session&&next==='session')summary=await adapter.sessionSummary({sessionId:session.id});if(session&&next==='drafts')parked=await adapter.drafts();if(session&&next==='stock'){await reloadProducts();await stockIntake.load();}}
  async function recover(operationId){incidentForm=false;const observed=await adapter.recover({operationId});lines=[];payment=null;tab='sale';
   if(observed.status==='ready'&&observed.payment){if(observed.payment.quoteExpiresAt<=Date.now())throw new Error('Este cálculo ha caducado. Prepara un ticket nuevo; no se ha creado un pedido.');
    payment=observed.payment;receipt=null;paymentValues={};draftInfo=observed.draft||null;}else{receipt=observed;if(observed.status==='confirmed')draftInfo=null;}await reloadProducts();}
  function addProduct(p){const existing=lines.find(l=>l.productId===p.id),quantity=existing?existing.qty+1:(p.minimumQty||1);
   if(quantity>p.stock||quantity>10000)throw new Error('No hay unidades suficientes para añadir este artículo.');
   if(existing)existing.qty=quantity;else lines.push({productId:p.id,name:p.name,qty:quantity,unitCents:p.priceCents,stock:p.stock,minimumQty:p.minimumQty||1});}
- async function keydown(event){if(event.key!=='Enter'||!event.target.matches('[data-tpv-search]')||!host||busy||!allowed()||mountedActor!==identity()||
-  tab!=='sale'||payment||receipt||!can('create'))return;
-  event.preventDefault();clearTimeout(searchTimer);searchRevision++;search=event.target.value.trim();const run=generation;
-  if(!search)return;
-  await work(async()=>{products=await adapter.searchProducts({sessionId:session.id,search});const p=products[0],query=search.toLocaleLowerCase('es');
+ async function keydown(event){if(event.key!=='Enter'||!event.target.matches('[data-tpv-search]')||!host||!allowed()||mountedActor!==identity()||
+  !['sale','stock'].includes(tab)||tab==='sale'&&(payment||receipt||!can('create'))||tab==='stock'&&!canStock())return;
+  event.preventDefault();clearTimeout(searchTimer);searchRevision++;const value=event.target.value.trim();if(!value)return;
+  scanQueue.push({value,tab,generation});event.target.value='';if(!busy&&!scanning)await drainScans();
+ }
+ async function drainScans(){if(scanning||busy)return;scanning=true;const run=generation;
+  try{while(scanQueue.length&&run===generation){const scan=scanQueue.shift();if(scan.generation!==generation||scan.tab!==tab)continue;
+  search=scan.value;
+  await work(async()=>{products=await adapter.searchProducts({sessionId:session.id,search:scan.value});const p=products[0],query=scan.value.toLocaleLowerCase('es');
    if(products.length===1&&!products.hasMore&&!p.chooseVariant&&[p.reference,p.barcode,p.upc,String(p.nativeProductId||'')].some(value=>value&&String(value).toLocaleLowerCase('es')===query)){
-    addProduct(p);notice='Artículo añadido al ticket.';
+    if(tab==='stock'){stockIntake.add(p);notice='Unidad añadida a la entrada de mercancía.';}else{addProduct(p);notice='Artículo añadido al ticket.';}
    }else notice=products.length?'Selecciona el artículo y su variante entre las coincidencias.':'No hay artículos con ese código.';
   });
-  if(run===generation){const next=host?.querySelector('[data-tpv-search]');next?.focus();next?.select();}
+  }
+  }finally{if(run===generation)scanning=false;}
+  if(run===generation){const next=host?.querySelector('[data-tpv-search]');next?.focus();}
  }
  async function click(event){
   const target=event.target.closest('button');if(!target||!host?.contains(target)||busy)return;
   if(!allowed()||mountedActor!==identity()){const root=host;dispose();root.innerHTML='<p role="alert">La sesión ha cambiado. Vuelve a entrar en TotusTPV.</p>';return;}
   const action=target.dataset.tpvAction;
+  if(target.hasAttribute('data-tpv-stock-refresh'))return work(()=>stockIntake.load());
+  if(target.dataset.tpvStockReceipt)return work(()=>stockIntake.select(target.dataset.tpvStockReceipt));
+  if(target.dataset.tpvStockRun)return work(async()=>{await stockIntake.run(target.dataset.tpvStockRun);await reloadProducts();notice='Entrada de mercancía verificada.';});
+  if(target.dataset.tpvStockCancel)return work(()=>stockIntake.cancel(target.dataset.tpvStockCancel));
+  if(target.dataset.tpvStockRemove){if(canStock()){stockIntake.remove(target.dataset.tpvStockRemove);render();}return;}
   if(target.dataset.tpvReportAction)return work(()=>{reports.click(target);if(target.dataset.tpvReportAction==='close')tab='sale';});
   if(action==='reports'&&live())return work(async()=>{if(customers.hasDraft())throw Error('Termina o descarta la edición del cliente antes de consultar informes.');
    customers.reset();tab='reports';if(!session){const storeId=host.querySelector('[data-tpv-store]').value,
@@ -207,7 +224,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    configuration=await readConfiguration();configurationId=crypto.randomUUID();if(adapter&&context)tab='configuration';});
   if(action==='cancel-configuration'){configuration=null;configurationId=null;delete formValues.configure;tab='sale';render();return;}
   if(target.dataset.tpvStock)return work(async()=>{const p=products.find(p=>p.id===target.dataset.tpvStock);if(!p)return;
-   if(p.chooseVariant){variantProduct=p.nativeProductId;productPage=0;await reloadProducts();}else stockProduct=p;});
+   if(p.chooseVariant){variantProduct=p.nativeProductId;productPage=0;await reloadProducts();}else stockIntake.add(p);});
   if(target.hasAttribute('data-tpv-tender')||target.hasAttribute('data-tpv-tender-exact')){
    if(!payment||!can('create'))return;const form=host.querySelector('[data-tpv-form="pay"]');if(!form||!['cash','mixed'].includes(form.elements.method.value))return;
    try{const value=target.hasAttribute('data-tpv-tender')?Number(target.dataset.tpvTender):form.elements.method.value==='mixed'?inputCents(form.elements.cashPart.value):payment.totalCents;
@@ -246,7 +263,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   });
   if(action==='settings'&&live())return work(async()=>{if(customers.hasDraft()||returnForm||payment)throw Error('Termina la operación actual antes de configurar el mostrador.');tab='settings';});
   if(action==='live'&&createLiveAdapter)return work(()=>openLive(true));
-  if(action==='exit'){if(!await requestLeave())return;adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();draftInfo=null;parked=[];render();return;}
+  if(action==='exit'){if(!await requestLeave())return;adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();stockIntake.reset();draftInfo=null;parked=[];render();return;}
   if(['sale','history','session','stock','drafts'].includes(action))return work(()=>changeTab(action));
   if(action==='park')return work(async()=>{if(!live()||!can('create')||!lines.length||payment||returnForm)throw new Error('Termina el cobro o la devolución antes de aparcar otro ticket.');
    const {adjustment,coupon}=ticketAdjustments(),label=formValues.ticket?.draftLabel?.trim()||draftInfo?.label||'Ticket '+new Date().toLocaleString('es-ES');
@@ -301,6 +318,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   // Capture form values before work() redraws and disables controls.
   const fields=new FormData(form),kind=form.dataset.tpvForm,storeId=host.querySelector('[data-tpv-store]')?.value,
    drawerId=host.querySelector('[data-tpv-drawer]')?.value;
+  if(kind==='stock-batch')return work(async()=>{await stockIntake.save();notice='Entrada guardada. Revisa las unidades antes de registrarlas en la tienda.';});
   rememberForm(form);
   if(kind==='ticket')return;
   return work(async()=>{
@@ -343,11 +361,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     returnForm=null;history=await adapter.history({sessionId:session.id});await reloadProducts();
    } else if(kind==='movement'){
     summary=await adapter.cashMovement({kind:fields.get('kind'),amountCents:inputCents(fields.get('amount')),reason:fields.get('reason')});notice='Movimiento de caja registrado.';
-   } else if(kind==='stock'){
-    const result=await adapter.receiveStock({productId:stockProduct.id,quantity:Number(fields.get('quantity')),reason:fields.get('reason')});
-    if(result.status!=='verified')throw new Error('Entrada pendiente de recuperar. Conserva los mismos datos y consulta de nuevo; no registres otra entrada.');
-    notice='Entrada verificada: '+result.result.before+' → '+result.result.after+' unidades.';stockProduct=null;await reloadProducts();
    } else if(kind==='close'){
+    if(stockIntake.hasDraft()||stockIntake.pending())throw Error('Termina, guarda o cancela la entrada de mercancía antes de cerrar la caja.');
     if(lines.length||draftInfo||payment||returnForm||customers.hasDraft())throw new Error('Termina, aparca o descarta el ticket o la devolución pendientes antes de cerrar la caja.');
     const closed=await adapter.closeSession({sessionId:session.id,countedCents:inputCents(fields.get('counted')),note:fields.get('note')||''});
     notice=wording('Caja de práctica cerrada. Diferencia: ','Caja cerrada. Diferencia: ')+money(closed.differenceCents);session=null;receipt=null;payment=null;lines=[];tab='sale';formValues={};
@@ -372,6 +387,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   }catch(error){output.textContent=error.message||'Revisa los importes del cobro.';output.dataset.state='invalid';confirm.disabled=true;}}
  function change(event){
   if(!host||busy||!allowed()||mountedActor!==identity())return;
+  if(stockIntake.input(event.target))return;
   if(event.target.hasAttribute('data-tpv-report-id'))return work(()=>reports.change(event.target));
   if(event.target.matches('[data-tpv-view]')){catalogueView=event.target.value;render();return;}
   if(event.target.matches('[data-tpv-category]')){categoryId=Number(event.target.value);productPage=0;variantProduct=0;return work(reloadProducts);}
@@ -391,6 +407,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    else {failure='La cantidad debe ser entera y no superar las existencias disponibles.';event.target.reportValidity();}}
  }
  function input(event){if(!host||busy||!allowed()||mountedActor!==identity())return;
+  if(stockIntake.input(event.target))return;
   if(event.target.dataset.tpvQuantity&&!payment&&can('create')){
    const target=event.target,line=lines.find(l=>l.productId===target.dataset.tpvQuantity),qty=Number(target.value),
     available=products.find(p=>p.id===line?.productId)?.stock??line?.stock,
@@ -410,8 +427,9 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    const wasFocused=document.activeElement===focus;render();const next=host.querySelector('[data-tpv-search]');
    if(next&&wasFocused){next.focus();next.setSelectionRange(start,start);}
   }catch(error){if(run===generation&&request===searchRevision){failure=error.message;render();}}},150);}
- function dispose(){generation++;searchRevision++;clearTimeout(searchTimer);abort?.abort();host=null;busy=false;}
+ function dispose(){generation++;searchRevision++;clearTimeout(searchTimer);abort?.abort();host=null;busy=false;scanQueue=[];scanning=false;}
  return {mount(root){dispose();host=root;mountedActor=identity();
+   stockIntake.reset();
    incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
    formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;productPage=0;variantProduct=0;stockProduct=null;configuration=null;configurationId=null;documentPreview=null;selectedCustomer=null;customers.reset();reports.reset();parked=[];draftInfo=null;
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}

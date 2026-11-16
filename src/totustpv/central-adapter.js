@@ -21,7 +21,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  async function operation(kind,payload){const data=saved(),scope=JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]),
   fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(payload))))].map(n=>n.toString(16).padStart(2,'0')).join(''),prior=data[kind];
   if(prior?.scope===scope&&prior.fingerprint===fingerprint)return prior.id;
-  if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
+  if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft','stock-receipt'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
   const id=uuid();data[kind]={id,scope,fingerprint};storage.setItem(key,JSON.stringify(data));return id;}
  function forget(kind,id){const data=saved();if(data[kind]?.id===id){delete data[kind];storage.setItem(key,JSON.stringify(data));}}
  const selection=()=>{need(selected,'Selecciona un puesto de caja.');return {connectionId:selected.connectionId,shopId:selected.shopId,
@@ -172,6 +172,13 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    catch(error){if(['TPV_CASH_BALANCE_INVALID','TPV_CASH_MOVEMENT_INVALID'].includes(error.code))forget('movement',id);throw error;}},
   async receiveStock({productId,quantity,reason}){const [product,attribute]=productId.split(':').map(Number),values={productId:product,attributeId:attribute,quantity,reason},
    id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
+  async stockReceipts(){return call('stock-receipts');},
+  async createStockReceipt({reason,lines}){const payload={reason,lines:lines.map(row=>{
+   const [productId,attributeId]=row.productId.split(':').map(Number);return {productId,attributeId,quantity:row.quantity,label:row.name};})};
+   const id=await operation('stock-receipt',payload),result=await call('stock-receipt-create',{payload},id);forget('stock-receipt',id);return result;},
+  async advanceStockReceipt(id){return call('stock-receipt-step',{},id);},
+  async getStockReceipt(id){return call('stock-receipt-get',{},id);},
+  async cancelStockReceipt(id){return call('stock-receipt-cancel',{},id);},
   async closeSession({countedCents,note=''}){const id=await operation('close',{countedCents,note}),result=await call('close',{countedCents,note},id);
    need(result.status==='closed','No se ha confirmado el cierre.');forget('close',id);session=null;activeDraft=null;customer=null;return summary(result);}
  });

@@ -8,6 +8,7 @@ import {createOperatorPaymentVerifier,OPERATOR_PAYMENT_MODES} from '../../../src
 import {createNativeRequestService,nativeStepId} from '../../../src/totustpv/server/native-request-service.js';
 import {expectedFromNativeQuote} from '../../../src/totustpv/server/quote-contract.js';
 import {createRefundService} from '../../../src/totustpv/server/refund-service.js';
+import {createStockReceiptService} from '../../../src/totustpv/server/stock-receipt-service.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive=value=>Number.isSafeInteger(value)&&value>0;
@@ -44,6 +45,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const input=await boundedJson(req,65536);
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
     ['context','configure','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+     'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
@@ -61,6 +63,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'cash-summary':['action','selection','operationId'],'cash-movement':['action','selection','operationId','kind','amountCents','reason'],
     'cash-reports':['action','selection','operationId','reportSessionId'],
     close:['action','selection','operationId','countedCents','note'],'stock-receive':['action','selection','operationId','productId','attributeId','quantity','reason'],
+    'stock-receipts':['action','selection','operationId'],'stock-receipt-create':['action','selection','operationId','payload'],
+    'stock-receipt-get':['action','selection','operationId'],'stock-receipt-step':['action','selection','operationId'],
+    'stock-receipt-cancel':['action','selection','operationId'],
     returnable:['action','selection','operationId','saleId'],'prepare-refund':['action','selection','operationId','saleId','items','payments','reason'],
     'submit-refund':['action','selection','operationId','confirmation'],'recover-refund':['action','selection','operationId'],
     'cancel-refund':['action','selection','operationId']};
@@ -164,7 +169,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   if(input.action!=='categories')await authorize({action:['catalogue','resolve-incident','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
+   if(input.action!=='categories')await authorize({action:['catalogue','resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
    if(['customers','customer-metadata','customer-write'].includes(input.action)||
      input.action==='prepare'&&input.customerId!==undefined&&input.customerId!==row.nativeProfile.counter_customer_id){
@@ -235,6 +240,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     return respond(input.action==='cancel-refund'?await refunds.cancel(input.operationId):await refunds.recover(input.operationId));
    }
    const nativeRequests=createNativeRequestService({rpc,transport,scope});
+   if(input.action.startsWith('stock-receipt')){
+    const receipts=createStockReceiptService({rpc,nativeRequests,scope});
+    return respond(input.action==='stock-receipts'?await receipts.list():input.action==='stock-receipt-create'?
+     await receipts.create(input.operationId,input.payload):input.action==='stock-receipt-step'?await receipts.advance(input.operationId):
+     input.action==='stock-receipt-cancel'?await receipts.cancel(input.operationId):await receipts.get(input.operationId));
+   }
    const policy=async()=>{const fresh=(await selected()).row;return {enabled:true,revision:fresh.profileRevision,
     environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
     modes:Object.fromEntries(Object.keys(fresh.nativeProfile.payment_labels).map(method=>[method,OPERATOR_PAYMENT_MODES[method]]))};};

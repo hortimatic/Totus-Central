@@ -182,6 +182,7 @@
         "src/totustpv/server/native-adapter.js",
         "src/totustpv/server/native-capability-adapter.js",
         "src/totustpv/server/native-request-service.js",
+        "src/totustpv/server/stock-receipt-service.js",
         "src/totustpv/server/native-transport.js",
         "src/totustpv/server/operator-payments.js",
         "src/totustpv/server/payment-readback.js",

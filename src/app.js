@@ -98,6 +98,7 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
  workspacePreferences:(drawer,preferences=null)=>rpc('totus_tpv_workspace_preferences',{
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  canCustomer:action=>can('clientes',action),
+ canStock:()=>can('productos','edit')&&can('totustpv','create'),
  readSetup:()=>totusTpvSetup.read(),
  confirm:(message,options={})=>confirmAction(message,{title:'TotusTPV',acceptLabel:options.acceptLabel||'Salir'}),
  onConfigure:()=>can('apis','view')?navigateModule('apis'):false,canConfigure:()=>can('apis','view')});
