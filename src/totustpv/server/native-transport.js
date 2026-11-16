@@ -39,7 +39,7 @@ export function nativePaidOrderXml(expected, allowedPaymentModules) {
 
 export function createTpvNativeTransport(connection, scope, {
   request=fetch,resolve,allowOrderCreation=async()=>false,allowedPaymentModules=[],
-  nativeExtension=null,allowNativeQuote=async()=>false,qaPolicy=null
+  nativeExtension=null,allowNativeQuote=async()=>false,allowNativeCommand=async()=>false,qaPolicy=null
 }={}) {
   connection=structuredClone(connection);scope=structuredClone(scope);
   allowedPaymentModules=structuredClone(allowedPaymentModules);
@@ -54,18 +54,33 @@ export function createTpvNativeTransport(connection, scope, {
     !base.search && !base.hash, 'TPV_NATIVE_ORIGIN_MISMATCH');
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
+  const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+  const commandResources=Object.freeze({'setup.qa':'totus_tpv_setup','cart.prepare':'totus_tpv_carts',
+    'cart.quote':'totus_tpv_quotes','sale.commit':'totus_tpv_sales','return.commit':'totus_tpv_returns','stock.receive':'totus_tpv_stock'});
+  function extensionScope(){
+    assertQaTarget(connection,scope,qaPolicy);
+    requireValue(nativeExtension?.verified===true&&uuid(nativeExtension.installationId)&&uuid(scope.actorId)&&
+      nativeExtension.connectionId===scope.connectionId&&nativeExtension.connectionRevision===scope.connectionRevision&&
+      nativeExtension.shopId===scope.shopId&&nativeExtension.protocol===1,'TPV_NATIVE_EXTENSION_UNVERIFIED');
+  }
   async function call(resource,method,query={},body,nativePrices=false,nativeCommand=false) {
     // Every mutation is QA-bound even when another server feature gate allows it.
     // With a QA policy, reads are also confined to the same test installation.
     if(method!=='GET'||qaPolicy)assertQaTarget(connection,scope,qaPolicy);
-    requireValue(resources.test(resource)||(nativeCommand&&resource==='totus_tpv_quotes'&&method==='POST'), 'TPV_NATIVE_RESOURCE_FORBIDDEN');
+    const extensionResource=nativeCommand&&((method==='POST'&&Object.values(commandResources).includes(resource))||
+      (method==='GET'&&['totus_tpv_profile','totus_tpv_operations','totus_tpv_returns','totus_tpv_catalogue','totus_tpv_documents','totus_tpv_customers'].includes(resource)));
+    requireValue(resources.test(resource)||extensionResource, 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
     for(const [key,value] of Object.entries(query)) {
       const ordinary=/^(?:display|limit|sort|filter\[[a-z_]+\])$/.test(key);
       const price=nativePrices && /^products\/[1-9][0-9]*$/.test(resource) &&
         /^price\[totus_(?:incl|excl)\]\[(?:country|state|county|currency|group|quantity|product_attribute|decimals|use_tax|use_reduction|only_reduction|use_ecotax)\]$/.test(key);
-      requireValue((ordinary || price) && typeof value==='string' &&
+      const extensionQuery=extensionResource&&method==='GET'&&['actor_id','operation_id','sale_operation_id'].includes(key)&&uuid(value);
+      const catalogueQuery=['totus_tpv_catalogue','totus_tpv_customers'].includes(resource)&&method==='GET'&&
+        (key==='search'||['page','page_size','product_id','customer_id','address_id'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
+      const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note'].includes(value);
+      requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
         value.length<=1000 && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
       url.searchParams.set(key,value);
     }
@@ -90,6 +105,52 @@ export function createTpvNativeTransport(connection, scope, {
   return Object.freeze({
     assertMutationTarget(){return assertQaTarget(connection,scope,qaPolicy);},
     read:(resource,query={})=>call(resource,'GET',query),
+    async inspectNativeProfile(){
+      assertQaTarget(connection,scope,qaPolicy);
+      requireValue(uuid(scope.actorId),'TPV_NATIVE_OPERATION_INVALID');
+      return call('totus_tpv_profile','GET',{},undefined,false,true);
+    },
+    /** Server-only named commands. Caller must persist the operation before
+     * invoking this method; transport performs exactly one POST, never retries.
+     * Unknown outcomes are recovered with readNativeOperation, never resubmitted.
+     */
+    async nativeCommand({operationId,command,payload}){
+      extensionScope();requireValue(uuid(operationId)&&Object.hasOwn(commandResources,command)&&payload&&
+        typeof payload==='object'&&!Array.isArray(payload),'TPV_NATIVE_COMMAND_INVALID');
+      requireValue(await allowNativeCommand({scope:structuredClone(scope),command,operationId})===true,
+        'TPV_NATIVE_COMMAND_DISABLED');
+      const body=JSON.stringify({protocol:1,operation_id:operationId,installation_id:nativeExtension.installationId,
+        shop_id:scope.shopId,actor_id:scope.actorId,command,payload});
+      requireValue(new TextEncoder().encode(body).length<=65536,'TPV_NATIVE_COMMAND_TOO_LARGE');
+      return call(commandResources[command],'POST',{},body,false,true);
+    },
+    async readNativeProfile(){extensionScope();return call('totus_tpv_profile','GET',{},undefined,false,true);},
+    async readNativeCustomers({search='',page=0,customerId=0}={}){
+      extensionScope();requireValue(typeof search==='string'&&search.length<=100&&Number.isSafeInteger(page)&&page>=0&&page<10000&&
+        Number.isSafeInteger(customerId)&&customerId>=0,'TPV_CUSTOMER_QUERY_INVALID');
+      return call('totus_tpv_customers','GET',{search,page:String(page),customer_id:String(customerId)},undefined,false,true);
+    },
+    async readNativeDocument({operationId,sourceActorId,kind}){
+      extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId)&&['receipt','gift','invoice','delivery','credit-note'].includes(kind),'TPV_DOCUMENT_QUERY_INVALID');
+      return call('totus_tpv_documents','GET',{operation_id:operationId,actor_id:sourceActorId,kind},undefined,false,true);
+    },
+    async readNativeOperation(operationId,{sourceActorId=scope.actorId}={}){
+      extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId),'TPV_NATIVE_OPERATION_INVALID');
+      // sourceActorId is supplied only by the server-owned sale journal after
+      // authorizing the current operator. It is not an HTTP request field.
+      return call('totus_tpv_operations','GET',{operation_id:operationId,actor_id:sourceActorId},undefined,false,true);
+    },
+    async readNativeReturnable(saleOperationId){
+      extensionScope();requireValue(uuid(saleOperationId),'TPV_NATIVE_OPERATION_INVALID');
+      return call('totus_tpv_returns','GET',{sale_operation_id:saleOperationId,actor_id:scope.actorId},undefined,false,true);
+    },
+    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId}={}){
+      extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
+        Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&
+        (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId)),'TPV_CATALOGUE_QUERY_INVALID');
+      return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),
+        ...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
+    },
     async quoteOwnedCart({operationId,cartId}) {
       const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
       requireValue(uuid(operationId)&&positive(cartId)&&uuid(scope.actorId),'TPV_NATIVE_QUOTE_IDENTITY_INVALID');

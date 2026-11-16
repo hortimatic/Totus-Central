@@ -27,7 +27,7 @@ try{
  await page.getByRole('button',{name:/Artículo de práctica/}).click();
  await page.getByRole('button',{name:'Caja',exact:true}).click();
  await page.getByRole('button',{name:'Cerrar caja de práctica'}).click();
- await page.getByRole('alert').filter({hasText:'Termina o descarta el ticket'}).waitFor();
+ await page.getByRole('alert').filter({hasText:/ticket.*pendientes antes de cerrar/}).waitFor();
  await page.getByRole('button',{name:'Venta',exact:true}).click();
  assert.equal(await page.locator('.tpv-ticket-line').count(),1,'Cash close cannot discard a pending ticket');
  await clickModuleLink(page,page.locator('#nav [data-route=tareas]'));

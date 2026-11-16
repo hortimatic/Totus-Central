@@ -33,3 +33,11 @@ Shop::setContext(Shop::CONTEXT_SHOP,1);
 $context->language=new Language((int)Configuration::get('PS_LANG_DEFAULT'));
 $context->currency=new Currency((int)Configuration::get('PS_CURRENCY_DEFAULT'));
 function nativeLabCheck(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
+function nativeLabConnector(string $class): string {
+    global $project,$nativeRoot;
+    $source=$project.'/connectors/prestashop/src/'.$class.'.php';
+    if(!Module::isInstalled('totuscentralconnector'))return $source;
+    $installed=$nativeRoot.'/modules/totuscentralconnector/src/'.$class.'.php';
+    nativeLabCheck(is_file($installed)&&hash_file('sha256',$source)===hash_file('sha256',$installed),'Installed fixture source is stale.');
+    return $installed;
+}

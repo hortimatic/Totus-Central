@@ -9,6 +9,15 @@ test('assistant bridge changes require expense, receipt and product regression c
  const circuit=affectedCircuits(['supabase/functions/totus-assistant/assistant-operations.ts'],matrix).find(c=>c.id==='conventional-assistant');assert(circuit);
  for(const file of ['tests/assistant-own-auth.mjs','tests/assistant-attachments.mjs','tests/assistant-operations.mjs','tests/stock-workflow-qa.mjs','tests/productos-request-qa.mjs'])assert(circuit.tests.includes(file),file);
 });
+
+test('authorized invariant transition retains evidence and executable checks; it cannot remove consumers or tests',()=>{
+ const before=structuredClone(matrix),after=structuredClone(matrix),c=after.circuits.find(c=>c.id==='totustpv-native-boundary');
+ const original=c.invariants[0];c.invariants[0]='explicit QA transition under test';
+ const transition={circuit:c.id,from:original,to:c.invariants[0],authorization:'Explicit user authorization for QA connector installation and named API permissions.',evidence:'docs/TOTUSTPV_ACTIVACION_QA_20261116.md',tests:[c.tests[0]]};
+ assert.doesNotThrow(()=>validateCircuitEvolution(before,after,[transition]));
+ for(const key of ['authorization','evidence','tests'])assert.throws(()=>validateCircuitEvolution(before,after,[{...transition,[key]:key==='tests'?[]:''}]),/retirada/);
+ c.tests.pop();assert.throws(()=>validateCircuitEvolution(before,after,[transition]),/retirada/);
+});
 test('adding an export cannot silently remove a working public entry point',()=>assert.deepEqual(removedExports('export async function createProduct(){} export const editProduct=()=>{}','export async function createProduct(){} export const newFeature=1'),['editProduct']));
 test('moving a declaration to a re-export preserves its public contract',()=>assert.deepEqual(removedExports('export const STORES=[]','import {NAMES as STORES} from "./registry.js"; export {STORES};'),[]));
 test('all declared circuits refer to existing executable checks',()=>{assert.equal(validateCircuits(matrix),matrix.circuits.length);for(const id of ['access','products','sales','receipts','directories','finance','chat','automation','home','appearance','storage','application-origin'])assert(matrix.circuits.some(c=>c.id===id),'Preserve circuit '+id);});

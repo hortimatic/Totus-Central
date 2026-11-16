@@ -1,11 +1,16 @@
 import fs from 'node:fs';import path from 'node:path';import {execFileSync,execFile} from 'node:child_process';import {promisify} from 'node:util';import {startLocalServer} from '../tests/local-static-server.mjs';import {fileURLToPath} from 'node:url';
 export function affectedCircuits(files,matrix){return matrix.circuits.filter(circuit=>files.some(file=>circuit.paths.some(prefix=>file.startsWith(prefix))));}
-export function validateCircuitEvolution(before,after){
+export function validateCircuitEvolution(before,after,transitions=[]){
  for(const previous of before.circuits){
   const current=after.circuits.find(c=>c.id===previous.id);
   if(!current)throw Error('Circuito protegido retirado: '+previous.id);
   for(const key of ['paths','tests','invariants'])for(const value of previous[key])
-   if(!current[key].includes(value))throw Error('Protección retirada: '+previous.id+' / '+key+' / '+value);
+   if(!current[key].includes(value)){
+    const transition=key==='invariants'&&transitions.find(t=>t.circuit===previous.id&&t.from===value&&
+     current.invariants.includes(t.to)&&typeof t.authorization==='string'&&t.authorization.trim().length>=40&&
+     typeof t.evidence==='string'&&fs.existsSync(t.evidence)&&t.tests?.length&&t.tests.every(file=>current.tests.includes(file)&&fs.existsSync(file)));
+    if(!transition)throw Error('Protección retirada: '+previous.id+' / '+key+' / '+value);
+   }
  }
 }
 export function validateCircuits(matrix,exists=file=>fs.existsSync(file)){
@@ -16,7 +21,9 @@ export function removedExports(before,after){const names=text=>{const result=new
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const args=process.argv.slice(2),baseline=args.includes('--baseline')?args[args.indexOf('--baseline')+1]:'origin/totus-central';
  const matrix=JSON.parse(fs.readFileSync('stability/circuits.json','utf8'));validateCircuits(matrix);
- const previousMatrix=JSON.parse(execFileSync('git',['show',baseline+':stability/circuits.json'],{encoding:'utf8'}));validateCircuitEvolution(previousMatrix,matrix);
+ const previousMatrix=JSON.parse(execFileSync('git',['show',baseline+':stability/circuits.json'],{encoding:'utf8'}));
+ const transitions=fs.existsSync('stability/invariant-transitions.json')?JSON.parse(fs.readFileSync('stability/invariant-transitions.json','utf8')):[];
+ validateCircuitEvolution(previousMatrix,matrix,transitions);
  const changed=[...new Set((execFileSync('git',['diff','--name-only',baseline],{encoding:'utf8'})+'\n'+execFileSync('git',['ls-files','--others','--exclude-standard'],{encoding:'utf8'})).trim().split('\n').filter(Boolean))],affected=affectedCircuits(changed,matrix);
  for(const file of changed.filter(file=>/^src\/.*\.js$/.test(file))){let before='';try{before=execFileSync('git',['show',baseline+':'+file],{encoding:'utf8',stdio:['ignore','pipe','pipe']});}catch{}const after=fs.existsSync(file)?fs.readFileSync(file,'utf8'):'';const removed=removedExports(before,after);if(removed.length)throw Error('Contrato retirado sin transición: '+file+' → '+removed.join(', '));}
  const uncovered=changed.filter(file=>/^(src\/|supabase\/functions\/)/.test(file)&&!file.endsWith('deployment-manifest.json')&&!affected.some(c=>c.paths.some(p=>file.startsWith(p))));

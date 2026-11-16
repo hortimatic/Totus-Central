@@ -15,9 +15,12 @@ export function createNativeQuoteVerifier({loadOwnedCart,readProfile,requestNati
    ['connectionId','connectionRevision','storeId','shopId','drawerId','sessionId','currency'].every(key=>
     ownedCart[key]===selected[key]),'TPV_CART_OWNERSHIP_REQUIRED');
   const profile=await readProfile({scope:structuredClone(selected)});
-  const response=await requestNativeQuote({scope:structuredClone(selected),cartId,operationId:uuid()});
+  const operationId=uuid();
+  const response=await requestNativeQuote({scope:structuredClone(selected),cartId,operationId});
   const stockRecords=await readStockRecords({scope:structuredClone(selected),lines:structuredClone(response?.quote?.lines)});
-  return expectedFromNativeQuote({scope:selected,ownedCart,profile,response,stockRecords,now:now()});
+  const prepared=await expectedFromNativeQuote({scope:selected,ownedCart,profile,response,stockRecords,now:now()});
+  prepared.expected.nativeQuoteOperationId=operationId;
+  return prepared;
  }
  return Object.freeze({calculate,
   async verifyPrepared({scope,record}) {

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {ensureDirectoryCustomerGroup,directoryCustomerGroups,directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,PRODUCT_WRITE_FIELDS} from '../src/productos-write-contract.js';
+import {directoryPreservationXml,ensureDirectoryCustomerGroup,directoryCustomerGroups,directorySchemaProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,PRODUCT_WRITE_FIELDS} from '../src/productos-write-contract.js';
 test('customer edits preserve credentials and unrelated values only inside server XML',()=>{
  const xml='<prestashop><customer><id>4</id><firstname>Antes</firstname><lastname>Apellido</lastname><passwd><![CDATA[HASH_NO_CAMBIAR]]></passwd><newsletter>1</newsletter><associations><groups><group><id>3</id></group></groups></associations></customer></prestashop>';
  const result=selectedXmlValues(xml,'customers','4',[{field:'firstname',value:'Después'}]);
@@ -13,6 +13,15 @@ test('schema projection omits native readonly fields and preserves native associ
  assert.equal(directorySchemaProjection(schema,'customers'),'[id,firstname,passwd,groups[id]]');
  assert.throws(()=>directorySchemaProjection(schema,'products'));
  assert.throws(()=>directorySchemaProjection('<!DOCTYPE x><prestashop><customer><id/></customer></prestashop>','customers'));
+});
+
+test('full native customer read is reduced to writable schema without losing groups or password',()=>{
+ const xml='<prestashop><customer><id>4</id><firstname>Antes</firstname><passwd>KEEP_HASH</passwd><secure_key>READ_ONLY</secure_key><associations><groups><group><id>2</id><name>Invitados</name></group><group><id>3</id></group></groups><other><item><id>9</id></item></other></associations></customer></prestashop>';
+ const result=directoryPreservationXml(xml,'customers','[id,firstname,passwd,groups[id]]');
+ assert(result.includes('<passwd>KEEP_HASH</passwd>'));assert(!result.includes('READ_ONLY'));assert(!result.includes('<other>'));
+ assert(!result.includes('<name>'));assert.deepEqual(directoryCustomerGroups(result),['2','3']);
+ assert.throws(()=>directoryPreservationXml(xml,'customers','[id,groups]'));
+ assert.throws(()=>directoryPreservationXml(xml,'customers','[id]unparsed'));
 });
 test('localized directory updates retain the other shop languages',()=>{
  const xml='<prestashop><product_option><id>2</id><name><language id="1">Color</language><language id="2">Colour</language></name><public_name><language id="1">Color</language><language id="2">Colour</language></public_name></product_option></prestashop>';

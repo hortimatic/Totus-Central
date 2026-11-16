@@ -1,0 +1,164 @@
+/** Real UI + Edge handler + SQL + installed native module, loopback only.
+ * Auth and delivery remain explicit fixtures; never a remote acceptance claim.
+ */
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import {startLocalServer} from '../local-static-server.mjs';
+export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete'}){
+ const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
+ try{for(const width of focus==='customers'?[1440]:[1440,390]){
+  const page=await browser.newPage({viewport:{width,height:950}});const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.route('**/__tpv_fixture',async route=>{
+   const request=route.request(),response=await handle(new Request('https://central.local/tpv',{method:'POST',
+    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:request.postData()}));
+   await route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});
+  });
+  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
+  const mount=()=>page.evaluate(async({actor})=>{
+   const {createTpvWorkspace}=await import('/src/totustpv/workspace.js');
+   const {createCentralTpvAdapter}=await import('/src/totustpv/central-adapter.js');
+   document.body.innerHTML='<main id="root" class="totus-tpv"></main>';
+   window.fixtureWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true,full_name:'Cajero del laboratorio'}),can:()=>true,canCustomer:()=>true,
+    confirm:async()=>true,createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,
+     invoke:async body=>{const response=await fetch('/__tpv_fixture',{method:'POST',body:JSON.stringify(body)}),data=await response.json();
+      if(!response.ok||data.error)throw Error(data.error||'Fixture request failed');return data;}})});
+   window.fixtureWorkspace.mount(document.querySelector('#root'));
+  },{actor});
+  await mount();
+  await page.getByRole('button',{name:'Abrir puesto de preproducción'}).click();
+  await page.getByRole('button',{name:'Abrir caja',exact:true}).click();
+  if(width===1440){
+   await page.getByRole('button',{name:'Elegir cliente',exact:true}).click();
+   await page.getByRole('button',{name:'Nuevo cliente',exact:true}).click();
+   const form=page.locator('[data-tpv-client-form="save"]');
+   await form.locator('[name=firstname]').fill('QA Central');await form.locator('[name=lastname]').fill('Laboratorio');
+   await form.locator('[name=email]').fill('central-'+actor+'@example.invalid');
+   await page.getByRole('button',{name:'Guardar y verificar cliente',exact:true}).click();
+   await page.locator('[data-tpv-client-action="new-address"],.note.bad').first().waitFor({timeout:60000});
+   assert.equal(await page.locator('.note.bad').count(),0,await page.locator('#root').innerText());
+   await page.getByRole('button',{name:'Nueva dirección',exact:true}).click();
+   await form.locator('[name=address1]').fill('Calle del laboratorio 1');await form.locator('[name=postcode]').fill('28001');
+   await form.locator('[name=city]').fill('Madrid');await form.locator('[name=phone]').fill('600000000');await form.locator('[name=dni]').fill('12345678Z');
+   const states=await form.locator('[name=id_state] option').count();if(states>1)await form.locator('[name=id_state]').selectOption({index:1});
+   assert.deepEqual(await form.evaluate(form=>[...form.elements].filter(el=>el.willValidate&&!el.checkValidity()).map(el=>el.name)),[], 'Native customer address fields must be valid before submit');
+   await page.getByRole('button',{name:'Guardar y verificar dirección',exact:true}).click();
+   await page.locator('[data-tpv-client-address],.note.bad').first().waitFor({timeout:60000});
+   assert.equal(await page.locator('.note.bad').count(),0,await page.locator('#root').innerText());
+   await page.getByRole('button',{name:'Editar cliente',exact:true}).click();
+   await form.locator('[name=lastname]').fill('Laboratorio revisado');
+   await page.getByRole('button',{name:'Guardar y verificar cliente',exact:true}).click();
+   await page.locator('[data-tpv-client-edit-address],.note.bad').first().waitFor({timeout:60000});
+   assert.equal(await page.locator('.note.bad').count(),0,await page.locator('#root').innerText());
+   await page.getByRole('button',{name:'Corregir dirección',exact:true}).click();
+   await form.locator('[name=alias]').fill('Dirección corregida');await form.locator('[name=address1]').fill('Calle del laboratorio 2');
+   await page.getByRole('button',{name:'Guardar y verificar dirección',exact:true}).click();
+   await page.locator('[data-tpv-client-address]').filter({hasText:'Dirección corregida'}).waitFor({timeout:60000});
+   assert.equal(await page.locator('[data-tpv-client-address]').count(),2,'Address correction must preserve the original address');
+   await page.locator('[data-tpv-client-address]').filter({hasText:'Dirección corregida'}).click();
+   await page.locator('.tpv-customer-panel').waitFor({state:'detached'});assert.match(await page.locator('.tpv-ticket header').innerText(),/QA Central Laboratorio revisado/);
+  }
+  if(focus==='customers'){
+   await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
+   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();assert.deepEqual(errors,[]);await page.close();continue;
+  }
+  await page.locator('[data-tpv-search]').fill(reference);
+  const product=page.locator(`[data-tpv-add="${productId}:0"]`);await product.waitFor();
+  if(width===390)await page.locator('[data-tpv-search]').press('Enter');else await product.click();
+  await page.locator('[data-tpv-line-kind]').waitFor();
+  if(width===390){await page.locator('[data-tpv-line-kind]').selectOption('amount');await page.locator('[data-tpv-line-value]').fill('0,50');
+   await page.locator('[name=discountKind]').selectOption('amount');await page.locator('[name=discountValue]').fill('0,50');
+   await page.locator('[name=draftLabel]').fill('Ticket recuperado del navegador');
+   await page.getByRole('button',{name:'Aparcar ticket',exact:true}).click();
+   await page.locator('[data-tpv-draft-id]').waitFor();
+   await page.reload();await mount();await page.getByRole('button',{name:'Abrir puesto de preproducción'}).click();
+   await page.getByRole('button',{name:'Tickets aparcados',exact:true}).click();
+   await page.getByRole('button',{name:'Recuperar ticket',exact:true}).click();
+   await page.locator('[data-tpv-line-kind]').waitFor();
+   assert.equal(await page.locator('[data-tpv-line-value]').inputValue(),'0,50');
+   assert.equal(await page.locator('[name=discountValue]').inputValue(),'0,50');
+  }
+  await page.getByRole('button',{name:'Calcular y cobrar',exact:true}).click();
+  await page.locator('[data-tpv-form="pay"],.note.bad').first().waitFor({timeout:60000});
+  assert.equal(await page.locator('[data-tpv-form="pay"]').count(),1,'Prepare failed at '+width+': '+await page.locator('#root').innerText());
+  await page.getByRole('button',{name:'Entregado 10 euros',exact:true}).click();
+  assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),width===390?/2,99/:/1,99/);
+  await page.locator('[name=method]').selectOption(width===1440?'bizum':'mixed');
+  if(width===390){await page.locator('[name=externalMethod]').selectOption('transfer');await page.locator('[name=cashPart]').fill('3,00');}
+  await page.locator('[name=cardAccepted]').check();
+  assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),width===390?/transferencia/:/bizum/);
+  await page.screenshot({path:`artifacts/native-lab/tpv-${width}.png`,fullPage:true});
+  await page.getByRole('button',{name:'Confirmar cobro y crear pedido'}).click();
+  await page.getByRole('heading',{name:'Pedido verificado en PrestaShop',exact:true}).waitFor({timeout:60000});
+  assert.match(await page.locator('.tpv-receipt').innerText(),/Pedido #[0-9]+/);
+  const orderId=(await page.locator('.tpv-receipt').innerText()).match(/Pedido #([0-9]+)/)[1];
+  assert.match(await page.locator('.tpv-receipt').innerText(),width===390?/7,00/:/0,00/);
+  await page.locator('.tpv-receipt summary').click();
+  await page.getByRole('button',{name:'Ticket',exact:true}).click();
+  await page.getByRole('heading',{name:'Justificante de compra',exact:true}).waitFor();
+  assert.match(await page.locator('.tpv-document').innerText(),width===390?/7,01/:/8,01/);
+  await page.getByRole('button',{name:'Cerrar documento',exact:true}).click();
+  await page.locator('.tpv-receipt summary').click();
+  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Factura PDF',exact:true}).click();
+  const pdf=await download;assert.match(pdf.suggestedFilename(),/^totus-invoice-[0-9]+\.pdf$/);
+  await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
+  await page.getByRole('button',{name:'Devolver',exact:true}).click();
+  await page.locator('[data-tpv-form="refund"] input[type=number]').fill('1');
+  await page.locator('[data-tpv-form="refund"] [name=reason]').fill('Artículo del laboratorio devuelto');
+  await page.getByRole('button',{name:'Calcular devolución',exact:true}).click();
+  await page.getByRole('heading',{name:/Confirmar devolución/}).waitFor();
+  assert.match(await page.locator('.tpv-payment').innerText(),width===390?/Efectivo: 3,00/:/Bizum: 8,01/);
+  await page.getByRole('button',{name:'Confirmo el reintegro al cliente',exact:true}).click();
+  await page.getByText('Devolución verificada:',{exact:false}).waitFor({timeout:60000});
+  const creditDownload=page.waitForEvent('download');await page.getByRole('button',{name:/Abono PDF/}).click();
+  assert.equal((await creditDownload).suggestedFilename(),'totus-credit-note-'+orderId+'.pdf');
+  if(width===1440&&variant){
+   await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
+   const target=variant.variants[1];await page.locator('[data-tpv-search]').fill(target.reference);await page.locator('[data-tpv-search]').press('Enter');
+   await page.locator(`[data-tpv-quantity="${variant.productId}:${target.attributeId}"]`).waitFor();
+   await page.getByRole('button',{name:'Calcular y cobrar',exact:true}).click();await page.locator('[data-tpv-form="pay"]').waitFor({timeout:60000});
+   assert.match(await page.locator('.tpv-payment-amount').innerText(),/9,22/);
+   await page.getByRole('button',{name:'Entregado 10 euros',exact:true}).click();
+   await page.getByRole('button',{name:'Confirmar cobro y crear pedido'}).click();await page.getByRole('heading',{name:'Pedido verificado en PrestaShop',exact:true}).waitFor({timeout:60000});
+   const variantOrder=(await page.locator('.tpv-receipt').innerText()).match(/Pedido #([0-9]+)/)[1];
+   await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
+   await page.locator('.tpv-history article').filter({hasText:'Pedido #'+variantOrder}).getByRole('button',{name:'Devolver',exact:true}).click();
+   await page.locator('[data-tpv-form="refund"] input[type=number]').fill('1');
+   await page.locator('[data-tpv-form="refund"] [name=refundMethod]').selectOption('cash');
+   await page.locator('[data-tpv-form="refund"] [name=reason]').fill('Combinación B devuelta');
+   await page.getByRole('button',{name:'Calcular devolución',exact:true}).click();await page.getByRole('heading',{name:/Confirmar devolución/}).waitFor();
+   await page.getByRole('button',{name:'Confirmo el reintegro al cliente',exact:true}).click();await page.getByText('Devolución verificada:',{exact:false}).waitFor({timeout:60000});
+  }
+  await page.getByRole('button',{name:'Caja',exact:true}).click();
+  assert.match(await page.locator('.tpv-session').innerText(),/100,00/);
+  await page.locator('[data-tpv-form="movement"] [name=kind]').selectOption('cash-out');
+  await page.locator('[name=amount]').fill('1,00');
+  await page.locator('[data-tpv-form="movement"] [name=reason]').fill('Retirada ficticia del navegador');
+  await page.getByRole('button',{name:'Registrar movimiento',exact:true}).click();
+  await page.getByText('Movimiento de caja registrado.',{exact:true}).waitFor();
+  await page.locator('[name=counted]').fill('99,00');
+  await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
+  await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Informes de caja',exact:true}).click();
+  await page.getByRole('heading',{name:'Cierre de caja',exact:true}).waitFor();
+  assert.match(await page.locator('.tpv-cash-report').innerText(),/99,00/);
+  assert.match(await page.locator('.tpv-cash-report').innerText(),/Retirada ficticia del navegador/);
+  assert.equal(await page.getByRole('button',{name:'Abrir caja',exact:true}).count(),0,'Reports must not require or offer a new cash opening');
+  await page.getByRole('button',{name:'Cerrar informes',exact:true}).click();
+  await page.getByRole('button',{name:'Abrir caja',exact:true}).click();
+  await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
+  await page.locator('[data-tpv-order-search] [name=orderId]').fill(orderId);
+  await page.getByRole('button',{name:'Buscar pedido',exact:true}).click();
+  await page.locator('.tpv-history').getByText('Pedido #'+orderId,{exact:true}).waitFor();
+  await page.locator('.tpv-history summary').click();
+  const historicalDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Factura PDF',exact:true}).click();
+  assert.equal((await historicalDownload).suggestedFilename(),'totus-invoice-'+orderId+'.pdf');
+  await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
+  await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+  assert.deepEqual(errors,[]);await page.close();
+ }
+ console.log(focus==='customers'?'PASS customer UI → shared directory writer and SQL journal → native customer/address → selected for checkout. Local only.':
+  'PASS desktop/mobile UI → Central handler → SQL → native order/refund/stock → cash movement → zero-difference close. Local fixtures only.');
+ }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+}

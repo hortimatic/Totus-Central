@@ -17,7 +17,7 @@ function fixture(options={}) {
    origin:'https://shop.example',protectedOrigins:['https://production.example'],
    protectedConnectionIds:['00000000-0000-4000-8000-000000000099']},
   resolve:async()=>options.privateAddress?['127.0.0.1']:['93.184.216.34'],
-  allowedPaymentModules:['ps_cashondelivery'],
+  allowedPaymentModules:['ps_cashondelivery'],allowNativeCommand:async()=>options.commandsAllowed===true,
   ...(options.extension?{nativeExtension:{verified:true,installationId:'00000000-0000-4000-8000-000000000002',
    connectionId:scope.connectionId,connectionRevision:1,shopId:2,protocol:1},allowNativeQuote:async()=>options.quoteAllowed===true}:{}),
   ...(options.enabled?{allowOrderCreation:async()=>true}:{}),
@@ -36,6 +36,27 @@ test('read uses Central credentials privately, native shop context and no ambien
  assert.equal(u.searchParams.get('id_shop'),'2');assert.equal(u.searchParams.get('filter[id_cart]'),'[701]');
  assert.ok(init.headers.Authorization.startsWith('Basic '));assert.equal(url.includes(connection.secret),false);
  assert.equal(init.credentials,'omit');assert.equal(init.redirect,'error');assert.equal(init.cache,'no-store');
+});
+
+test('native commands retain operation identity and recover by GET without resubmitting',async()=>{
+ const operationId='00000000-0000-4000-8000-000000000004';
+ const denied=fixture({extension:true});
+ await assert.rejects(denied.transport.nativeCommand({operationId,command:'sale.commit',payload:{cart_id:701}}),/COMMAND_DISABLED/);
+ assert.equal(denied.requests.length,0);
+ const f=fixture({extension:true,commandsAllowed:true,timeout:true});
+ await assert.rejects(f.transport.nativeCommand({operationId,command:'sale.commit',payload:{cart_id:701}}),/timeout/);
+ assert.equal(f.requests.length,1);
+ const sent=JSON.parse(f.requests[0].init.body);
+ assert.equal(sent.operation_id,operationId);assert.equal(sent.actor_id,scope.actorId);
+ assert.equal(sent.shop_id,scope.shopId);assert.equal(sent.command,'sale.commit');
+ assert.equal(f.requests[0].init.headers['Content-Type'],'application/json');
+ await assert.rejects(f.transport.readNativeOperation(operationId),/timeout/);
+ assert.equal(f.requests.length,2);assert.equal(f.requests[1].init.method,'GET');
+ assert.equal(new URL(f.requests[1].url).searchParams.get('actor_id'),scope.actorId);
+ await assert.rejects(f.transport.nativeCommand({operationId,command:'stock.arbitrary',payload:{}}),/COMMAND_INVALID/);
+ assert.equal(f.requests.length,2);
+ await assert.rejects(fixture({extension:true,noQaPolicy:true}).transport.readNativeProfile(),/QA_POLICY_REQUIRED/);
+ await assert.rejects(fixture().transport.readNativeProfile(),/EXTENSION_UNVERIFIED/);
 });
 test('POSTPV resources, other origins, stale revisions, query overrides and local destinations are blocked',async()=>{
  const f=fixture();for(const resource of ['tpv_order_cajas','cajas','orders?ws_key=bad','../orders','orders/0'])

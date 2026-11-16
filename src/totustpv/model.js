@@ -20,6 +20,16 @@ function unique(rows, key) {
 
 export const TOTUSTPV_MODULE = Object.freeze({id: 'totustpv', label: 'TotusTPV', path: 'tpv', host: 'Totus Central'});
 
+/** Till preview, not proof that an operator or bank has collected anything. */
+export function cashTenderPreview({totalCents,cashPartCents,receivedCents}) {
+  cents(totalCents,true);cents(cashPartCents);cents(receivedCents);
+  requireValue(cashPartCents<=totalCents,'TPV_PAYMENT_TOTAL_MISMATCH');
+  requireValue(cashPartCents>0||receivedCents===0,'TPV_NONCASH_CHANGE_FORBIDDEN');
+  return {cashPartCents,cardPartCents:totalCents-cashPartCents,receivedCents,
+    changeCents:Math.max(0,receivedCents-cashPartCents),
+    missingCents:Math.max(0,cashPartCents-receivedCents),cashCovered:receivedCents>=cashPartCents};
+}
+
 /** Payment status comes from trusted server evidence, never from a browser flag. */
 export function paymentSummary(totalCents, allocations, {allowCredit = false} = {}) {
   cents(totalCents, true);

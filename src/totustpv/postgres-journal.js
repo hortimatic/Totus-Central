@@ -27,3 +27,19 @@ export function createPostgresCheckoutLedger({rpc}) {
       call('confirm',scope,operationId,{revision,token,orderId,verification})
   });
 }
+
+/** Same service-only boundary for physical cash. No browser may select an actor
+ * or insert a counted amount directly into Central's tables.
+ */
+export function createPostgresCashLedger({rpc}){
+ if(typeof rpc!=='function')throw new Error('TPV_SERVER_RPC_REQUIRED');
+ async function call(action,{scope,requestId,...data}){
+  const response=await rpc('totus_tpv_cash',{p_action:action,p_request_id:requestId,
+   p_scope:structuredClone(scope),p_data:structuredClone(data)});
+  if(response?.error){const message=response.error.message||'';
+   throw new Error(/^TPV_[A-Z0-9_]{1,90}$/.test(message)?message:'TPV_CASH_STORAGE_UNAVAILABLE');}
+  if(!response||!Object.hasOwn(response,'data'))throw new Error('TPV_CASH_STORAGE_UNAVAILABLE');
+  return response.data;
+ }
+ return Object.freeze({summary:input=>call('summary',input),movement:input=>call('movement',input),close:input=>call('close',input)});
+}

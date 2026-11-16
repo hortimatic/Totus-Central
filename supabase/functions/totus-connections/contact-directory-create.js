@@ -23,7 +23,9 @@ export async function createDirectoryRecord({q,commit,signature,previous,journal
  }
  const fields=Object.fromEntries(Object.entries(q.fields).map(([field,value])=>[field,directoryLocalized(q.resource,field)?languageRows.map(l=>({language_id:String(l.id),value})):value]));
  async function verify(id){
-  const read=await xml(url(q.resource,id,{display:'[id,'+Object.keys(q.fields).join(',')+']',...(languageRows.length?{language:'['+languageRows.map(l=>String(l.id)).join('|')+']'}:{})}));
+  // Partial native group projections may return links without their IDs.
+  // Full XML stays server-side and is never stored in the journal or returned.
+  const read=await xml(url(q.resource,id,{display:q.resource==='customers'&&q.fields.id_default_group?'full':'[id,'+Object.keys(q.fields).join(',')+']',...(languageRows.length?{language:'['+languageRows.map(l=>String(l.id)).join('|')+']'}:{})}));
   if(directoryXmlField(read,q.resource,'id')!==String(id))throw Error('La tienda devolvió otra ficha.');
   const changes=[];for(const [field,value]of Object.entries(fields)){if(Array.isArray(value)){const ids=directoryXmlLanguages(read,q.resource,field);for(const t of value){if(!ids.includes(t.language_id))throw Error('Falta una traducción de la ficha creada.');changes.push({field,value:t.value,language_id:t.language_id});}}else changes.push({field,value});}
   if(q.resource==='customers'&&q.fields.id_default_group&&!directoryCustomerGroups(read).includes(q.fields.id_default_group))throw Object.assign(Error('El grupo del cliente no se ha guardado.'),{code:'FIELDS_DIFFER'});

@@ -12,7 +12,7 @@ if(!existsSync(ini)||!existsSync('artifacts/native-lab/shop/app/config/parameter
  throw new Error('Native lab is not prepared. See tests/native-lab/README.md. No native test was executed.');
 const env={...process.env};
 if(binary===portable)env.OPENSSL_CONF=path.resolve('artifacts/php82/extras/ssl/openssl.cnf');
-for(const file of ['journal.php','cart-quote.php','card-payment.php','card-finalize.php','mixed-refund.php','native-effect.php']){
+for(const file of ['journal.php','cart-quote.php','card-payment.php','card-finalize.php','mixed-refund.php','native-effect.php','owned-sales.php']){
  try{process.stdout.write(execFileSync(binary,['-c',ini,`tests/native-lab/${file}`],
   {encoding:'utf8',env,maxBuffer:4*1024*1024,timeout:180000,stdio:['ignore','pipe','pipe']}));}
  catch(error){throw new Error(`Native integration failed at ${file}: ${error.stderr||error.stdout||error.message}`);}

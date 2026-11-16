@@ -10,6 +10,7 @@ final class Protocol
     public const VERSION = 1;
     public const MAX_BODY_BYTES = 65536;
     private const RESOURCES = [
+        'setup.qa' => 'totus_tpv_setup',
         'cart.prepare' => 'totus_tpv_carts',
         'cart.quote' => 'totus_tpv_quotes',
         'sale.commit' => 'totus_tpv_sales',

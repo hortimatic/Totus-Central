@@ -161,6 +161,42 @@
         "supabase/functions/totus-prestashop-alerts/index.ts",
         "src/website-registry.js"
       ]
+    },
+    {
+      "name": "totus-tpv",
+      "entrypoint": "supabase/functions/totus-tpv/index.ts",
+      "verify_jwt": true,
+      "files": [
+        "src/api-presets.js",
+        "src/application-cors.js",
+        "src/contact-directory-contract.js",
+        "src/prestashop-readonly.js",
+        "src/productos-write-contract.js",
+        "src/totustpv/checkout-service.js",
+        "src/totustpv/context.js",
+        "src/totustpv/model.js",
+        "src/totustpv/postgres-journal.js",
+        "src/totustpv/server/cart-preflight.js",
+        "src/totustpv/server/customer-service.js",
+        "src/totustpv/server/deployment-qa-policy.js",
+        "src/totustpv/server/native-adapter.js",
+        "src/totustpv/server/native-capability-adapter.js",
+        "src/totustpv/server/native-request-service.js",
+        "src/totustpv/server/native-transport.js",
+        "src/totustpv/server/operator-payments.js",
+        "src/totustpv/server/payment-readback.js",
+        "src/totustpv/server/qa-policy.js",
+        "src/totustpv/server/quote-contract.js",
+        "src/totustpv/server/refund-service.js",
+        "src/website-registry.js",
+        "supabase/functions/totus-ai/cloudflare.js",
+        "supabase/functions/totus-connections/contact-directory-create.js",
+        "supabase/functions/totus-connections/contact-directory-delete.js",
+        "supabase/functions/totus-connections/contact-directory-write.js",
+        "supabase/functions/totus-connections/transport.js",
+        "supabase/functions/totus-tpv/handler.js",
+        "supabase/functions/totus-tpv/index.ts"
+      ]
     }
   ]
 }

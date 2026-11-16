@@ -1,0 +1,169 @@
+/** Browser adapter: only normal authenticated Central calls. No shop URL,
+ * credentials, native commands or privileged client can enter this module.
+ * Request IDs survive response loss; financial commands are never auto-retried.
+ */
+const need=(ok,message)=>{if(!ok)throw new Error(message);};
+const clone=value=>structuredClone(value);
+const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?
+ Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
+const canonical=value=>JSON.stringify(ordered(value));
+export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID()}={}){
+ need(typeof invoke==='function'&&actorId&&storage,'No se puede preparar el puesto.');
+ let stations=[],selected=null,session=null,prepared=new Map(),returnSources=new Map(),customer=null,activeDraft=null;
+ const key='totus:tpv:requests:v1:'+actorId;
+ function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
+  const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
+ async function operation(kind,payload){const data=saved(),scope=JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]),
+  fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(payload))))].map(n=>n.toString(16).padStart(2,'0')).join(''),prior=data[kind];
+  if(prior?.scope===scope&&prior.fingerprint===fingerprint)return prior.id;
+  if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
+  const id=uuid();data[kind]={id,scope,fingerprint};storage.setItem(key,JSON.stringify(data));return id;}
+ function forget(kind,id){const data=saved();if(data[kind]?.id===id){delete data[kind];storage.setItem(key,JSON.stringify(data));}}
+ const selection=()=>{need(selected,'Selecciona un puesto de caja.');return {connectionId:selected.connectionId,shopId:selected.shopId,
+  drawerId:selected.drawerId,...(session?{sessionId:session.id}:{})};};
+ function nativeLines(lines,labels=false){return lines.map(line=>{const pair=String(line.productId).split(':').map(Number);
+  need(pair.length===2&&Number.isSafeInteger(pair[0])&&pair[0]>0&&Number.isSafeInteger(pair[1])&&pair[1]>=0,'Selecciona la variante del producto.');
+  return {productId:pair[0],attributeId:pair[1],qty:line.qty,...(line.discount?{discount:line.discount}:{}),...(labels?{label:line.name||'Producto #'+pair[0]}:{})};});}
+ const cartIntent=(lines,adjustment,coupon,labels=false)=>({lines:nativeLines(lines,labels),...(adjustment?{adjustment}:{}),...(coupon?{coupon}:{}),
+  ...(customer?{customerId:customer.id,invoiceAddressId:customer.addressId,deliveryAddressId:customer.addressId}:{})});
+ async function releaseDraft(){if(!activeDraft)return;
+  activeDraft=await call('get-draft',{draftId:activeDraft.id});
+  if(activeDraft.status==='checkout'){
+   const values={draftId:activeDraft.id,version:activeDraft.version},id=await operation('release-draft',values);
+   activeDraft=await call('release-draft',values,id);forget('release-draft',id);
+  }
+  need(activeDraft.status==='claimed'&&activeDraft.mine&&activeDraft.sessionId===session.id,'El borrador ha cambiado. Consulta de nuevo los tickets aparcados.');
+ }
+ async function call(action,values={},id){return invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});}
+ const receipt=(row,extra={})=>({id:row.operationId||row.id,status:row.status,orderId:row.orderId,
+  reference:row.orderId?'Pedido #'+row.orderId:'Operación '+(row.operationId||row.id),totalCents:row.totalCents??prepared.get(row.operationId||row.id)?.totalCents??0,...extra});
+ const summary=row=>({...row,salesCents:Object.values(row.payments||{}).reduce((n,v)=>n+v,0),cashCents:row.payments?.cash||0,
+  refundCashCents:row.refunds?.cash||row.refundPayments?.cash||0,unresolved:(row.unresolvedSales||row.pendingSales||0)+(row.pendingRefunds||0),
+  differenceCents:row.countedCents==null?null:row.countedCents-row.expectedCashCents});
+ return Object.freeze({
+  mode:'qa',
+  async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
+   stations=data.workstations;need(stations.every(row=>row.environment==='qa'),'Entorno de pruebas no válido.');
+   return {stores:[...new Map(stations.map(row=>[row.storeId,{id:row.storeId,name:row.storeName}])).values()],
+    drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName})),
+    sessions:stations.filter(row=>row.session).map(row=>({...row.session,storeId:row.storeId,drawerId:row.drawerId}))};},
+  async selectSession(value){selected=stations.find(row=>row.drawerId===value.drawerId&&row.storeId===value.storeId);
+   need(selected?.session?.id===value.id,'La sesión de caja ha cambiado.');session=clone(value);return clone(session);},
+  async openSession({storeId,drawerId,openingCents}){selected=stations.find(row=>row.storeId===storeId&&row.drawerId===drawerId);
+   need(selected?.canOpen,'No tienes permiso para abrir esta caja.');session=null;customer=null;activeDraft=null;
+   const id=await operation('open',{storeId,drawerId,openingCents}),result=await call('open',{openingCents},id);
+   need(result.id===id&&result.status==='open','No se ha confirmado la apertura de caja.');
+   session={id,storeId,drawerId,status:'open',openingCents};forget('open',id);return clone(session);},
+  async searchProducts({search='',page=0,productId=0}={}){const data=await call('catalogue',{search,page,productId,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+   need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
+   const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
+    stock:row.stock,priceCents:row.preview_cents,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
+    barcode:row.ean,upc:row.upc}));
+   Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page}});return items;},
+  async quote({lines,adjustment,coupon}){
+   const intent={...cartIntent(lines,adjustment,coupon),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
+   const id=await operation('prepare',intent),record=await call('prepare',intent,id);
+   need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
+   if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
+   if(activeDraft)activeDraft={...activeDraft,version:record.expected.draftVersion,status:'checkout',checkoutId:id};
+   const quote={id,totalCents:record.expected.totalCents,currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
+    paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels||{cash:'',card:''},method)),
+    lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
+   prepared.set(id,quote);return clone(quote);},
+  async discardQuote(id){await releaseDraft();forget('prepare',id);prepared.delete(id);},
+  async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
+   need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
+   const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
+    ...(row.method==='cash'?{receivedCents:row.receivedCents}:{})}));
+   const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true}};
+   const change=payments.filter(row=>row.method==='cash').reduce((n,row)=>n+row.receivedCents-row.amountCents,0);
+   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);activeDraft=null;}
+    return receipt(result,{totalCents:quote.totalCents,changeCents:change});
+   }catch{ return receipt({id:operationId,status:'uncertain',totalCents:quote.totalCents},{changeCents:change}); }
+  },
+  async recover({operationId}){const status=await call('sale-status',{},operationId);
+   if(status.status==='ready'){
+    need(status.canSubmit!==false,'Este cobro lo preparó otro operador. No vuelvas a cobrarlo.');
+    if(status.draftId)activeDraft=await call('get-draft',{draftId:status.draftId});
+    prepared.set(operationId,status);return receipt(status,{payment:status,draft:activeDraft});}
+   const result=status.status==='confirmed'?status:await call('recover',{},operationId);
+   if(result.status==='confirmed'){forget('prepare',operationId);activeDraft=null;}return receipt(result,{totalCents:status.totalCents});},
+  async drafts(){return call('drafts');},
+  async archiveDraft({draftId,version}){const values={draftId,version},id=await operation('archive-draft',values),result=await call('archive-draft',values,id);
+   need(result.status==='archived','No se ha confirmado el archivo del ticket.');forget('archive-draft',id);return result;},
+  async park({lines,adjustment,coupon,label}){
+   if(activeDraft){const current=await call('get-draft',{draftId:activeDraft.id});if(current.status==='parked'){
+    activeDraft=null;const same=canonical(current.payload)===canonical(cartIntent(lines,adjustment,coupon,true))&&current.label===label;
+    if(same)return current;throw new Error('El ticket anterior ya está aparcado. Los cambios actuales siguen en pantalla; puedes aparcarlos como otro ticket.');
+   }}
+   await releaseDraft();const values={version:activeDraft?.version||0,label,payload:cartIntent(lines,adjustment,coupon,true),
+    ...(activeDraft?{draftId:activeDraft.id}:{})},id=await operation('park',values),result=await call('park',values,id);
+   need(result.status==='parked','No se ha confirmado el ticket aparcado.');forget('park',id);activeDraft=null;return result;
+  },
+  async claimDraft({draftId}){
+   need(!activeDraft||activeDraft.id===draftId,'Aparca o descarta el ticket actual antes de abrir otro.');
+   const current=await call('get-draft',{draftId}),values={draftId,version:current.version},id=await operation('claim-draft',values);
+   const result=await call('claim-draft',values,id);forget('claim-draft',id);
+   if(['sold','archived'].includes(result.status)){activeDraft=null;throw new Error('Este ticket ya se ha vendido o archivado. Consulta su historial.');}
+   need(result.status==='claimed'&&result.mine,'Otro operador está utilizando este ticket.');activeDraft=result;
+   const p=activeDraft.payload;let displayCustomer=null;customer=null;
+   if(p.customerId&&p.customerId!==selected.nativeProfile?.counter_customer_id){
+    const data=await call('customers',{customerId:p.customerId}),client=data.items?.find(row=>row.id===p.customerId),address=data.addresses?.find(row=>row.id===p.invoiceAddressId);
+    need(client&&address,'Revisa el cliente y la dirección de este ticket antes de cobrar.');
+    customer={id:p.customerId,addressId:p.invoiceAddressId};displayCustomer={...customer,name:[client.firstname,client.lastname].join(' '),addressLabel:address.alias};
+   }
+   return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,
+    lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:line.label||'Producto #'+line.productId,
+     qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
+     ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};
+  },
+  async abandonDraft(){if(!activeDraft)return;const current=await call('get-draft',{draftId:activeDraft.id});
+   if(current.status==='archived'){activeDraft=null;return;}await releaseDraft();
+   const values={draftId:activeDraft.id,version:activeDraft.version},id=await operation('archive-draft',values);
+   const result=await call('archive-draft',values,id);need(result.status==='archived','El borrador sigue pendiente.');forget('archive-draft',id);activeDraft=null;
+  },
+  async history(){return (await call('history')).map(row=>receipt(row,{...row,
+    reference:row.orderId?'Pedido #'+row.orderId:'Cobro preparado'}));},
+  async orders({orderId}={}){return (await call('orders',orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
+  async document({saleId,kind,refundId}){return call('document',{kind,...(refundId?{refundId}:{})},saleId);},
+  async searchCustomers({search='',page=0,customerId=0}={}){const data=await call('customers',{search,page,customerId});
+   need(data?.shop_id===selected.shopId&&Array.isArray(data.items)&&Array.isArray(data.addresses)&&data.defaults?.guest_group_id>0,'No se ha podido verificar el directorio de esta tienda.');return data;},
+  async customerMetadata(countryId){return call('customer-metadata',{countryId});},
+  async setCustomer(value){if(value===null){customer=null;return;}
+   const current=await call('customers',{customerId:value.id});
+   need(current.items.length===1&&current.addresses.some(row=>row.id===value.addressId),'Selecciona una dirección vigente de este cliente.');
+   customer={id:value.id,addressId:value.addressId};},
+  async writeCustomer({resource,recordId,fields}){const values={resource,operation:recordId?'update':'create',...(recordId?{recordId}:{}),fields},
+   id=await operation('customer-write',values);let result;
+   try{result=await call('customer-write',values,id);}catch(error){if(error.code==='TPV_CUSTOMER_FIELDS_REJECTED')forget('customer-write',id);throw error;}
+   need((result.persisted===true||result.unchanged===true)&&result.verified===true,'No se ha confirmado la ficha en la tienda.');forget('customer-write',id);return result;},
+  async returnable({saleId}){const source=await call('returnable',{saleId});returnSources.set(saleId,source);
+   return {saleId,reference:'Pedido #'+source.orderId,pendingRefund:source.pendingRefund,availablePayments:clone(source.remaining_payments),
+    lines:source.items.map(line=>({productId:String(line.detail_id),name:line.name,remainingQty:line.remaining_quantity}))};},
+  async prepareRefund({operationId,saleId,items,reason,refundMethod='original'}){const source=returnSources.get(saleId);need(source,'Vuelve a consultar la venta.');
+   const chosen=items.map(item=>({detailId:Number(item.productId),qty:item.qty,restock:item.restock}));
+   let total=0;for(const item of chosen){const row=source.items.find(row=>row.detail_id===item.detailId);
+    need(row&&Number.isSafeInteger(item.qty)&&item.qty>0&&item.qty<=row.remaining_quantity,'Cantidad de devolución no válida.');
+    total+=Number((BigInt(row.allocated_cents)*BigInt(row.returned_quantity+item.qty)*2n+BigInt(row.sold_quantity))/(2n*BigInt(row.sold_quantity)))-row.refunded_cents;}
+   need(refundMethod==='original'||['cash','card','bizum','transfer'].includes(refundMethod)&&source.remaining_payments[refundMethod]>=total,
+    'El medio elegido no tiene saldo suficiente de la venta original para este reintegro. Selecciona el reparto original.');
+   let remaining=total;const payments=[];for(const method of refundMethod==='original'?['cash','card','bizum','transfer']:[refundMethod]){const amount=Math.min(remaining,source.remaining_payments[method]||0);
+    if(amount>0){payments.push({method,amountCents:amount});remaining-=amount;}}
+   need(remaining===0,'No se puede distribuir este reintegro con los pagos originales.');
+   return {...await call('prepare-refund',{saleId,items:chosen,payments,...(reason?{reason}:{})},operationId),payments};},
+  async submitRefund({operationId,totalCents,refundConfirmed}){need(refundConfirmed===true,'Confirma el reintegro al cliente.');
+   try{return await call('submit-refund',{confirmation:{operationId,totalCents,currency:'EUR',accepted:true}},operationId);}
+   catch{return {id:operationId,status:'uncertain',totalCents,retryRefundForbidden:true};}},
+  async cancelRefund(id){return call('cancel-refund',{},id);},async recoverRefund(id){return call('recover-refund',{},id);},
+  async sessionSummary(){return summary(await call('cash-summary'));},
+  async cashReports({sessionId}={}){return call('cash-reports',sessionId?{reportSessionId:sessionId}:{});},
+  async selectWorkstation({storeId,drawerId}){need(!session,'La caja ya está seleccionada para la sesión abierta.');
+   const row=stations.find(row=>row.storeId===storeId&&row.drawerId===drawerId);need(row?.canReconcile,'No tienes acceso a los informes de esta caja.');selected=row;},
+  async cashMovement(values){const id=await operation('movement',values);try{const result=await call('cash-movement',values,id);forget('movement',id);return summary(result);}
+   catch(error){if(['TPV_CASH_BALANCE_INVALID','TPV_CASH_MOVEMENT_INVALID'].includes(error.code))forget('movement',id);throw error;}},
+  async receiveStock({productId,quantity,reason}){const [product,attribute]=productId.split(':').map(Number),values={productId:product,attributeId:attribute,quantity,reason},
+   id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
+  async closeSession({countedCents,note=''}){const id=await operation('close',{countedCents,note}),result=await call('close',{countedCents,note},id);
+   need(result.status==='closed','No se ha confirmado el cierre.');forget('close',id);session=null;activeDraft=null;customer=null;return summary(result);}
+ });
+}

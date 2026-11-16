@@ -10,6 +10,8 @@ const version=run(['-r','echo PHP_VERSION;']);
 console.log(`Connector preparation checks on PHP ${version}; no installed PrestaShop runtime.`);
 for(const file of readdirSync('connectors/prestashop/src').filter(file=>file.endsWith('.php')))
  run(['-l',`connectors/prestashop/src/${file}`]);
+for(const file of readdirSync('connectors/prestashop/module').filter(file=>file.endsWith('.php')))
+ run(['-l',`connectors/prestashop/module/${file}`]);
 // Syntax only here: the native integration suite requires its real lab and is
 // run explicitly, not silently substituted with fake native dependencies.
 for(const file of readdirSync('tests/native-lab').filter(file=>file.endsWith('.php')))

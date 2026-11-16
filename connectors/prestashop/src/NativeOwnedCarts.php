@@ -1,0 +1,114 @@
+<?php
+namespace TotusCentralConnector;
+
+/** Ownership is persisted on the native connection, with native Cart writes.
+ * This repository never adopts an existing website/customer cart.
+ */
+final class NativeOwnedCarts
+{
+    private \PDO $db;
+    private string $table;
+    private string $journalTable;
+    private array $profile;
+    public function __construct(\PDO $db,string $table,string $journalTable,array $profile)
+    {
+        foreach ([$table,$journalTable] as $name)Protocol::ensure(preg_match('/^[a-zA-Z0-9_]{1,64}$/D',$name)===1,'CART_STORE_CONFIG_INVALID');
+        foreach (['currency_id','language_id','carrier_id'] as $key)Protocol::ensure(is_int($profile[$key]??null)&&$profile[$key]>0,'CART_PROFILE_INVALID');
+        $this->db=$db;$this->table='`'.$table.'`';$this->journalTable='`'.$journalTable.'`';$this->profile=$profile;
+    }
+    public static function mysqlSchema(string $table): string
+    {
+        Protocol::ensure(preg_match('/^[a-zA-Z0-9_]{1,64}$/D',$table)===1,'CART_STORE_CONFIG_INVALID');
+        return 'CREATE TABLE `'.$table.'` (operation_id CHAR(36) NOT NULL PRIMARY KEY,
+            installation_id CHAR(36) NOT NULL,api_account_id BIGINT UNSIGNED NOT NULL,
+            shop_id BIGINT UNSIGNED NOT NULL,actor_id CHAR(36) NOT NULL,
+            session_id CHAR(36) NOT NULL,drawer_id CHAR(36) NOT NULL,
+            customer_id BIGINT UNSIGNED NOT NULL,cart_id BIGINT UNSIGNED NOT NULL UNIQUE,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin';
+    }
+    public function owner(int $cartId,array $command): array
+    {
+        $statement=$this->db->prepare('SELECT * FROM '.$this->table.' WHERE cart_id=:cart');
+        $statement->execute(['cart'=>$cartId]);$row=$statement->fetch(\PDO::FETCH_ASSOC);
+        Protocol::ensure($row && $row['installation_id']===$command['installation_id'] &&
+            (int)$row['api_account_id']===$command['api_account_id'] && (int)$row['shop_id']===$command['shop_id'] &&
+            $row['actor_id']===$command['actor_id'],'CART_OWNERSHIP_REQUIRED');
+        foreach (['cart_id','shop_id','api_account_id','customer_id'] as $key)$row[$key]=(int)$row[$key];
+        return array_merge($row,['verified'=>true]);
+    }
+    public function quote(string $operationId,array $command): array
+    {
+        Protocol::ensure(Protocol::uuid($operationId),'QUOTE_OPERATION_INVALID');
+        $statement=$this->db->prepare('SELECT * FROM '.$this->journalTable.' WHERE request_id=:operation');
+        $statement->execute(['operation'=>$operationId]);$row=$statement->fetch(\PDO::FETCH_ASSOC);
+        Protocol::ensure($row && $row['status']==='completed' && $row['command']==='cart.quote' &&
+            $row['installation_id']===$command['installation_id'] && (int)$row['api_account_id']===$command['api_account_id'] &&
+            (int)$row['shop_id']===$command['shop_id'] && $row['actor_id']===$command['actor_id'],'QUOTE_OWNERSHIP_REQUIRED');
+        return json_decode($row['result_json'],true,32,JSON_THROW_ON_ERROR);
+    }
+    public function execute(array $command): array
+    {
+        $p=$command['payload']??[];
+        Protocol::ensure(($command['command']??null)==='cart.prepare' && count($p)>=6 && count($p)<=8 &&
+            array_diff(array_keys($p),['session_id','drawer_id','customer_id','invoice_address_id','delivery_address_id','lines','adjustment','coupon'])===[] &&
+            Protocol::uuid($p['session_id']??null) && Protocol::uuid($p['drawer_id']??null),'CART_PREPARE_INVALID');
+        foreach (['customer_id','invoice_address_id','delivery_address_id'] as $key)Protocol::ensure(is_int($p[$key]??null)&&$p[$key]>0,'CART_NATIVE_IDENTITY_INVALID');
+        Protocol::ensure(is_array($p['lines']??null) && array_is_list($p['lines']) && count($p['lines'])>0 && count($p['lines'])<=200,'CART_LINES_INVALID');
+        $customer=new \Customer($p['customer_id']);$invoice=new \Address($p['invoice_address_id']);$delivery=new \Address($p['delivery_address_id']);
+        Protocol::ensure(\Validate::isLoadedObject($customer) && $customer->active && !$customer->deleted &&
+            NativeCustomers::inShop($customer,(int)$command['shop_id']) &&
+            \Validate::isLoadedObject($invoice) && !$invoice->deleted && (int)$invoice->id_customer===(int)$customer->id &&
+            \Validate::isLoadedObject($delivery) && !$delivery->deleted && (int)$delivery->id_customer===(int)$customer->id,'CART_NATIVE_IDENTITY_INVALID');
+        $context=\Context::getContext();$previous=get_object_vars($context);$previousShop=\Shop::getContextShopID();$previousType=\Shop::getContext();
+        try {
+            $context->shop=new \Shop($command['shop_id']);\Shop::setContext(\Shop::CONTEXT_SHOP,$command['shop_id']);
+            $context->customer=$customer;$context->currency=new \Currency($this->profile['currency_id']);
+            $context->language=new \Language($this->profile['language_id']);$context->country=new \Country((int)$delivery->id_country);
+            $carrier=new \Carrier($this->profile['carrier_id']);
+            $privatePickup=$carrier->is_module && $carrier->external_module_name==='totuscentralconnector';
+            Protocol::ensure(\Validate::isLoadedObject($carrier) && $carrier->active && !$carrier->deleted &&
+                (($carrier->is_free&&!$carrier->is_module)||$privatePickup),'CART_PICKUP_CARRIER_REQUIRED');
+            $cart=new \Cart();$cart->id_shop=$command['shop_id'];$cart->id_shop_group=(int)$context->shop->id_shop_group;
+            $cart->id_customer=(int)$customer->id;$cart->id_address_invoice=(int)$invoice->id;$cart->id_address_delivery=(int)$delivery->id;
+            $cart->id_currency=$this->profile['currency_id'];$cart->id_lang=$this->profile['language_id'];
+            $cart->id_carrier=(int)$carrier->id;$cart->secure_key=$customer->secure_key;$cart->gift=false;$cart->recyclable=false;
+            $cart->allow_seperated_package=false;
+            Protocol::ensure($cart->add(),'CART_NATIVE_CREATE_FAILED');$context->cart=$cart;$seen=[];
+            foreach ($p['lines'] as $line) {
+                Protocol::ensure(is_array($line) && count($line)>=3 && count($line)<=4 && array_diff(array_keys($line),['product_id','attribute_id','quantity','discount'])===[] &&
+                    is_int($line['product_id']??null) && $line['product_id']>0 &&
+                    is_int($line['attribute_id']??null) && $line['attribute_id']>=0 &&
+                    is_int($line['quantity']??null) && $line['quantity']>0 && $line['quantity']<=10000,'CART_LINE_INVALID');
+                $key=$line['product_id'].':'.$line['attribute_id'];Protocol::ensure(!isset($seen[$key]),'CART_LINE_DUPLICATE');$seen[$key]=true;
+                if($line['attribute_id']>0){$variant=new \Combination($line['attribute_id']);Protocol::ensure(\Validate::isLoadedObject($variant)&&(int)$variant->id_product===$line['product_id'],'CART_VARIANT_MISMATCH');}
+                else{$product=new \Product($line['product_id'],false,(int)$context->language->id,$command['shop_id']);
+                    Protocol::ensure(\Validate::isLoadedObject($product)&&!$product->hasAttributes(),'CART_VARIANT_REQUIRED');}
+                Protocol::ensure($cart->updateQty($line['quantity'],$line['product_id'],$line['attribute_id'],false,'up',(int)$delivery->id,$context->shop)>0,'CART_NATIVE_LINE_FAILED');
+            }
+            $cart->setDeliveryOption([(int)$delivery->id=>$carrier->id.',']);Protocol::ensure($cart->update(),'CART_NATIVE_UPDATE_FAILED');
+            Protocol::ensure((float)$cart->getOrderTotal(true,\Cart::ONLY_SHIPPING)===0.0,'CART_PICKUP_HAS_SHIPPING');
+            NativeLineAdjustments::apply($cart,$p['lines']);
+            NativeCartAdjustments::apply($cart,$p,$command);
+            $statement=$this->db->prepare('INSERT INTO '.$this->table.'
+                (operation_id,installation_id,api_account_id,shop_id,actor_id,session_id,drawer_id,customer_id,cart_id)
+                VALUES (:operation,:installation,:account,:shop,:actor,:session,:drawer,:customer,:cart)');
+            $statement->execute(['operation'=>$command['operation_id'],'installation'=>$command['installation_id'],
+                'account'=>$command['api_account_id'],'shop'=>$command['shop_id'],'actor'=>$command['actor_id'],
+                'session'=>$p['session_id'],'drawer'=>$p['drawer_id'],'customer'=>$p['customer_id'],'cart'=>(int)$cart->id]);
+            return ['verified'=>true,'native_reference'=>(int)$cart->id,'cart_id'=>(int)$cart->id,
+                'session_id'=>$p['session_id'],'drawer_id'=>$p['drawer_id']];
+        } finally {
+            foreach (['shop','cart','customer','currency','language','country'] as $key)$context->$key=$previous[$key]??null;
+            \Shop::setContext($previousType,$previousShop);
+        }
+    }
+    public function reconcile(array $command,array $claim): ?array
+    {
+        $statement=$this->db->prepare('SELECT cart_id FROM '.$this->table.' WHERE operation_id=:operation');
+        $statement->execute(['operation'=>$command['operation_id']]);$id=(int)$statement->fetchColumn();if($id===0)return null;
+        $owner=$this->owner($id,$command);$cart=new \Cart($id);
+        Protocol::ensure(\Validate::isLoadedObject($cart) && (int)$cart->id_customer===$owner['customer_id'],'CART_NATIVE_READBACK_FAILED');
+        return ['verified'=>true,'native_reference'=>$id,'cart_id'=>$id,'session_id'=>$owner['session_id'],'drawer_id'=>$owner['drawer_id']];
+    }
+}

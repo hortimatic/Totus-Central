@@ -15,6 +15,17 @@ test('independent-terminal declaration is accepted without any bank/network adap
  const summary=cashSessionSummary({...scope,openingCents:10000,entries:[{...scope,id:'entry-one',kind:'sale',method:'card',amountCents:801}]});
  assert.equal(summary.expectedCashCents,10000);
 });
+
+test('Bizum and transfer require explicit store configuration and leave physical cash unchanged',async()=>{
+ for(const method of ['bizum','transfer']){
+  const configured={...policy,modes:{...policy.modes,[method]:'external-receipt'}},prepared={...expected,operatorPaymentPolicy:{revision:1,modes:configured.modes}},
+   input={...requested,allocations:[{id:'external-one',method,amountCents:801}]};
+  const allocations=await fixture({readPolicy:async()=>configured}).verify({scope,operationId:id(6),expected:prepared,requested:input});
+  assert.equal(allocations[0].method,method);
+  assert.equal(cashSessionSummary({...scope,openingCents:10000,entries:[{...scope,id:'external-one',kind:'sale',method,amountCents:801}]}).expectedCashCents,10000);
+  await assert.rejects(fixture().verify({scope,operationId:id(6),expected:prepared,requested:input}),/METHOD_NOT_CONFIGURED/);
+ }
+});
 test('cash and mixed declarations preserve change and allocate only cash to the drawer',async()=>{
  const allocations=await fixture().verify({scope,operationId:id(6),expected,requested:{...requested,
   allocations:[{id:'cash-one',method:'cash',amountCents:300,receivedCents:500},{id:'card-one',method:'card',amountCents:501}]}});
