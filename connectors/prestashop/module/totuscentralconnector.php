@@ -1,7 +1,7 @@
 <?php
 /** Totus Central native capability. No front-office payment option or POS UI. */
 if (!defined('_PS_VERSION_')) { exit; }
-foreach(['Protocol','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogue','NativeDocuments','NativeSetup','NativeRuntime'] as $file)
+foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogue','NativeDocuments','NativeSetup','NativeRuntime'] as $file)
     require_once __DIR__.'/src/'.$file.'.php';
 class Totuscentralconnector extends PaymentModule
 {
@@ -14,7 +14,7 @@ class Totuscentralconnector extends PaymentModule
     public function getOrderShippingCostExternal($cart){return self::$nativeCommandDepth>0?0:false;}
     public function __construct()
     {
-        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.1.2';$this->author='Totus Central';
+        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.1.5';$this->author='Totus Central';
         $this->bootstrap=true;$this->need_instance=1;$this->ps_versions_compliancy=['min'=>'8.2.8','max'=>'8.2.8'];
         parent::__construct();$this->displayName='Totus Central · capacidad nativa';
         $this->description='Pedidos del mostrador de Totus Central. Sin interfaz de caja ni opción de pago en la web.';
@@ -22,7 +22,7 @@ class Totuscentralconnector extends PaymentModule
     public function install()
     {
         if(_PS_VERSION_!=='8.2.8' || !(Db::getInstance()->getLink() instanceof PDO))return false;
-        if(!parent::install() || !$this->registerHook('addWebserviceResources') || !$this->registerHook('actionEmailSendBefore'))return false;
+        if(!parent::install() || !$this->registerHook('addWebserviceResources') || !$this->registerHook('actionEmailSendBefore') || !$this->registerHook('actionOrderGridQueryBuilderModifier') || !$this->registerHook('displayBackOfficeHeader'))return false;
         return $this->ensureOwnStorage();
     }
     public function ensureOwnStorage(): bool
@@ -48,6 +48,17 @@ class Totuscentralconnector extends PaymentModule
         // Preserve owned receipts, installation identity and native financial
         // history for recovery/reinstallation. No DROP or order removal.
         return parent::uninstall();
+    }
+    public function hookActionOrderGridQueryBuilderModifier(array $params): void
+    {
+        // The installed QA connector must never alter another installation.
+        try{$this->nativeProfile();}catch(Throwable $error){return;}
+        TotusCentralConnector\OrderGridPerformance::apply($params['search_query_builder']??null,$params['search_criteria']??null,_DB_PREFIX_);
+    }
+    public function hookDisplayBackOfficeHeader(): string
+    {
+        // Fixed diagnostic enum only: no query, customer, filter value or key.
+        return '<meta name="totus-orders-plan" content="'.htmlspecialchars(TotusCentralConnector\OrderGridPerformance::$lastStatus,ENT_QUOTES,'UTF-8').'">';
     }
     public function nativeProfile(): array
     {
