@@ -1,5 +1,8 @@
 /* TotusTPV uses Central's tokens, buttons, inputs and module tabs. */
 .totus-tpv{display:grid;gap:12px;min-width:0;container-type:inline-size}
+.tpv-customer-panel>header{display:flex;align-items:center;justify-content:space-between;gap:8px}.tpv-customer-panel>form{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:10px 0}.tpv-customer-panel>form>label{flex:1}.tpv-customer-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;margin:10px 0}.tpv-customer-list button{display:block;text-align:left}.tpv-customer-list small{overflow-wrap:anywhere}.tpv-customer-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;width:100%}.tpv-customer-panel form>h4,.tpv-customer-panel form>p{width:100%}
+.tpv-document{max-width:480px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin:auto;width:100%;box-sizing:border-box}.tpv-document header{display:block}.tpv-document table{width:100%;border-collapse:collapse}.tpv-document td,.tpv-document th{padding:8px 4px;text-align:left;border-bottom:1px solid var(--line);font-size:.85rem}.tpv-document td:last-child{text-align:right;white-space:nowrap}.tpv-document dl>div{display:flex;justify-content:space-between;gap:8px}.tpv-document dd{margin:0}.tpv-document-actions{position:relative}.tpv-document-actions>div{position:absolute;z-index:10;right:0;min-width:240px;background:var(--panel);border:1px solid var(--line);padding:8px;border-radius:var(--r)}.tpv-configuration{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.tpv-configuration>h4,.tpv-configuration>p,.tpv-configuration>.tpv-check,.tpv-configuration>.inline-actions,.tpv-configuration>small{grid-column:1/-1}
+.tpv-line-discount{grid-column:1/-1;display:flex;align-items:end;gap:8px}.tpv-line-discount label{flex:1}.tpv-line-discount label:last-child{max-width:150px}.tpv-ticket-adjustments{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tpv-ticket-adjustments label:last-child{grid-column:1/-1}.tpv-session form{display:grid;gap:8px;margin-top:16px}
 .totus-tpv h3,.totus-tpv h4{margin:0;font-size:1.05rem}
 .totus-tpv .card-pad{padding:16px;min-height:0}
 .totus-tpv p{margin:8px 0;line-height:1.45}
@@ -15,7 +18,11 @@
 .tpv-context{justify-content:space-between;gap:12px}
 .tpv-context label{flex:1;max-width:360px}.tpv-context>span{flex:1;min-width:130px}
 .tpv-sale-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(310px,.85fr);gap:12px;align-items:start}
+.tpv-checkout-grid{grid-template-columns:minmax(0,680px);justify-content:center}
+.tpv-cash-report{max-width:680px;margin:12px auto;overflow-wrap:anywhere}.tpv-cash-report dl>div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:7px 0}.tpv-cash-report dd{margin:0;font-weight:600;white-space:nowrap}
 .tpv-product-list{display:grid;gap:8px;margin-top:12px}
+.tpv-product-list,.tpv-ticket-lines{max-height:clamp(220px,48dvh,520px);overflow:auto;overscroll-behavior:contain}
+.tpv-configuration fieldset{grid-column:1/-1;min-width:0;border:1px solid var(--line);border-radius:var(--r);padding:10px;display:grid;gap:6px}
 .tpv-product{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
 .tpv-product:hover,.tpv-product:focus-visible{border-color:var(--accent);background:var(--bg)}
 .tpv-product:disabled{opacity:.55;cursor:default}.tpv-product b{white-space:nowrap}
@@ -29,6 +36,9 @@
 .tpv-empty{padding:18px 0;color:var(--muted)}
 .tpv-payment{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;display:grid;gap:10px}
 .tpv-payment-amount{display:flex;justify-content:space-between;align-items:center}.tpv-payment-amount strong{font-size:1.4rem}
+.tpv-denominations{display:flex;flex-wrap:wrap;gap:6px}.tpv-denominations .btn{min-width:52px;min-height:36px;padding:6px 10px}
+.tpv-tender-preview{display:grid;gap:6px;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);font-variant-numeric:tabular-nums}
+.tpv-tender-preview>span{display:flex;justify-content:space-between;align-items:center;gap:12px}.tpv-tender-preview strong{font-size:1.4rem;white-space:nowrap}
 .tpv-check{display:flex!important;gap:8px!important;align-items:center}.tpv-check input{width:auto!important;flex:0 0 auto}
 .tpv-opening form,.tpv-session form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-top:12px}
 .tpv-opening form label,.tpv-session form label{flex:1;max-width:260px}

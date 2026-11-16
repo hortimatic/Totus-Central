@@ -41,6 +41,12 @@ final class CommandRunner
             // messages, customer data, SQL, credentials or a full stack trace.
             $reason = preg_match('/^TOTUS_[A-Z0-9_]{1,90}$/D', $error->getMessage())
                 ? $error->getMessage() : 'TOTUS_NATIVE_EXECUTION_FAILED';
+            preg_match('/SQLSTATE\[([A-Z0-9]{5})\].*?:\s*(\d+)/',$error->getMessage(),$databaseCode);
+            error_log('Totus native command: '.json_encode(['operation_id'=>$command['operation_id'],
+                'reason'=>$reason,'error_class'=>get_class($error),'source'=>basename($error->getFile()),'line'=>$error->getLine(),
+                'database_state'=>$databaseCode[1]??null,'database_code'=>$databaseCode[2]??null,
+                'functions'=>array_map(static fn($frame)=>($frame['class']??'').($frame['type']??'').($frame['function']??''),
+                    array_slice($error->getTrace(),0,12))],JSON_UNESCAPED_SLASHES));
             $nativeReference = is_array($result) ? ($result['native_reference'] ?? null) : null;
             try {
                 return $this->repository->uncertain($command, $token, [

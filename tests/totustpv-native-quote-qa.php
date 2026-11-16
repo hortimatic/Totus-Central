@@ -16,7 +16,7 @@ final class Tools {public static function ps_round($value,$precision,$mode){retu
 final class Cart {
  public const BOTH=3,ONLY_PRODUCTS=1,ONLY_SHIPPING=5,ONLY_DISCOUNTS=2;
  public int $id=701,$id_shop=1,$id_customer=501,$id_address_invoice=601,$id_address_delivery=602,$id_currency=1,$id_lang=1,$id_carrier=5;
- public bool $ordered=false,$fail=false,$rulesApplied=false;
+ public bool $ordered=false,$fail=false,$rulesApplied=false,$gift=false,$recyclable=false,$allow_seperated_package=false;
  public function orderExists(){return $this->ordered;}
  public function getProducts($refresh){
   if(!$this->rulesApplied)throw new Exception('Automatic rules must run before reading lines');

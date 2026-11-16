@@ -1,0 +1,10 @@
+[
+  {
+    "circuit": "totustpv-native-boundary",
+    "from": "research source is not an installed or enabled PrestaShop module",
+    "to": "original native package is QA-only; isolated installation does not authorize remote activation",
+    "authorization": "Diego autorizó expresamente instalar el conector propio necesario el 16/11/2026; confirmó después guardar los permisos concretos de la cuenta #2 TotusTPV en preproducción. No autoriza producción ni módulos de terceros.",
+    "evidence": "docs/TOTUSTPV_ACTIVACION_QA_20261116.md",
+    "tests": ["tests/totustpv-php-boundary-qa.mjs"]
+  }
+]

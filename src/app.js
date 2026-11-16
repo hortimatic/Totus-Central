@@ -19,6 +19,10 @@ import {createProductosUI} from './productos-ui.js';
 import {createAccountUI} from './account-ui.js';
 import {createMobileNavigation} from './mobile-navigation.js';
 import {createTpvWorkspace} from './totustpv/workspace.js';
+import {createCentralTpvAdapter} from './totustpv/central-adapter.js';
+import {createTpvConfigurationReader} from './totustpv/configuration-reader.js';
+import {createTpvHttpClient} from './totustpv/http-client.js';
+import {SUPABASE_URL as TPV_SUPABASE_URL,SUPABASE_KEY as TPV_SUPABASE_KEY} from './config.js';
 import {createTpvSetupReader} from './totustpv/setup-reader.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
 import {createChatPreferenceTransport} from './chat-preference-transport.js';
@@ -86,9 +90,19 @@ const mobileNavigation=createMobileNavigation();
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),
+ createLiveAdapter:()=>{const actorId=state.user.id;return createCentralTpvAdapter({actorId,storage:localStorage,invoke:tpvClient(actorId)});},
+ readConfiguration:createTpvConfigurationReader({actor:()=>state.user,rpc,
+  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)}),
+  readOperators:()=>select('profiles',{columns:'id,full_name,active',order:'full_name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})}),
+ configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),
+ canCustomer:action=>can('clientes',action),
  readSetup:()=>totusTpvSetup.read(),
- confirm:message=>confirmAction(message,{title:'TotusTPV',acceptLabel:'Salir'}),
+ confirm:(message,options={})=>confirmAction(message,{title:'TotusTPV',acceptLabel:options.acceptLabel||'Salir'}),
  onConfigure:()=>can('apis','view')?navigateModule('apis'):false,canConfigure:()=>can('apis','view')});
+async function invokeTotusTpv(body){
+ return tpvClient(state.user?.id)(body);
+}
+function tpvClient(owner){return createTpvHttpClient({auth:sb.auth,owner,currentActor:()=>state.user?.id,url:TPV_SUPABASE_URL,key:TPV_SUPABASE_KEY});}
 // A delayed preview belongs to the account and rendered page that requested it.
 function activeActor(){
  const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);

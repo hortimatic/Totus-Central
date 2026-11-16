@@ -1,8 +1,8 @@
 <?php
 require __DIR__.'/bootstrap.php';
-require $project.'/connectors/prestashop/src/Protocol.php';
-require $project.'/connectors/prestashop/src/PdoJournal.php';
-require $project.'/connectors/prestashop/src/JournalSchema.php';
+require_once nativeLabConnector('Protocol');
+require_once nativeLabConnector('PdoJournal');
+require_once nativeLabConnector('JournalSchema');
 use TotusCentralConnector\PdoJournal;
 use TotusCentralConnector\JournalSchema;
 use TotusCentralConnector\Protocol;

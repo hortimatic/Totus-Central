@@ -38,6 +38,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
     const record = await ledger.get({scope,operationId:command.operationId});
     requireValue(record && record.id === command.operationId, 'TPV_OPERATION_NOT_FOUND');
     assertSameCheckoutScope(scope, record.scope);
+    if(action==='sell')requireValue(scope.actorId===record.scope.actorId,'TPV_PREPARED_ACTOR_MISMATCH');
     requireValue(positive(record.revision) && record.expected && record.expected.storeId === scope.storeId &&
       record.expected.shopId === scope.shopId && record.expected.currency === scope.currency &&
       positive(record.expected.cartId), 'TPV_PREPARED_SALE_INVALID');
@@ -61,7 +62,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
       requireValue(positive(orderId), 'TPV_REMOTE_ORDER_NOT_OBSERVED');
       await ledger.rememberRemote({scope,operationId:record.id,revision:record.revision,token,orderId,
         remoteKey:remoteOrderKey(scope,orderId)});
-      const observed = await native.readSale({scope,orderId,expected:copy(record.expected)});
+      const observed = await native.readSale({scope,operationId:record.id,sourceActorId:record.scope.actorId,orderId,expected:copy(record.expected)});
       requireValue(observed?.connectionId === scope.connectionId && observed?.orderId === orderId,
         'TPV_REMOTE_CONNECTION_MISMATCH');
       verifyNativePaymentBreakdown(record.expected,record.payments,observed.payments);

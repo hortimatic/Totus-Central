@@ -2,9 +2,9 @@
 /** Failure injection using real native order/payment/stock SQL, local fixture only. */
 require __DIR__.'/cart-quote.php';
 require __DIR__.'/payment-fixture.php';
-require $project.'/connectors/prestashop/src/PdoJournal.php';
-require $project.'/connectors/prestashop/src/JournalSchema.php';
-require $project.'/connectors/prestashop/src/PdoNativeEffect.php';
+require_once nativeLabConnector('PdoJournal');
+require_once nativeLabConnector('JournalSchema');
+require_once nativeLabConnector('PdoNativeEffect');
 use TotusCentralConnector\PdoJournal;
 use TotusCentralConnector\JournalSchema;
 use TotusCentralConnector\PdoNativeEffect;

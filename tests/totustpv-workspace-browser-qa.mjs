@@ -19,7 +19,7 @@ try{
  await page.getByRole('button',{name:'Tickets de práctica',exact:true}).click();
  await page.getByRole('button',{name:'Recuperar',exact:true}).click();
  await page.getByText('Venta de práctica registrada',{exact:true}).waitFor();
- assert.match(await page.locator('[aria-label="Resultado de práctica"]').innerText(),/1,99/);
+ assert.match(await page.locator('[aria-label="Resultado de venta"]').innerText(),/1,99/);
  await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
  await page.getByRole('button',{name:/Artículo con variante/}).click();
  for(const width of [1440,1024,768,390]){

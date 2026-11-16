@@ -1,5 +1,29 @@
 # Estado de implementación de TotusTPV
 
+## Activación remota del 16/11/2026
+
+Estado vigente: conector propio 0.1.2 instalado en PrestaShop de preproducción y permisos aditivos de su cuenta API #2 guardados y releídos. Nueve migraciones aditivas aplicadas en Central y nuevo servicio autenticado `totus-tpv` v1 desplegado; sus 29 archivos coinciden con la relectura remota. Cero asignaciones iniciales: no habilita automáticamente cajas ni tiendas. La interfaz ampliada aún está pendiente de publicación y aceptación remota. Véase [evidencia de activación](TOTUSTPV_ACTIVACION_QA_20261116.md).
+
+El laboratorio nativo también ha verificado Bizum y transferencia confirmados por el cajero, pagos mixtos, variante exacta con salida y reposición de stock, informes de cajas cerradas sin reabrirlas y abono PDF. Tickets, regalo e informe de caja se han renderizado a papel de 58 mm y contenido de 48 mm sin desbordamiento; es una simulación de impresión, no una prueba física de la Bisofice ni apertura de cajón.
+
+Las referencias siguientes a «sin instalar» y «sin desplegar» describen el estado local anterior. Siguen pendientes crédito/anticipos, reservas, vales, inventarios/traspasos, hardware real y numeración concurrente con ventas web. No se declara listo para explotación comercial.
+
+## Actualización local del 16/11/2026
+
+El módulo integrado de práctica está publicado en `/tpv` desde `c6f17ed7`. Las ampliaciones siguientes siguen en desarrollo local, sin publicar ni instalar en la web de preproducción. Existe un servicio autenticado propio de Central, migraciones aditivas de caja/asignaciones/solicitudes/devoluciones, un paquete nativo QA y una interfaz conectada a ese servicio.
+
+Han pasado ventas reales del laboratorio nativo en efectivo, tarjeta y mixto enviadas por el adaptador de Central, con relectura del pedido/pagos/estado y movimientos de stock. También abonos con y sin reposición, rollback tras abono/reposición, recuperación sin duplicados y exclusión del transportista privado del checkout web. Son pedidos de una instalación local desechable con datos ficticios, no pedidos nuevos de una web remota. El datáfono se confirma por el cajero: no se ejecuta una operación bancaria.
+
+También han pasado pruebas de navegador en 1440 y 390 px contra el servicio real, PostgreSQL aislado y la instalación nativa local: apertura, búsqueda por referencia, venta con cambio, historial, devolución con reposición, movimiento de efectivo y cierre sin diferencia. El móvil incluye descuentos por unidad y ticket, conservando el catálogo. Se han generado y descargado el ticket, ticket regalo, factura y albarán nativos existentes, sin repetir el cobro ni numerar otra factura. Auth y entrega de red son fixtures expresos en esa prueba; no equivale a una aceptación con la cuenta y la web remotas.
+
+El cliente HTTP captura la sesión normal de Central por cuenta. Las solicitudes inciertas conservan sus identificadores; el almacenamiento del navegador retiene huellas, no nombres, correos ni direcciones. La configuración guiada utiliza establecimientos, cajones y operadores existentes. Han pasado alta y edición de cliente, nueva dirección y corrección conservando la anterior. La venta con ese cliente editado también pasa. La prueba específica contrasta en memoria que contraseña, clave de seguridad y fecha de credenciales permanecen intactas; no imprime ni guarda sus valores.
+
+Han pasado también aparcado con descuentos, recarga del navegador, recuperación con precios por recalcular y conversión única a venta. El servidor conserva versiones, reclamaciones y vínculo al cobro, y rechaza reutilizar una preparación liberada. El historial permite localizar ventas de sesiones anteriores; la factura se descarga después de cerrar y volver a abrir caja. Se ha descargado el abono PDF nativo existente después de devolver. La búsqueda histórica se acota a instalación, establecimiento, tienda y moneda autorizados; no habilita cobrar desde una sesión antigua.
+
+Fallos concretos corregidos en ese recorrido: el transportista privado admitía sólo al grupo del cliente genérico; ahora admite los grupos nativos existentes. La edición PUT de clientes en PS 8.2.8 anulaba campos de autenticación de sólo lectura omitidos; el perfil nativo verificado utiliza PATCH oficial, preservando dichos campos sin enviarlos. No se ha parcheado el núcleo ni ampliado esta excepción a versiones no verificadas.
+
+Pendientes principales: presupuestos y reservas, crédito/anticipos/cobros posteriores, medios adicionales, inventario/traspasos, informes/avisos y hardware real; probar y resolver concurrencia con ventas web y numeración nativa de facturas; completar el instalador reproducible del laboratorio; publicar servicio/migraciones/interfaz y validar el circuito de la web QA con una sesión real. No se declara el TPV preparado para explotación ni se atribuye una causa probada al incidente remoto anterior. Las secciones siguientes conservan la evidencia histórica del 15/11.
+
 15/11/2026. Código local dentro del repositorio de Totus Central. No desplegado y sin nuevas ventas en las tiendas remotas. Las ventas nativas nuevas descritas abajo pertenecen únicamente al laboratorio local desechable. La separación de producción/preproducción y la condición previa al cambio de dominio están en [Entornos y transición](TOTUSTPV_ENTORNOS_Y_CAMBIO_DOMINIO.md).
 
 | Componente | Implementado y comprobado | Límite actual |

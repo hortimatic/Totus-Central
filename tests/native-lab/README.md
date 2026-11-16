@@ -1,9 +1,18 @@
 # Laboratorio nativo aislado de TotusTPV
 
 Estas pruebas ejecutan clases reales de PrestaShop 8.2.8 contra MariaDB local.
-No son una instalación del conector, un despliegue de Totus Central ni una
-validación de las tiendas remotas. Todos los clientes y productos son ficticios.
+El recorrido HTTP instala el paquete propio exclusivamente en ese laboratorio.
+No es un despliegue de Totus Central ni una validación de las tiendas remotas.
+Todos los clientes y productos son ficticios.
 El proveedor de propiedad del carrito de `cart-quote.php` sigue siendo una fixture.
+
+El recorrido `node tests/totustpv-native-http-qa.mjs` utiliza la propiedad
+persistente del paquete instalado. Ejecuta además el servicio real de Central,
+sus migraciones en PostgreSQL aislado y la interfaz a 1440 y 390 px. La sesión
+de usuario y la entrega HTTP a la instalación local son fixtures explícitas.
+`--customers-only` limita la prueba a fichas y direcciones, sin ventas;
+`--browser-only` ejecuta únicamente el recorrido conectado del navegador.
+Ninguna de estas opciones envía peticiones a las tiendas remotas.
 
 `bootstrap.php` rechaza otra base distinta de `totus_tpv_lab` en
 `127.0.0.1:3318`, con el usuario local `tpv_lab`. El correo está desactivado.

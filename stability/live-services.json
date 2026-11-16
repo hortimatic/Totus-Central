@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-15",
+  "capturedAt": "2026-11-16",
   "normalization": "LF",
   "services": [
     {
@@ -143,6 +143,42 @@
         "src/backup-set.js": "e0174ea6a335d8f17305ec516b89b3960f8f58214ea190b736f05600bee08e3b",
         "src/recovery-core.js": "e4a76fb6b068c134e0a58690675831c3a8572d5dcbbc3af5cbc10f98d0d790e2",
         "src/backup-index.js": "1f23d12b5710dc84bdced537c8fa499b03802550de01f9ae22f12c77753a63cf"
+      }
+    },
+    {
+      "name": "totus-tpv",
+      "version": 1,
+      "verify_jwt": true,
+      "files": {
+        "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
+        "src/application-cors.js": "f160f0a4af3bca08e878398e36f629f920ce321f5e52685a47c1340fc2d088ed",
+        "src/contact-directory-contract.js": "2b9263d77ab144de442d1bedfa80e015c8169dfc1661405483d391f381a2a989",
+        "src/prestashop-readonly.js": "0438cf6b565a81e8a3a973f834acfc90808874aa9cdb4bc1d03ad172725273a1",
+        "src/productos-write-contract.js": "353b431a5fbab8c61e40bd3c25262b38dbe68cb5f75f6104a2101671d5725f36",
+        "src/totustpv/checkout-service.js": "5d10c31db6fd1ec86e2fea40345d9ebf3678fc912b2784adc0d1f9876f61d1ce",
+        "src/totustpv/context.js": "03cff445da3e62ae3e109c9fffe79f11c90ad947cf2c0a6c603784e87c4217fb",
+        "src/totustpv/model.js": "2d80fdb36f4e14fb1f9f266f4d1e1483ed3905f91395263fdf8098de9ce02b59",
+        "src/totustpv/postgres-journal.js": "c1385c7a351dda1a993451b590c771ea419896bf81814042a2fc3beaed0464e6",
+        "src/totustpv/server/cart-preflight.js": "0a264a0b770bb57f75118e2759c64ea51455fb38b01c33f8d8f31aa672a6c79a",
+        "src/totustpv/server/customer-service.js": "2213c6a56a6236fbbaf2019f657675064518c0fa271d9af660fe6618c37c9893",
+        "src/totustpv/server/deployment-qa-policy.js": "0ae09d81168893f9ccc1b84d9a4e1f8344b65af56b789c5e05a176255a6bc49c",
+        "src/totustpv/server/native-adapter.js": "586ae69eadd0b62dced58b5847b80ac5d87b9e730aa3a0d5a52dc6bcf9badf09",
+        "src/totustpv/server/native-capability-adapter.js": "4dcb520751eb30f73b9b8e4cfc320d6be560f14def172228ab3c870616973495",
+        "src/totustpv/server/native-request-service.js": "116e9d463f5f22efa6e1a74e390f2f43746d44ea009b0a49aad51436553d45ad",
+        "src/totustpv/server/native-transport.js": "07f714c029b34911c459f1dc6f35da4d514ab5607165bc38fdfc5a1d0469fafe",
+        "src/totustpv/server/operator-payments.js": "202eb241768c8a9e0c54760024de62d88d8a110b4af8197ff3b56c2eb8c5580d",
+        "src/totustpv/server/payment-readback.js": "856d251826f44e58d9bba95cc8e3f81d4cb540910e9dbdbddcc3899608c0281c",
+        "src/totustpv/server/qa-policy.js": "056da201c92814ad911deac0ec04c6e247f6b2343c386c06431657c1e66052bd",
+        "src/totustpv/server/quote-contract.js": "a490462a3e410b4c1ed89672147c7b09a49175fc1a9f4e4103318108553cd270",
+        "src/totustpv/server/refund-service.js": "985a8e8a3bfb89421c299b2712a213a167430c0a22f34eb33af9d12fd2c20333",
+        "src/website-registry.js": "9e8029a29ef60c65afdf2a89849918b3ac000576c6151b2ae05fb20868c73ad1",
+        "supabase/functions/totus-ai/cloudflare.js": "075fd3891dbd0c709821bf104c58440210375015b043cf2b626df207a4c05959",
+        "supabase/functions/totus-connections/contact-directory-create.js": "86b4358d3e9cc57dc32c961896295103070a15b1cce122b174c90765ddfd56a2",
+        "supabase/functions/totus-connections/contact-directory-delete.js": "b22882ec9ce02f9a8cf17b4cd434340f419c924942dca03f49473d0cc3aba38f",
+        "supabase/functions/totus-connections/contact-directory-write.js": "99922d4666973e5ef0c290235efebc88fdb8906c3e7b25ec927cabace7ea20e4",
+        "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
+        "supabase/functions/totus-tpv/handler.js": "9e9563cf63727af30f50411c9202cbc448c3af045dfc4dd09f07d879fc1ff4a5",
+        "supabase/functions/totus-tpv/index.ts": "47f227cd5f8bacba5f9f322ede0a321ae77b3b90f187c0be84a80ee359c36f73"
       }
     }
   ]

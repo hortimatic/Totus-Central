@@ -1,0 +1,287 @@
+import {boundedJson} from '../totus-connections/transport.js';
+import {createTpvNativeTransport} from '../../../src/totustpv/server/native-transport.js';
+import {TOTUS_QA_POLICY} from '../../../src/totustpv/server/deployment-qa-policy.js';
+import {createPostgresCheckoutLedger,createPostgresCashLedger} from '../../../src/totustpv/postgres-journal.js';
+import {createCheckoutService} from '../../../src/totustpv/checkout-service.js';
+import {createNativeCapabilityAdapter} from '../../../src/totustpv/server/native-capability-adapter.js';
+import {createOperatorPaymentVerifier,OPERATOR_PAYMENT_MODES} from '../../../src/totustpv/server/operator-payments.js';
+import {createNativeRequestService,nativeStepId} from '../../../src/totustpv/server/native-request-service.js';
+import {expectedFromNativeQuote} from '../../../src/totustpv/server/quote-contract.js';
+import {createRefundService} from '../../../src/totustpv/server/refund-service.js';
+const need=(ok,code)=>{if(!ok)throw new Error(code);};
+const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+const positive=value=>Number.isSafeInteger(value)&&value>0;
+const check=response=>{if(response?.error)throw new Error(/^TPV_[A-Z0-9_]{1,90}$/.test(response.error.message||'')?response.error.message:'TPV_STORAGE_UNAVAILABLE');
+ need(response&&Object.hasOwn(response,'data'),'TPV_STORAGE_UNAVAILABLE');return response.data;};
+const headers={'Content-Type':'application/json','Cache-Control':'no-store',
+ 'Access-Control-Allow-Headers':'authorization,apikey,x-client-info,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'};
+
+/** Authenticated Central endpoint. Factories are injected only by its server
+ * entrypoint/tests, never by request JSON. Production shop writes are blocked
+ * independently by the transport and QA database authorization.
+ */
+export function createCentralTpvHandler({factory,env,request=fetch,resolve,onError=()=>{}}){
+ return async function handle(req){
+  let audit=null;
+  const respond=async(body,status=200)=>{
+   if(audit){const record=audit;audit=null;try{await record.admin.rpc('totus_api_call',{p_id:record.id,
+    p_revision:record.revision,p_call:record.call,p_result:{ok:status<400}});}catch{}}
+   return new Response(JSON.stringify(body),{status,headers});
+  };
+  async function beginAudit(admin,id,revision){const call=crypto.randomUUID();
+   check(await admin.rpc('totus_api_call',{p_id:id,p_revision:revision,p_call:call}));audit={admin,id,revision,call};}
+  if(req.method==='OPTIONS')return respond({});if(req.method!=='POST')return respond({error:'TPV_METHOD_FORBIDDEN'},405);
+  try{
+   const bearer=req.headers.get('Authorization')?.match(/^Bearer\s+(\S+)$/i)?.[1];
+   if(!bearer)return respond({error:'TPV_AUTH_REQUIRED'},401);
+   const url=env.get('SUPABASE_URL')||'',key=JSON.parse(env.get('SUPABASE_PUBLISHABLE_KEYS')||'{}').default||env.get('SUPABASE_ANON_KEY')||'',
+    secret=JSON.parse(env.get('SUPABASE_SECRET_KEYS')||'{}').default||env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
+   need(url&&key&&secret,'TPV_SERVER_CONFIGURATION_REQUIRED');
+   const options={auth:{persistSession:false,autoRefreshToken:false}};
+   const authenticated=await factory(url,key,options).auth.getUser(bearer);
+   const user=authenticated?.data?.user;if(authenticated?.error||!uuid(user?.id))return respond({error:'TPV_AUTH_REQUIRED'},401);
+   const scoped=factory(url,key,{...options,global:{headers:{Authorization:'Bearer '+bearer}}});
+   const input=await boundedJson(req,65536);
+   need(input&&typeof input==='object'&&!Array.isArray(input)&&
+    ['context','configure','open','catalogue','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+     'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+    'TPV_REQUEST_INVALID');
+   const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
+    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId'],
+    history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
+    customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
+    'customer-write':['action','selection','operationId','resource','operation','recordId','fields'],
+    drafts:['action','selection','operationId'],'get-draft':['action','selection','operationId','draftId'],
+    park:['action','selection','operationId','draftId','version','label','payload'],
+    'claim-draft':['action','selection','operationId','draftId','version'],'release-draft':['action','selection','operationId','draftId','version'],
+    'archive-draft':['action','selection','operationId','draftId','version'],
+    prepare:['action','selection','operationId','lines','customerId','invoiceAddressId','deliveryAddressId','adjustment','coupon','draftId','draftVersion'],
+    submit:['action','selection','operationId','payments'],recover:['action','selection','operationId'],
+    'cash-summary':['action','selection','operationId'],'cash-movement':['action','selection','operationId','kind','amountCents','reason'],
+    'cash-reports':['action','selection','operationId','reportSessionId'],
+    close:['action','selection','operationId','countedCents','note'],'stock-receive':['action','selection','operationId','productId','attributeId','quantity','reason'],
+    returnable:['action','selection','operationId','saleId'],'prepare-refund':['action','selection','operationId','saleId','items','payments','reason'],
+    'submit-refund':['action','selection','operationId','confirmation'],'recover-refund':['action','selection','operationId'],
+    'cancel-refund':['action','selection','operationId']};
+   need(Object.keys(input).every(key=>permitted[input.action].includes(key)),'TPV_REQUEST_FIELD_FORBIDDEN');
+   if(input.action==='configure'){
+    need(uuid(input.operationId)&&input.selection?.connectionId===TOTUS_QA_POLICY.connectionId&&positive(input.revision)&&
+     positive(input.selection.shopId)&&uuid(input.selection.drawerId)&&uuid(input.storeId)&&uuid(input.operatorId)&&
+     Object.keys(input.selection).every(key=>['connectionId','shopId','drawerId'].includes(key)),'TPV_CONFIGURATION_INVALID');
+    // Existing normal-user admin and store/RLS paths precede loading a key.
+    const manager=check(await scoped.rpc('totus_api_manager'));
+    need(manager?.connections?.some(row=>row.id===input.selection.connectionId&&row.revision===input.revision),'TPV_CONTEXT_STALE');
+    const metadata=check(await scoped.rpc('totus_sales_context'));
+    const website=metadata.websites?.find(row=>row.connection_id===input.selection.connectionId&&row.origin===TOTUS_QA_POLICY.origin&&row.status==='active');
+    need(website&&metadata.businesses?.some(row=>row.id===input.storeId),'TPV_CONFIGURATION_INVALID');
+    const drawer=check(await scoped.from('ops_cash_drawers').select('id,store_id,active').eq('id',input.selection.drawerId).eq('store_id',input.storeId).eq('active',true).maybeSingle());
+    need(drawer,'TPV_CONFIGURATION_INVALID');
+    const admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
+    const connection=check(await rpc('totus_api_server',{p_id:input.selection.connectionId,p_revision:input.revision}));
+    await beginAudit(admin,input.selection.connectionId,input.revision);
+    const setupScope={actorId:user.id,connectionId:input.selection.connectionId,connectionRevision:input.revision,storeId:input.storeId,
+     shopId:input.selection.shopId,drawerId:input.selection.drawerId,sessionId:input.operationId,currency:'EUR',environment:'qa'};
+    const optionsFor=extension=>({request,resolve,qaPolicy:TOTUS_QA_POLICY,nativeExtension:extension,
+     allowNativeCommand:async({command})=>{need(command==='setup.qa','TPV_NATIVE_COMMAND_DISABLED');check(await scoped.rpc('totus_api_manager'));return true;}});
+    let transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor(null));
+    let native=await transport.inspectNativeProfile();
+    need(native?.verified===true&&native.environment==='qa'&&native.native_version==='8.2.8'&&native.protocol===1&&
+     uuid(native.installation_id)&&native.shop_id===setupScope.shopId,'TPV_NATIVE_PROFILE_INVALID');
+    if(native.configured!==true&&input.confirmQaSetup!==true)return respond({setupRequired:true,environment:'qa',nativeVersion:'8.2.8'});
+    if(input.confirmQaSetup===true){
+     setupScope.currency=native.currency;setupScope.nativeInstallationId=native.installation_id;
+     transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor({verified:true,
+      installationId:native.installation_id,connectionId:setupScope.connectionId,connectionRevision:setupScope.connectionRevision,shopId:setupScope.shopId,protocol:1}));
+     const result=await createNativeRequestService({rpc,transport,scope:setupScope}).execute({operationId:input.operationId,command:'setup.qa',payload:{confirm_qa:true}});
+     if(result.status!=='verified')return respond(result);
+     native=await transport.readNativeProfile();
+    }
+    const methods=input.paymentMethods??['cash','card'];
+    need(Array.isArray(methods)&&methods.length>=2&&methods.length<=4&&new Set(methods).size===methods.length&&
+     ['cash','card'].every(method=>methods.includes(method))&&methods.every(method=>Object.hasOwn(OPERATOR_PAYMENT_MODES,method)&&
+      typeof native.payment_labels?.[method]==='string'),'TPV_PAYMENT_METHOD_NOT_CONFIGURED');
+    native={...native,payment_labels:Object.fromEntries(methods.map(method=>[method,native.payment_labels[method]]))};
+    return respond(check(await rpc('totus_tpv_configure',{p_actor:user.id,p_operator:input.operatorId,p_connection:setupScope.connectionId,
+     p_revision:input.revision,p_store:input.storeId,p_drawer:setupScope.drawerId,p_website:website.key,p_native:native,p_permissions:input.permissions})));
+   }
+   async function context(){const result=check(await scoped.rpc('totus_tpv_context'));
+    need(result?.actorId===user.id&&Array.isArray(result.workstations),'TPV_CONTEXT_INVALID');return result;}
+   if(input.action==='context')return respond(await context());
+   need(uuid(input.operationId)&&input.selection&&Object.keys(input.selection).every(key=>
+    ['connectionId','shopId','drawerId','sessionId'].includes(key)),'TPV_SELECTION_INVALID');
+   async function selected(){
+    const ctx=await context(),row=ctx.workstations.find(row=>row.connectionId===input.selection.connectionId&&
+     row.shopId===input.selection.shopId&&row.drawerId===input.selection.drawerId);
+    need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
+     row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
+     'TPV_WORKSTATION_NOT_CONFIGURED');
+    const sessionId=input.action==='open'?input.operationId:input.selection.sessionId;
+    need(input.action==='cash-reports'?row.canReconcile===true:uuid(sessionId)&&(input.action==='open'?!row.session||row.session.id===sessionId:row.session?.id===sessionId),
+     'TPV_CASH_SESSION_MISMATCH');
+    return {row,scope:{actorId:user.id,connectionId:row.connectionId,connectionRevision:row.connectionRevision,
+     storeId:row.storeId,shopId:row.shopId,drawerId:row.drawerId,sessionId,currency:row.nativeProfile.currency,environment:'qa'}};
+   }
+   const {row,scope}=await selected(),admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
+   const ledger=createPostgresCheckoutLedger({rpc}),cash=createPostgresCashLedger({rpc});
+   if(input.action==='cash-reports'){
+    need(input.reportSessionId===undefined||uuid(input.reportSessionId),'TPV_REPORT_QUERY_INVALID');
+    return respond(check(await rpc('totus_tpv_cash_reports',{p_scope:scope,p_session_id:input.reportSessionId??null})));
+   }
+   async function authorize({action}){const fresh=await selected();
+    need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
+    check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
+   if(input.action==='history')return respond(check(await rpc('totus_tpv_history',{p_scope:scope,p_before:input.before??null})));
+   if(input.action==='orders'){
+    need(input.orderId===undefined||Number.isSafeInteger(input.orderId)&&input.orderId>0,'TPV_ORDER_QUERY_INVALID');
+    const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:input.orderId??null,p_sale_id:null}));
+    return respond(rows.map(record=>({id:record.id,status:record.status,orderId:record.orderId,
+     createdAt:record.createdAt,drawerName:record.drawerName,totalCents:record.totalCents,lines:record.lines,
+     refunds:record.refunds.map(({id,status,totalCents})=>({id,status,totalCents}))})));
+   }
+   if(input.action==='sale-status'){
+    await authorize({action:'reconcile'});
+    const record=await ledger.get({scope,operationId:input.operationId});
+    return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,
+     currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,lines:record.expected.lines,
+     paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels,method)),
+     discountCents:record.expected.discountCents,
+     canSubmit:record.scope.actorId===scope.actorId,draftId:record.expected.draftId,draftVersion:record.expected.draftVersion});
+   }
+   if(input.action==='open')return respond(await ledger.open({scope,sessionId:scope.sessionId,openingCents:input.openingCents}));
+   const drafts=(action,id,data={},requestId=input.operationId)=>rpc('totus_tpv_drafts',{
+    p_action:action,p_id:id,p_request_id:requestId,p_scope:scope,p_data:data});
+   if(['drafts','get-draft','park','claim-draft','release-draft','archive-draft'].includes(input.action)){
+    const action={drafts:'list','get-draft':'get',park:'park','claim-draft':'claim','release-draft':'release','archive-draft':'archive'}[input.action];
+    if(!['list','park'].includes(action))need(uuid(input.draftId),'TPV_DRAFT_REQUEST_INVALID');
+    if(action==='park')need(input.draftId===undefined||uuid(input.draftId),'TPV_DRAFT_REQUEST_INVALID');
+    return respond(check(await drafts(action,action==='list'?null:input.draftId??input.operationId,
+     ['list','get'].includes(action)?{}:{version:input.version,...(action==='park'?{payload:input.payload,label:input.label}:{})})));
+   }
+   if(['cash-summary','cash-movement','close'].includes(input.action)){
+    const common={scope,requestId:input.operationId};
+    return respond(input.action==='cash-summary'?await cash.summary(common):input.action==='close'?
+     await cash.close({...common,countedCents:input.countedCents,note:input.note}):
+     await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
+   }
+   await authorize({action:['catalogue','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
+   if(['customers','customer-metadata','customer-write'].includes(input.action)||
+     input.action==='prepare'&&input.customerId!==undefined&&input.customerId!==row.nativeProfile.counter_customer_id){
+    const directory=check(await scoped.rpc('totus_directory_context',{p_kind:'clientes',p_action:input.action==='customer-write'?
+     (input.operation==='create'?'create':'edit'):'view'}));
+    need(directory.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_CUSTOMER_CONTEXT_INVALID');
+   }
+   const connection=check(await rpc('totus_api_server',{p_id:scope.connectionId,p_revision:scope.connectionRevision}));
+   await beginAudit(admin,scope.connectionId,scope.connectionRevision);
+   const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{request,resolve,qaPolicy:TOTUS_QA_POLICY,
+    nativeExtension:{verified:true,installationId:row.nativeProfile.installation_id,connectionId:scope.connectionId,
+     connectionRevision:scope.connectionRevision,shopId:scope.shopId,protocol:1},
+    allowNativeQuote:async()=>{await authorize({action:'sell'});return true;},
+    allowNativeCommand:async({command,operationId})=>{await authorize({action:'sell'});
+     if(command==='return.commit')check(await rpc('totus_tpv_refund_journal',{p_action:'get',p_id:operationId,p_scope:scope,p_data:{}}));
+     return true;}});
+   if(input.action==='customer-write')return respond(await (await import('../../../src/totustpv/server/customer-service.js')).writeTpvCustomer({
+    input,scope,websiteKey:row.websiteKey,websiteName:row.storeName+' · preproducción',connection,rpc,request,resolve}));
+   if(input.action==='customers')return respond(await transport.readNativeCustomers({search:input.search??'',page:input.page??0,customerId:input.customerId??0}));
+   if(input.action==='customer-metadata'){
+    need(positive(input.countryId),'TPV_CUSTOMER_COUNTRY_INVALID');
+    const [countries,states]=await Promise.all([
+     transport.read('countries',{display:'[id,name,active,contains_states,need_identification_number,need_zip_code,zip_code_format]',
+      'filter[active]':'[1]',sort:'[id_ASC]',limit:'0,500'}),
+     transport.read('states',{display:'[id,name,id_country,active]','filter[id_country]':`[${input.countryId}]`,'filter[active]':'[1]',sort:'[name_ASC]',limit:'0,200'})]);
+    const countriesRows=Array.isArray(countries)&&countries.length===0?[]:countries.countries,
+     stateRows=Array.isArray(states)&&states.length===0?[]:states.states;
+    need(Array.isArray(countriesRows)&&countriesRows.length<500&&Array.isArray(stateRows)&&stateRows.length<200,
+     'TPV_CUSTOMER_METADATA_INCOMPLETE');return respond({countries:countriesRows,states:stateRows});
+   }
+   if(input.action==='document'){
+    const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:null,p_sale_id:input.operationId})),sale=rows[0];
+    need(rows.length===1&&sale?.status==='confirmed','TPV_DOCUMENT_VERIFIED_SALE_REQUIRED');
+    if(input.kind==='credit-note'){
+     need(uuid(input.refundId),'TPV_DOCUMENT_QUERY_INVALID');
+     const refund=sale.refunds.find(row=>row.id===input.refundId&&row.status==='confirmed');
+     need(refund&&uuid(refund.actorId),'TPV_DOCUMENT_VERIFIED_RETURN_REQUIRED');
+     return respond(await transport.readNativeDocument({operationId:refund.id,sourceActorId:refund.actorId,kind:input.kind}));
+    }
+    need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
+    return respond(await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind}));
+   }
+   if(input.action==='catalogue')return respond(await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
+    pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId}));
+   if(['returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action)){
+    const refunds=createRefundService({rpc,transport,scope});
+    if(input.action==='returnable')return respond(await refunds.returnable(input.saleId));
+    if(input.action==='prepare-refund')return respond(await refunds.prepare({operationId:input.operationId,saleId:input.saleId,items:input.items,payments:input.payments,reason:input.reason}));
+    if(input.action==='submit-refund')return respond(await refunds.submit({operationId:input.operationId,confirmation:input.confirmation}));
+    return respond(input.action==='cancel-refund'?await refunds.cancel(input.operationId):await refunds.recover(input.operationId));
+   }
+   const nativeRequests=createNativeRequestService({rpc,transport,scope});
+   const policy=async()=>{const fresh=(await selected()).row;return {enabled:true,revision:fresh.profileRevision,
+    environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
+    modes:Object.fromEntries(Object.keys(fresh.nativeProfile.payment_labels).map(method=>[method,OPERATOR_PAYMENT_MODES[method]]))};};
+   async function profile(){const fresh=(await selected()).row,p=fresh.nativeProfile;
+    return {verified:true,nativeVersion:'8.2.8',connectionId:scope.connectionId,connectionRevision:scope.connectionRevision,
+     shopId:scope.shopId,currency:scope.currency,environment:'qa',quoteLifetimeMs:120000,paymentModule:'totuscentralconnector',
+     nativePaymentLabels:p.payment_labels,paidStateIds:[p.paid_state_id],operatorPaymentPolicy:await policy()};}
+   async function stockRecords(lines){
+    const records=[];
+    // Bounded small groups avoid a 200-request burst against a shop.
+    for(let i=0;i<lines.length;i+=4)records.push(...await Promise.all(lines.slice(i,i+4).map(async line=>{
+     const response=await transport.read('stock_availables',{'filter[id_product]':`[${line.product_id}]`,
+      'filter[id_product_attribute]':`[${line.attribute_id}]`,'filter[id_shop]':`[${scope.shopId}]`,display:'full',limit:'0,2'});
+     need(response?.stock_availables?.length===1,'TPV_QUOTE_STOCK_MAPPING_REQUIRED');const stock=response.stock_availables[0];
+     return {id:Number(stock.id),productId:Number(stock.id_product),attributeId:Number(stock.id_product_attribute),
+      shopId:Number(stock.id_shop),shopGroupId:Number(stock.id_shop_group),dependsOnStock:['1',1,true].includes(stock.depends_on_stock),quantity:Number(stock.quantity)};
+    })));
+    return records;
+   }
+   const needNative=result=>{need(result?.status==='verified','TPV_NATIVE_RESULT_UNCERTAIN');return result.result;};
+   if(input.action==='stock-receive')return respond(await nativeRequests.execute({operationId:input.operationId,command:'stock.receive',
+    payload:{product_id:input.productId,attribute_id:input.attributeId,quantity:input.quantity,reason:input.reason}}));
+   if(input.action==='prepare'){
+    need(Array.isArray(input.lines)&&input.lines.length>0&&input.lines.length<=200&&input.lines.every(line=>
+     Object.keys(line).every(key=>['productId','attributeId','qty','discount'].includes(key))&&positive(line.productId)&&
+     Number.isSafeInteger(line.attributeId)&&line.attributeId>=0&&positive(line.qty)&&line.qty<=10000),'TPV_LINES_INVALID');
+    const customerId=input.customerId??row.nativeProfile.counter_customer_id,
+     invoiceAddressId=input.invoiceAddressId??row.nativeProfile.counter_address_id,deliveryAddressId=input.deliveryAddressId??invoiceAddressId;
+    let draft=null;
+    if(input.draftId!==undefined){
+     need(uuid(input.draftId)&&positive(input.draftVersion),'TPV_DRAFT_REQUEST_INVALID');
+     const original=check(await drafts('get',input.draftId,{},crypto.randomUUID()));
+     const payload={lines:input.lines.map(line=>({...line,label:original.payload.lines.find(previous=>
+      previous.productId===line.productId&&previous.attributeId===line.attributeId)?.label||'Producto #'+line.productId})),
+      customerId,invoiceAddressId,deliveryAddressId,...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})};
+     draft=check(await drafts('bind',input.draftId,{version:input.draftVersion,payload,checkoutId:input.operationId}));
+    }else need(input.draftVersion===undefined,'TPV_DRAFT_REQUEST_INVALID');
+    const cart=needNative(await nativeRequests.execute({operationId:await nativeStepId(input.operationId,'cart'),command:'cart.prepare',payload:{
+     session_id:scope.sessionId,drawer_id:scope.drawerId,customer_id:customerId,invoice_address_id:invoiceAddressId,
+     delivery_address_id:deliveryAddressId,lines:input.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty,
+      ...(line.discount?{discount:line.discount}:{})})),
+     ...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})}}));
+    const quoteId=await nativeStepId(input.operationId,'quote');
+    const quoted=needNative(await nativeRequests.execute({operationId:quoteId,command:'cart.quote',payload:{cart_id:cart.cart_id}}));
+    const p=row.nativeProfile,prepared=await expectedFromNativeQuote({scope,ownedCart:{...scope,id:cart.cart_id,cartId:cart.cart_id,
+     customerId,invoiceAddressId,deliveryAddressId,currencyId:p.currency_id,languageId:p.language_id,carrierId:p.carrier_id},
+     profile:await profile(),response:quoted,stockRecords:await stockRecords(quoted.quote.lines)});
+    prepared.expected.nativeQuoteOperationId=quoteId;
+    if(draft){prepared.expected.draftId=draft.id;prepared.expected.draftVersion=draft.version;}
+    return respond(await ledger.prepare({scope,operationId:input.operationId,...prepared}));
+   }
+   const native=createNativeCapabilityAdapter({scope,transport,async verifyPrepared({record}){
+    const response=await transport.quoteOwnedCart({operationId:crypto.randomUUID(),cartId:record.expected.cartId});
+    need(response.quote_fingerprint===record.expected.nativeQuoteFingerprint,'TPV_QUOTE_CHANGED');
+    const fresh=await profile();need(fresh.operatorPaymentPolicy.revision===record.expected.operatorPaymentPolicy.revision&&
+     JSON.stringify(fresh.nativePaymentLabels)===JSON.stringify(record.expected.nativePaymentLabels),'TPV_PAYMENT_POLICY_STALE');
+    const prior=record.expected;
+    await expectedFromNativeQuote({scope,ownedCart:{...scope,id:prior.cartId,cartId:prior.cartId,customerId:prior.customerId,
+     invoiceAddressId:prior.invoiceAddressId,deliveryAddressId:prior.deliveryAddressId,currencyId:prior.currencyId,
+     languageId:prior.languageId,carrierId:prior.carrierId},profile:fresh,response,stockRecords:await stockRecords(response.quote.lines)});
+    return {unchanged:true,cartId:record.expected.cartId};
+   }});
+   const settlements=createOperatorPaymentVerifier({authorize:({action})=>authorize({action}),readPolicy:policy});
+   const checkout=createCheckoutService({authorize,ledger,native,settlements});
+   const command={operationId:input.operationId,selection:input.selection,payments:input.payments};
+   return respond(input.action==='recover'?await checkout.reconcile(command):await checkout.submit(command));
+  }catch(error){try{onError(error);}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
+   ...(error?.message==='TPV_CUSTOMER_FIELDS_REJECTED'&&typeof error.detail==='string'?{detail:error.detail}:{})},400);}
+ };
+}

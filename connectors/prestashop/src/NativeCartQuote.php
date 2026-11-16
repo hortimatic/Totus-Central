@@ -38,6 +38,7 @@ final class NativeCartQuote
             (int)$cart->id_shop===$command['shop_id'] && (int)$cart->id_customer>0 &&
             (int)$cart->id_address_invoice>0 && (int)$cart->id_address_delivery>0 &&
             (int)$cart->id_currency>0 && (int)$cart->id_lang>0 && (int)$cart->id_carrier>0,'CART_SCOPE_INVALID');
+        Protocol::ensure(!(bool)$cart->gift&&!(bool)$cart->recyclable&&!(bool)$cart->allow_seperated_package,'CART_OPTIONS_UNSUPPORTED');
         Protocol::ensure((int)$cart->id_customer===(int)($owner['customer_id'] ?? 0) &&
             !$cart->orderExists(),'CART_ALREADY_ORDERED_OR_CHANGED');
         $customer=new \Customer((int)$cart->id_customer);

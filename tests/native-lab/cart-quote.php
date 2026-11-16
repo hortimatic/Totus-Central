@@ -1,7 +1,16 @@
 <?php
 require __DIR__.'/bootstrap.php';
-require $project.'/connectors/prestashop/src/Protocol.php';
-require $project.'/connectors/prestashop/src/NativeCartQuote.php';
+// An installed carrier module is loaded by native carrier discovery. Use that
+// same class set, after checking it matches the source under test.
+if(Module::isInstalled('totuscentralconnector')){
+    foreach(['Protocol','NativeCartQuote'] as $class)nativeLabCheck(
+        hash_file('sha256',$project.'/connectors/prestashop/src/'.$class.'.php')===
+        hash_file('sha256',$nativeRoot.'/modules/totuscentralconnector/src/'.$class.'.php'),'Installed fixture source is stale.');
+    Module::getInstanceByName('totuscentralconnector');
+}else{
+    require $project.'/connectors/prestashop/src/Protocol.php';
+    require $project.'/connectors/prestashop/src/NativeCartQuote.php';
+}
 use TotusCentralConnector\NativeCartQuote;
 use PrestaShop\PrestaShop\Adapter\ContextStateManager;
 use PrestaShop\PrestaShop\Adapter\LegacyContext;

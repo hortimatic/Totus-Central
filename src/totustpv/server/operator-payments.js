@@ -10,7 +10,8 @@ const positive=value=>Number.isSafeInteger(value)&&value>0;
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const keys=(object,allowed)=>object&&typeof object==='object'&&!Array.isArray(object)&&
  Object.keys(object).every(key=>allowed.includes(key));
-const modes=Object.freeze({cash:'cash-in-hand',card:'external-terminal'});
+export const OPERATOR_PAYMENT_MODES=Object.freeze({cash:'cash-in-hand',card:'external-terminal',bizum:'external-receipt',transfer:'external-receipt'});
+const modes=OPERATOR_PAYMENT_MODES;
 
 export function createOperatorPaymentVerifier({authorize,readPolicy}) {
  need(typeof authorize==='function'&&typeof readPolicy==='function','TPV_OPERATOR_PAYMENT_ADAPTER_REQUIRED');
@@ -21,7 +22,7 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
    ['operationId','totalCents','currency','accepted'])&&requested.confirmation.accepted===true&&
    requested.confirmation.operationId===operationId&&requested.confirmation.totalCents===expected?.totalCents&&
    requested.confirmation.currency===scope.currency,'TPV_OPERATOR_CONFIRMATION_REQUIRED');
-  need(Array.isArray(requested.allocations)&&requested.allocations.length>0&&requested.allocations.length<=2,
+  need(Array.isArray(requested.allocations)&&requested.allocations.length>0&&requested.allocations.length<=4,
    'TPV_PAYMENT_ALLOCATIONS_INVALID');
   const fresh=await authorize({scope:structuredClone(scope),action:'sell'});
   assertSameCheckoutScope(scope,fresh);

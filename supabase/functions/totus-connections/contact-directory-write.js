@@ -1,6 +1,6 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
 import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
-import {directoryCustomerGroups,ensureDirectoryCustomerGroup,directorySchemaProjection,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
+import {directoryCustomerGroups,ensureDirectoryCustomerGroup,directorySchemaProjection,directoryPreservationXml,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
@@ -8,15 +8,17 @@ const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(N
 
 // This module receives a connection only after authenticated directory/module
 // authorization. Its journal is server-only and stores no customer fields.
-export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal=/** @type {any} */(null)}={}){
+export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal=/** @type {any} */(null),nativeShopId=undefined}={}){
  const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopConnectionStore(connection,q.store);
  if(!connection||storeConnection([connection],q.store)!==connection||connection.id!==q.id||connection.revision!==q.revision||!connection.enabled||connection.verified_revision!==q.revision||connection.real_data_authorized!==true)throw Error('Actualiza y verifica la conexión de esta tienda.');
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.pathname.replace(/\/$/,'')!=='/api'||base.search||base.hash)throw Error('La escritura exige la API oficial de la tienda elegida.');
  if(commit&&!journal)throw Error('No está disponible el registro duradero de publicación.');
  const headers={...connectionHeaders(connection),Accept:'application/xml'};
- const url=(resource,id=null,params={})=>{const u=new URL(base);u.pathname='/api/'+resource+(id?'/'+id:'');for(const [k,v]of Object.entries(params))u.searchParams.set(k,v);return u;};
- async function send(u,method='GET',body){const target=await safeEndpoint(u.href,resolve);return request(target.href,{method,headers:{...headers,...(body?{'Content-Type':'application/xml; charset=utf-8'}:{})},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});}
+ if(nativeShopId!==undefined&&(!Number.isSafeInteger(nativeShopId)||nativeShopId<1))throw Error('Tienda nativa no válida.');
+ const url=(resource,id=null,params={})=>{const u=new URL(base);u.pathname='/api/'+resource+(id?'/'+id:'');for(const [k,v]of Object.entries(params))u.searchParams.set(k,v);if(nativeShopId!==undefined)u.searchParams.set('id_shop',String(nativeShopId));return u;};
+ async function send(u,method='GET',body){const target=await safeEndpoint(u.href,resolve);return request(target.href,{method,headers:{...headers,...(body?{'Content-Type':'application/xml; charset=utf-8'}:{}),
+  ...(nativeShopId!==undefined&&/^\/api\/(customers|addresses)(\/[1-9][0-9]*)?$/.test(target.pathname)?{'X-Totus-Central-Compatibility':'1'}:{})},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});}
  async function xml(u,{missing=false}={}){const r=await send(u);if(missing&&r.status===404){await r.body?.cancel();return null;}if(!r.ok){await r.body?.cancel();throw Error('La tienda rechazó la ficha del directorio (HTTP '+r.status+').');}if(/html/i.test(r.headers.get('content-type')||'')){await r.body?.cancel();throw Error('La tienda devolvió una página de acceso.');}return boundedText(r,2097152);}
  async function list(resource,params={},page=0){const r=await send(url(resource,null,{output_format:'JSON',display:'[id]',limit:page*100+',100',sort:'[id_ASC]',...params}));if(!r.ok){await r.body?.cancel();throw Error('No se pudo comprobar la relación '+resource+'.');}const value=await boundedJson(r),rows=Array.isArray(value)&&!value.length?[]:value?.[resource];if(!Array.isArray(rows)||rows.length>100||rows.some(row=>!(/^[1-9]\d{0,14}$/).test(String(row.id))))throw Error('Relación de directorio no verificable.');return rows;}
  const signature=await sha256Text(JSON.stringify({store:q.store,kind:q.kind,resource:q.resource,operation:q.operation,id:q.record_id||null,fields:Object.fromEntries(Object.entries(q.fields).sort(([a],[b])=>a.localeCompare(b)))}));
@@ -30,8 +32,9 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  else{if(!synopsis.ok){await synopsis.body?.cancel();throw Error('La tienda rechazó el esquema del directorio (HTTP '+synopsis.status+').');}projection=directorySchemaProjection(await boundedText(synopsis,2097152),q.resource);}
  let languages=null;
  if(['suppliers','manufacturers','product_options','product_option_values','product_features','product_feature_values'].includes(q.resource)){languages=await list('languages',{display:'[id,iso_code,active]'});if(!languages.length||languages.length>=100||!languages.some(l=>String(l.active)==='1'))throw Error('Inventario de idiomas incompleto.');}
- const target=url(q.resource,q.record_id,{display:projection,...(languages?{language:'['+languages.map(l=>String(l.id)).join('|')+']'}:{})});
- const original=await xml(target),fingerprint=await sha256Text(original);
+ const target=url(q.resource,q.record_id,{display:q.resource==='customers'?'full':projection,...(languages?{language:'['+languages.map(l=>String(l.id)).join('|')+']'}:{})});
+ const readTarget=async()=>{const source=await xml(target);return q.resource==='customers'?directoryPreservationXml(source,q.resource,projection):source;};
+ const original=await readTarget(),fingerprint=await sha256Text(original);
  if(directoryXmlField(original,q.resource,'id')!==String(q.record_id))throw Error('La tienda devolvió otra ficha.');
  if(q.resource==='addresses'){
   const own={clientes:'id_customer',proveedores:'id_supplier',marcas:'id_manufacturer'}[q.kind];
@@ -61,13 +64,16 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
  if(!groupChanged&&!differences.some(c=>c.changed))return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),unchanged:true,verified:true,persisted:false};
  // Validate referenced entities in the same shop before applying any update.
  for(const [field,resource]of Object.entries({id_default_group:'groups',id_lang:'languages',id_country:'countries',id_state:'states',id_attribute_group:'product_options',id_feature:'product_features'}))if(Number(q.fields[field])>0){const rows=await list(resource,{'filter[id]':'['+q.fields[field]+']'});if(rows.length!==1||String(rows[0].id)!==q.fields[field])throw Error('Selecciona un registro existente de '+resource+' en esta tienda.');}
- if(await sha256Text(await xml(target))!==fingerprint)throw Error('La ficha cambió durante la revisión. No se ha escrito nada.');
+ if(await sha256Text(await readTarget())!==fingerprint)throw Error('La ficha cambió durante la revisión. No se ha escrito nada.');
  const claim=await journal.claim(signature,String(q.record_id));if(claim?.status!=='claimed')throw Error('La publicación ya está en curso.');
- let status;
- try{const response=await send(target,'PUT',prepareProductStageXml(checked.patched,q.resource,{}, {},String(q.record_id)));status=response.status;await response.body?.cancel();}catch{await journal.uncertain(signature,String(q.record_id));throw Error('Resultado de publicación incierto. Actualiza esta misma ficha antes de reintentar.');}
+ // PS 8.2.8 PUT nulls omitted readonly customer properties, including its
+ // secure_key. In the server-verified native TPV profile use official PATCH:
+ // omitted authentication fields remain untouched. Never send readonly keys.
+ const method=nativeShopId!==undefined&&q.resource==='customers'?'PATCH':'PUT';let status;
+ try{const response=await send(target,method,prepareProductStageXml(checked.patched,q.resource,{}, {},String(q.record_id)));status=response.status;await response.body?.cancel();}catch{await journal.uncertain(signature,String(q.record_id));throw Error('Resultado de publicación incierto. Actualiza esta misma ficha antes de reintentar.');}
  try{
   if(status>=400&&status!==500)throw Error('La tienda rechazó la publicación.');
-  const reread=await xml(target),result=selectedXmlValues(reread,q.resource,q.record_id,changes);
+  const reread=await readTarget(),result=selectedXmlValues(reread,q.resource,q.record_id,changes);
   if(desiredGroup&&!directoryCustomerGroups(reread).includes(desiredGroup)||result.changes.some(c=>!same(c.field,c.before,c.value)))throw Error('La relectura no coincide con los cambios publicados.');
   await journal.complete(signature,String(q.record_id));
   return {ok:true,store:q.store,kind:q.kind,resource:q.resource,record_id:String(q.record_id),persisted:true,verified:true,...(status>=400?{reconciled:true}:{}),request_id:q.request_id};

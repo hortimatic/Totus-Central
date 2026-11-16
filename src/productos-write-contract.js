@@ -207,6 +207,26 @@ export function directoryCustomerGroups(xml){
  const customer=direct(tree(xml),'customer'),associations=customer.children.find(n=>n.name==='associations'),groups=associations?.children.find(n=>n.name==='groups');
  return (groups?.children||[]).map(group=>{if(group.name!=='group')invalid('Grupo de cliente no verificable.');const id=fieldText(xml,group,'id');if(!/^[1-9]\d{0,14}$/.test(id))invalid('Grupo de cliente no válido.');return id;});
 }
+/** Some native versions omit association IDs with partial display, despite
+ * advertising them in the schema. Read full XML only inside the server and
+ * immediately project it to the same verified writable schema. Authentication
+ * fields already required for preservation never leave that server boundary.
+ */
+export function directoryPreservationXml(xml,resource,projection){
+ const tokens=[...String(projection).matchAll(/([a-z][a-z_0-9]*)(?:\[([a-z_0-9,]+)\])?/g)];
+ if('['+tokens.map(m=>m[0]).join(',')+']'!==projection)invalid('Proyección de conservación no válida.');
+ const selected=new Map(tokens.map(m=>[m[1],m[2]?new Set(m[2].split(',')):null])),item=direct(tree(xml),nativeNodes[resource]),edits=[];
+ for(const child of item.children){
+  if(child.name==='associations'){
+   for(const group of child.children){if(!selected.has(group.name)){edits.push({start:group.open,end:group.end,value:''});continue;}
+    const fields=selected.get(group.name);if(!fields)invalid('Asociación de conservación no válida.');
+    for(const row of group.children)for(const field of row.children)if(!fields.has(field.name))edits.push({start:field.open,end:field.end,value:''});
+   }
+  }else if(!selected.has(child.name))edits.push({start:child.open,end:child.end,value:''});
+ }
+ for(const edit of edits.sort((a,b)=>b.start-a.start))xml=xml.slice(0,edit.start)+edit.value+xml.slice(edit.end);
+ tree(xml);return xml;
+}
 export function ensureDirectoryCustomerGroup(xml,id){
  if(!/^[1-9]\d{0,14}$/.test(String(id)))invalid('Grupo de cliente no válido.');
  if(directoryCustomerGroups(xml).includes(String(id)))return xml;
