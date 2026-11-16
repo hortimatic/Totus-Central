@@ -4,13 +4,13 @@ alter table private.totus_tpv_workspace_preferences add constraint totus_tpv_wor
 alter table private.totus_tpv_workspace_preferences
  add column catalogue_columns jsonb not null default '["photo","name","reference","stock","price"]',
  add column display_options jsonb not null default '{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}',
- add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
+ add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
  add column sort_field text not null default 'name' check(sort_field in ('name','reference','stock','id','cost','manufacturer','supplier','price')),
  add column sort_direction text not null default 'asc' check(sort_direction in ('asc','desc'));
 create or replace function public.totus_tpv_workspace_preferences(p_connection uuid,p_shop bigint,p_drawer uuid,p_preferences jsonb default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); ctx jsonb; saved private.totus_tpv_workspace_preferences;
- receipt_defaults constant jsonb:='{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}';
+ receipt_defaults constant jsonb:='{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}';
 begin
  if actor is null then raise exception 'TPV_AUTH_REQUIRED';end if;
  ctx:=public.totus_tpv_context();
@@ -48,9 +48,9 @@ begin
   end if;
   if p_preferences?'receipt' then
    if jsonb_typeof(p_preferences->'receipt') is distinct from 'object' then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
-   if (p_preferences->'receipt')-array['title','footer','fontFamily','fontSize','dateFormat','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate']<>'{}'::jsonb
+   if (p_preferences->'receipt')-array['title','footer','fontFamily','fontSize','dateFormat','showLogo','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate']<>'{}'::jsonb
     or exists(select 1 from jsonb_each(p_preferences->'receipt') e where
-      e.key in ('showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate') and jsonb_typeof(e.value) is distinct from 'boolean'
+      e.key in ('showLogo','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate') and jsonb_typeof(e.value) is distinct from 'boolean'
       or e.key in ('title','footer','fontFamily','dateFormat') and jsonb_typeof(e.value) is distinct from 'string'
       or e.key='fontSize' and (jsonb_typeof(e.value) is distinct from 'number' or e.value::text !~ '^(1[0-6])$'))
     or (p_preferences->'receipt'?'title' and (length(btrim(p_preferences->'receipt'->>'title')) not between 1 and 80 or p_preferences->'receipt'->>'title' ~ '[[:cntrl:]]'))

@@ -1,0 +1,13 @@
+# Verificación nativa del 17 de noviembre de 2026
+
+Registro de desarrollo para la entrega final. No acredita publicación de la interfaz ni cierre de todos los requisitos.
+
+Se ha preparado un laboratorio desechable de desarrollo con la distribución oficial de PrestaShop 8.2.8, PHP 8.2.35 y MariaDB 10.11.16. Escucha únicamente en direcciones de bucle local. Sus productos, clientes, credenciales, cajas y bases de datos son ficticios. No requiere instalar componentes en el equipo del usuario para utilizar Totus Central. No se han modificado el núcleo de PrestaShop ni módulos de terceros.
+
+La suite nativa ha comprobado carritos y precios, redondeos de seis decimales, pedidos, pagos, factura, existencias, devoluciones parciales, reposición y rollback. Ha comprobado además la recuperación de la respuesta perdida sin volver a enviar la orden. Las pruebas de autenticación y entrega que usan adaptadores locales se identifican como tales y no sustituyen la aceptación remota.
+
+La prueba de catálogo por HTTP contra el módulo instalado ha pasado con 27 productos: orden global por PVP antes de paginar, ambos sentidos, ordenación SQL, precios específicos por cliente, invalidación por modificación nativa y caducidad real de oferta. Esta comprobación detectó y permitió corregir tres problemas: parámetros de ordenación omitidos en la entrada webservice, registro repetido de hooks durante la instalación y límite de caducidad de precios específicos. PrestaShop calcula ese límite con precisión de minutos e incluye el minuto final; la caché de presentación ahora lo respeta. El cobro sigue recalculando el precio nativo.
+
+Los resultados y archivos temporales del laboratorio quedan excluidos del repositorio. Tampoco se incorporan capturas privadas, credenciales ni bases de datos. La comprobación de preproducción remota, el despliegue del paquete final y la prueba física de impresora, cajón y lector se registrarán por separado. No se declaran realizados por haber pasado pruebas locales.
+
+La integración del controlador de Central, SQL y módulo nativo ha superado también la recepción por albarán: guardar no modifica existencias, procesar suma dos unidades y las consultas o recuperaciones siguientes no repiten la escritura. El recorrido completo se detuvo después en la descarga de una factura histórica desde el navegador. Se ha localizado un menú de documentos que podía quedar fuera del área pulsable del móvil. Se ha cambiado por un panel integrado en el pedido, sin clics forzados ni aumento del tiempo de espera en la prueba. La repetición está en curso; no se registra la suite completa como aprobada.

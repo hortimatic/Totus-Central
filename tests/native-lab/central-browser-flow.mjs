@@ -10,9 +10,13 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   const page=await browser.newPage({viewport:{width,height:950}});const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/__tpv_fixture',async route=>{
-   const request=route.request(),response=await handle(new Request('https://central.local/tpv',{method:'POST',
+   const request=route.request(),action=JSON.parse(request.postData()).action,started=Date.now();
+   if(action==='document')console.log('Native browser document request started');
+   const response=await handle(new Request('https://central.local/tpv',{method:'POST',
     headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:request.postData()}));
-   await route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});
+   const body=await response.text();
+   if(action==='document'){const result=JSON.parse(body);console.log('Native browser document response',response.status,Date.now()-started,result.error||result.kind||result.mime);}
+   await route.fulfill({status:response.status,contentType:'application/json',body});
   });
   await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
   const mount=()=>page.evaluate(async({actor})=>{
@@ -154,10 +158,12 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
   await page.locator('[data-tpv-order-search] [name=orderId]').fill(orderId);
   await page.getByRole('button',{name:'Buscar pedido',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('[data-tpv-order-search] button[type=submit]')?.disabled===false);
   await page.locator('.tpv-history').getByText('Pedido #'+orderId,{exact:true}).waitFor();
   await page.locator('.tpv-history summary').click();
-  const historicalDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Factura PDF',exact:true}).click();
-  assert.equal((await historicalDownload).suggestedFilename(),'totus-invoice-'+orderId+'.pdf');
+  try{const [historicalDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Factura PDF',exact:true}).click()]);
+   assert.equal(historicalDownload.suggestedFilename(),'totus-invoice-'+orderId+'.pdf');
+  }catch(error){throw new Error('Historical invoice download failed: '+await page.locator('.note.bad').allTextContents(),{cause:error});}
   await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);

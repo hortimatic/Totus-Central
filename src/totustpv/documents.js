@@ -1,12 +1,12 @@
-import {receiptOptions} from './receipt-options.js';
+import {receiptOptions,receiptLogoUrl} from './receipt-options.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
 export function receiptHtml(document,options,{preview=false}={}){
  if(!preview&&!document?.existing_document||!['receipt','gift'].includes(document?.kind)||document.currency!=='EUR'||!Array.isArray(document.lines))throw Error('Documento no válido.');
- const gift=document.kind==='gift',merchant=document.merchant,o=receiptOptions(options);
+ const gift=document.kind==='gift',merchant=document.merchant,o=receiptOptions(options),logo=receiptLogoUrl(document.merchant_logo_origin,merchant.logo_path);
  let date=document.created_at;if(o.dateFormat!=='native'){const parsed=new Date(String(date).replace(' ','T'));if(Number.isFinite(parsed.getTime()))date=new Intl.DateTimeFormat('es-ES',{dateStyle:o.dateFormat==='long'?'long':'short',timeStyle:o.dateFormat==='long'?'medium':'short'}).format(parsed);}
- return `<article class="tpv-document" aria-label="Documento de venta" style="font-family:${o.fontFamily==='monospace'?'monospace':'Arial,sans-serif'};font-size:${o.fontSize}px"><header><h3>${gift?'Ticket regalo':esc(o.title)}</h3><strong>${esc(merchant.name)}</strong>
+ return `<article class="tpv-document" aria-label="Documento de venta" style="font-family:${o.fontFamily==='monospace'?'monospace':'Arial,sans-serif'};font-size:${o.fontSize}px"><header>${o.showLogo?logo?`<img class="tpv-receipt-logo" src="${esc(logo)}" alt="${esc(merchant.name)}" referrerpolicy="no-referrer" style="display:block;max-width:100%;max-height:70px;object-fit:contain;margin:0 auto 8px">`:preview?'<div class="tpv-sample-logo" aria-label="Ejemplo de logo">LOGO</div>':'':''}<h3>${gift?'Ticket regalo':esc(o.title)}</h3><strong>${esc(merchant.name)}</strong>
   <p>${[...(o.showAddress?[merchant.address,merchant.address2,merchant.postcode,merchant.city]:[]),merchant.registration,o.showPhone?merchant.phone:''].filter(Boolean).map(esc).join(' · ')}</p>
   <small>${preview?'Vista previa · datos de ejemplo':'Preproducción · documento de pruebas'}</small></header><p>${preview?'Ejemplo de ticket':`Pedido #${esc(document.order_id)} · ${esc(document.reference)}`}${o.showDate?`<br>${esc(date)}`:''}</p>
   <table><thead><tr><th>Artículo</th><th>Ud.</th>${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${document.lines.map(line=>`<tr><td>${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}</td><td>${esc(line.quantity)}</td>${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>`).join('')}</tbody></table>

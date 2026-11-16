@@ -27,6 +27,8 @@ $expired=$index->page(['shop'=>1,'customer'=>1,'epoch'=>'a'],$ids,$price,0,2,'as
 $check(!$expired['ready']&&$expired['done']===2,'Scheduled expiry must rebuild the whole order');
 $timeout=false;try{$index->page(['shop'=>1,'customer'=>1,'epoch'=>'b'],$ids,$price,0,2,'asc',$now+600000,$now+300001,2);}catch(Throwable $error){$timeout=$error->getMessage()==='TOTUS_CATALOGUE_INDEX_BUILD_EXPIRED';}
 $check($timeout,'Slow builds must stop explicitly instead of restarting progress forever');
+$manualRetry=$index->page(['shop'=>1,'customer'=>1,'epoch'=>'b'],$ids,$price,0,2,'asc',$now+600000,$now+300002,2);
+$check(!$manualRetry['ready']&&$manualRetry['done']===2,'A deliberate later attempt must not be trapped by a permanently failed presentation cache');
 $failed=false;try{$index->page(['shop'=>2],$ids,static fn()=>-1,0,2,'asc',$now+60000,$now,2);}catch(Throwable $error){$failed=true;}
 $check($failed&&!$db->inTransaction(),'An invalid native price must roll back the build');
 echo "PASS bounded native price index: full-result pagination, stable price ties, resume, context/epoch isolation, expiry and rollback. SQLite storage; price reader synthetic.\n";

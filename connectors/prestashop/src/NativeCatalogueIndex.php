@@ -46,8 +46,10 @@ final class NativeCatalogueIndex
             $data=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);
             // A slow catalogue must stop with an explicit error rather than
             // repeatedly reset its progress and keep the operator waiting.
-            Protocol::ensure(!is_array($data)||!empty($data['ready'])||
-                ($data['createdAt']??0)+300000>$now,'CATALOGUE_INDEX_BUILD_EXPIRED');
+            if(is_array($data)&&empty($data['ready'])&&($data['createdAt']??0)+300000<=$now){
+                $discard=$this->db->prepare('DELETE FROM `'.$this->table.'` WHERE cache_key=?');$discard->execute([$key]);
+                $this->db->commit();Protocol::ensure(false,'CATALOGUE_INDEX_BUILD_EXPIRED');
+            }
             if((int)$row['expires_at']<=$now)$data=$initial;
             Protocol::ensure(is_array($data)&&$data['ids']===$ids&&is_array($data['prices'])&&is_int($data['cursor'])&&
                 $data['cursor']>=0&&$data['cursor']<=count($ids),'CATALOGUE_INDEX_STORAGE_INVALID');

@@ -35,6 +35,7 @@ class Totuscentralconnector extends PaymentModule
     }
     public function ensureOwnStorage(): bool
     {
+        if((int)$this->id<=0)return false;
         foreach([
             TotusCentralConnector\JournalSchema::mysql(_DB_PREFIX_.'totus_tpv_journal'),
             TotusCentralConnector\PdoNativeEffect::mysqlSchema(_DB_PREFIX_.'totus_tpv_effects'),
@@ -49,7 +50,15 @@ class Totuscentralconnector extends PaymentModule
         }
         $statement=Db::getInstance()->getLink()->prepare('INSERT IGNORE INTO `'._DB_PREFIX_.'totus_tpv_settings` (installation_id,shop_id) VALUES (?,?)');
         foreach(Shop::getShops(true,null,true) as $id)if(!$statement->execute([Configuration::get('TOTUS_TPV_INSTALLATION_ID'),(int)$id]))return false;
-        foreach(['actionObjectAddAfter','actionObjectUpdateAfter','actionObjectDeleteAfter'] as $hook)if(!$this->registerHook($hook))return false;
+        // Native hook registration can retain a negative cache entry during
+        // this same installation request. Observe persisted bindings directly
+        // before invoking the native registration API for missing shops only.
+        $shops=array_map('intval',Shop::getCompleteListOfShopsID());
+        $registered=Db::getInstance()->getLink()->prepare('SELECT hm.id_shop FROM `'._DB_PREFIX_.'hook_module` hm JOIN `'._DB_PREFIX_.'hook` h ON h.id_hook=hm.id_hook WHERE hm.id_module=? AND h.name=?');
+        foreach(['actionObjectAddAfter','actionObjectUpdateAfter','actionObjectDeleteAfter'] as $hook){
+            $registered->execute([(int)$this->id,$hook]);$missing=array_values(array_diff($shops,array_map('intval',$registered->fetchAll(PDO::FETCH_COLUMN))));
+            if($missing&&!$this->registerHook($hook,$missing))return false;
+        }
         // Installation alone never activates an order route or creates customers.
         return true;
     }

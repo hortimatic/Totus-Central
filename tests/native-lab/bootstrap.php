@@ -33,6 +33,11 @@ Shop::setContext(Shop::CONTEXT_SHOP,1);
 $context->language=new Language((int)Configuration::get('PS_LANG_DEFAULT'));
 $context->currency=new Currency((int)Configuration::get('PS_CURRENCY_DEFAULT'));
 function nativeLabCheck(bool $condition,string $message): void {if(!$condition)throw new RuntimeException($message);}
+function nativeLabKernel(): void {
+    global $kernel,$nativeRoot;
+    if($kernel instanceof \Symfony\Component\HttpKernel\KernelInterface)return;
+    require_once $nativeRoot.'/app/AppKernel.php';$kernel=new \AppKernel('prod',false);$kernel->boot();
+}
 function nativeLabConnector(string $class): string {
     global $project,$nativeRoot;
     $source=$project.'/connectors/prestashop/src/'.$class.'.php';

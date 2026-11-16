@@ -5,6 +5,8 @@ namespace TotusCentralConnector;
  * payment, order or number, and never calls setInvoice/setDelivery. */
 final class NativeDocuments
 {
+    public static function merchantLogoPath($filename): ?string
+    {return is_string($filename)&&preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/iD',$filename)===1?'/img/'.$filename:null;}
     public static function read($module,array $profile,array $query,int $account): array
     {
         $id=$query['operation_id']??'';$actor=$query['actor_id']??'';$kind=$query['kind']??'receipt';
@@ -41,7 +43,8 @@ final class NativeDocuments
             ...($kind==='gift'?[]:['line_cents'=>(int)round(100*(float)$line['total_price_tax_incl']),
                 'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl'])])];
         return ['kind'=>$kind,'order_id'=>(int)$order->id,'reference'=>(string)$order->reference,'created_at'=>(string)$order->date_add,
-            'merchant'=>$merchant,'currency'=>(new \Currency((int)$order->id_currency))->iso_code,'lines'=>$lines,
+            'merchant'=>$merchant+['logo_path'=>self::merchantLogoPath(\Configuration::get('PS_SHOP_LOGO',null,null,(int)$order->id_shop))],
+            'currency'=>(new \Currency((int)$order->id_currency))->iso_code,'lines'=>$lines,
             ...($kind==='gift'?[]:['total_cents'=>(int)$sale['total_cents'],'discount_cents'=>(int)round(100*(float)$order->total_discounts_tax_incl),
                 'payments'=>$sale['payments'],'payment_intent'=>$sale['payment_intent']]),
             'invoice_id'=>(int)$sale['invoice_ids'][0],'existing_document'=>true,'environment'=>'qa'];

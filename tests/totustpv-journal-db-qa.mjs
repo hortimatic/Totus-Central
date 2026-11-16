@@ -341,6 +341,9 @@ try {
  check((await prefs(qaScope,{viewMode:'grid'})).receipt.footer,'Gracias\nHasta pronto');
  check((await prefs(qaScope,{receipt:{showDate:false}})).receipt.title,'Mi justificante');
  check((await prefs()).receipt.showReferences,false);
+ check((await prefs()).receipt.showLogo,true);
+ check((await prefs(qaScope,{receipt:{showLogo:false}})).receipt.showLogo,false);
+ await denied(()=>prefs(qaScope,{receipt:{showLogo:'true'}}),/INVALID/);
  for(const receipt of [null,{unknown:true},{fontSize:'12'},{fontSize:12.5},{fontSize:17},{showDate:'false'},{title:''},{title:'x'.repeat(81)},
   {footer:'x'.repeat(501)},{fontFamily:'url(evil)'},{dateFormat:'injected'},{title:'Header\nInjected'}])await denied(()=>prefs(qaScope,{receipt}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','name']}),/INVALID/);

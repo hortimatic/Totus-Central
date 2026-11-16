@@ -11,6 +11,7 @@ import {createNativeCapabilityAdapter} from '../src/totustpv/server/native-capab
 import {nativeCents,nativeMicros} from '../src/totustpv/server/native-adapter.js';
 import {verifyRemoteSale} from '../src/totustpv/model.js';
 import {exerciseCentralEdge} from './native-lab/central-edge-flow.mjs';
+import {exerciseNativeCatalogue} from './native-lab/catalogue-order-flow.mjs';
 const project=process.cwd(),native=path.resolve('artifacts/native-lab/shop');
 const params=await fs.readFile(path.join(native,'app/config/parameters.php'),'utf8');
 assert.match(params,/'database_name'\s*=>\s*'totus_tpv_lab'/);assert.match(params,/'database_host'\s*=>\s*'127.0.0.1'/);
@@ -57,7 +58,9 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
+ if(process.argv.includes('--catalogue-only')){
+  await exerciseNativeCatalogue({api,php,ini,env});
+ }else if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:process.argv.includes('--customers-only')?'customers':'browser'});
  }else{
  const catalogue=await api('totus_tpv_catalogue?search='+encodeURIComponent(fixture.reference)+'&page=0&page_size=50');

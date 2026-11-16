@@ -22,6 +22,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    create table private.totus_websites(key text primary key,connection_id uuid,business_id uuid,status text,origin text,include_in_totals boolean);
    create function private.totus_module_can(email text,module text,action text) returns boolean language sql stable as $$
     select exists(select 1 from public.profiles p where p.email=$1 and p.active and p.role='admin')$$;
+   revoke all on function private.totus_module_can(text,text,text) from public,anon,authenticated;
    create function private.totus_can(module text,action text) returns boolean language sql stable as $$
     select private.totus_module_can((select email from public.profiles where id=auth.uid()),module,action)$$;
    insert into public.profiles values('${actor}','edge-fixture@example.invalid',true,'admin');
@@ -31,7 +32,9 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    insert into private.totus_api_connections values('${connection}',5,5,true,true,'prestashop');
    insert into private.totus_websites values('qa-shop','${connection}',null,'active','https://preproduccion.hortimatic.com',false);`);
   for(const file of ['20261115182617_totustpv_durable_checkout.sql','20261116110935_totustpv_cash_sessions.sql',
-   '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql'])
+   '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql',
+   '20261116175354_totustpv_failed_sale_review.sql','20261116180903_totustpv_workspace_preferences.sql',
+   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   await db.exec('set role service_role');
@@ -42,7 +45,8 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_journal:['p_action','p_operation_id','p_scope','p_data'],totus_tpv_cash:['p_action','p_request_id','p_scope','p_data'],
    totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],
    totus_tpv_refund_journal:['p_action','p_id','p_scope','p_data'],totus_directory_operation:['p_action','p_request_id','p_data'],
-   totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data']};
+   totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data'],
+   totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
    if(name==='totus_directory_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}]}};}
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
@@ -118,6 +122,18 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    confirmation:{accepted:true,operationId:refundId,totalCents:801,currency:'EUR'}});
   assert.equal(nativePosts,refundPosts);
   const afterRefund=await call({action:'cash-summary',selection,operationId:randomUUID()});assert.equal(afterRefund.expectedCashCents,10000);
+  const readStock=async()=>{const result=await call({action:'catalogue',selection,operationId:randomUUID(),search:fixture.reference});
+   const item=result.items.find(row=>row.product_id===fixture.productId);assert.ok(item);return item.stock;};
+  const stockBefore=await readStock(),receiptId=randomUUID(),stockPostsBefore=nativePosts;
+  const receipt=await call({action:'stock-receipt-create',selection,operationId:receiptId,
+   payload:{reason:'Albarán ficticio del laboratorio local',lines:[{productId:fixture.productId,attributeId:0,quantity:2,label:'Artículo ficticio'}]}});
+  assert.equal(receipt.status,'pending');assert.equal(nativePosts,stockPostsBefore,'Saving a manifest must not change native stock');
+  const received=await call({action:'stock-receipt-step',selection,operationId:receiptId});
+  assert.equal(received.lines[0].status,'verified');assert.equal(nativePosts,stockPostsBefore+1);
+  await call({action:'stock-receipt-step',selection,operationId:receiptId});
+  await call({action:'stock-receipt-get',selection,operationId:receiptId});
+  assert.equal(nativePosts,stockPostsBefore+1,'Recovering a completed receipt must not post twice');
+  assert.equal(await readStock(),stockBefore+2,'Native stock must increase by the received quantity');
   await call({action:'cash-movement',selection,operationId:randomUUID(),kind:'cash-out',amountCents:100,reason:'Retirada ficticia'});
   const closed=await call({action:'close',selection,operationId:randomUUID(),countedCents:9900,note:'Cierre ficticio'});
   assert.equal(closed.status,'closed');assert.equal(closed.expectedCashCents,9900);

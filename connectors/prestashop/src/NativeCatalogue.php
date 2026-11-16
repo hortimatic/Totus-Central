@@ -146,17 +146,20 @@ final class NativeCatalogue
     }
     private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction): array
     {
-        $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$boundary=null;$db=\Db::getInstance()->getLink();
+        $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$minute=date('Y-m-d H:i:00');$boundary=null;$db=\Db::getInstance()->getLink();
         foreach(['specific_price','specific_price_rule'] as $table){
-            $s=$db->prepare('SELECT MIN(boundary) FROM (SELECT `from` boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `from`>?
-                UNION ALL SELECT DATE_ADD(`to`,INTERVAL 1 SECOND) boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `to`>=?) price_boundaries');
-            $s->execute([(int)$profile['shop_id'],$local,(int)$profile['shop_id'],$local]);$value=$s->fetchColumn();
+            // SpecificPriceCore compares date('Y-m-d H:i:00'), including an
+            // inclusive `to`. Expiring at its raw seconds would rebuild too
+            // early, cache the still-active native offer, then miss its end.
+            $s=$db->prepare('SELECT MIN(boundary) FROM (SELECT IF(SECOND(`from`)=0,`from`,DATE_ADD(DATE_FORMAT(`from`,\'%Y-%m-%d %H:%i:00\'),INTERVAL 1 MINUTE)) boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `from`>=?
+                UNION ALL SELECT DATE_ADD(DATE_FORMAT(`to`,\'%Y-%m-%d %H:%i:00\'),INTERVAL 1 MINUTE) boundary FROM `'._DB_PREFIX_.$table.'` WHERE id_shop IN (0,?) AND `to`>=?) price_boundaries WHERE boundary>?');
+            $s->execute([(int)$profile['shop_id'],$minute,(int)$profile['shop_id'],$minute,$local]);$value=$s->fetchColumn();
             if($value&&($boundary===null||strcmp($value,$boundary)<0))$boundary=$value;
         }
         $validUntil=$now+300000;if($boundary){$at=(new \DateTimeImmutable($boundary))->getTimestamp()*1000;if($at>$now)$validUntil=min($validUntil,$at);}
         $groups=$customer->getGroups();sort($groups,SORT_NUMERIC);$settings=[];
         foreach(['PS_TAX','PS_TAX_ADDRESS_TYPE','PS_PRICE_ROUND_MODE','PS_ROUND_TYPE','PS_ECOTAX_TAX_RULES_GROUP_ID','PS_SPECIFIC_PRICE_PRIORITIES'] as $key)$settings[$key]=\Configuration::get($key);
-        $identity=['protocol'=>1,'installation'=>$profile['installation_id'],'epoch'=>\Configuration::get('TOTUS_TPV_CATALOGUE_EPOCH'),
+        $identity=['protocol'=>2,'installation'=>$profile['installation_id'],'epoch'=>\Configuration::get('TOTUS_TPV_CATALOGUE_EPOCH'),
             'shop'=>(int)$profile['shop_id'],'language'=>(int)$profile['language_id'],'currency'=>(int)$context->currency->id,
             'conversion'=>(string)$context->currency->conversion_rate,'customer'=>(int)$customer->id,'groups'=>$groups,
             'address'=>(int)$address->id,'country'=>(int)$address->id_country,'state'=>(int)$address->id_state,

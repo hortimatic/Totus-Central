@@ -1,7 +1,7 @@
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',
+export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,
  showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true});
-export const RECEIPT_CHECKS=Object.freeze({showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
+export const RECEIPT_CHECKS=Object.freeze({showLogo:'Logo del establecimiento',showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
  showPayments:'Formas de pago',showDiscounts:'Total de descuentos',showDate:'Fecha del pedido'});
 export function receiptOptions(value){const out={...RECEIPT_DEFAULTS};
  for(const key of Object.keys(RECEIPT_CHECKS))if(typeof value?.[key]==='boolean')out[key]=value[key];
@@ -12,6 +12,8 @@ export function receiptOptions(value){const out={...RECEIPT_DEFAULTS};
  if(['native','short','long'].includes(value?.dateFormat))out.dateFormat=value.dateFormat;
  return out;
 }
+export function receiptLogoUrl(origin,path){try{const base=new URL(origin);if(base.protocol==='https:'&&base.href===base.origin+'/'&&
+ typeof path==='string'&&/^\/img\/[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/i.test(path))return base.origin+path;}catch{}return null;}
 export function receiptOptionsFromForm(fields){return receiptOptions({title:fields.get('receipt-title'),footer:fields.get('receipt-footer'),fontFamily:fields.get('receipt-fontFamily'),
  fontSize:Number(fields.get('receipt-fontSize')),dateFormat:fields.get('receipt-dateFormat'),
  ...Object.fromEntries(Object.keys(RECEIPT_CHECKS).map(key=>[key,fields.get('receipt-'+key)==='on']))});}

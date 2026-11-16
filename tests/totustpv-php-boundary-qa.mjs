@@ -12,9 +12,11 @@ for(const file of readdirSync('connectors/prestashop/src').filter(file=>file.end
  run(['-l',`connectors/prestashop/src/${file}`]);
 for(const file of readdirSync('connectors/prestashop/module').filter(file=>file.endsWith('.php')))
  run(['-l',`connectors/prestashop/module/${file}`]);
+for(const file of readdirSync('connectors/prestashop/module/upgrade').filter(file=>file.endsWith('.php')))
+ run(['-l',`connectors/prestashop/module/upgrade/${file}`]);
 // Syntax only here: the native integration suite requires its real lab and is
 // run explicitly, not silently substituted with fake native dependencies.
 for(const file of readdirSync('tests/native-lab').filter(file=>file.endsWith('.php')))
  run(['-l',`tests/native-lab/${file}`]);
-for(const file of ['tests/totustpv-catalogue-index-qa.php','tests/totustpv-return-order-qa.php','tests/totustpv-connector-qa.php','tests/totustpv-connector-journal-qa.php','tests/totustpv-native-effect-qa.php','tests/totustpv-native-quote-qa.php'])
+for(const file of ['tests/totustpv-document-logo-qa.php','tests/totustpv-catalogue-index-qa.php','tests/totustpv-return-order-qa.php','tests/totustpv-connector-qa.php','tests/totustpv-connector-journal-qa.php','tests/totustpv-native-effect-qa.php','tests/totustpv-native-quote-qa.php'])
  process.stdout.write(run([file]));

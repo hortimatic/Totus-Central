@@ -25,6 +25,9 @@ try{for(const width of [390,680,969,1280,1920,2560]){
   const owner=crypto.randomUUID();q.ui=createProductosUI({tableLayout:{load:async()=>structuredClone(q.layout),save:async layout=>{if(q.holdSave){q.holdSave=false;q.saveHeld=true;await new Promise(resolve=>q.releaseSave=resolve);}q.layout=structuredClone(layout);q.layoutSaves.push(structuredClone(layout));}},actor:()=>owner,allowed:()=>true,canEdit:()=>true,rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke});await q.ui.mount(document.querySelector('#productosRoot'));
  });
 
+ // Pointer coordinates must use the final font metrics, including a slow
+ // headless runner's first load. Keep the real hit target and drag assertions.
+ await page.evaluate(()=>document.fonts.ready);
  const widths=()=>page.locator('th[data-pr-column-heading="image"]').evaluate(n=>n.getBoundingClientRect().width);
  const before=await widths(),handle=page.getByRole('separator',{name:'Ancho de Foto',exact:true});await handle.press('ArrowRight');assert(Math.abs(await widths()-before-10)<2,'Keyboard resizes only the chosen column');
  await handle.scrollIntoViewIfNeeded();await handle.hover();const rect=await handle.boundingBox();assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle');

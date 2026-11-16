@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
 import {prepareTpvPrintHtml,receiptHtml,TOTUS_PRINTER_PROFILE} from '../src/totustpv/documents.js';
 import {cashReportHtml} from '../src/totustpv/cash-reports.js';
+import {receiptLogoUrl} from '../src/totustpv/receipt-options.js';
 const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',created_at:'2026-11-16 12:00:00',
  merchant:{name:'Totus · laboratorio',address:'Calle de prueba',city:'Madrid'},lines:[{name:'Café ñandú <img src=x onerror=alert(1)>',reference:'REFERENCIA-LARGA-DE-PRUEBA-1234567890',quantity:1,line_cents:801}],
  payments:{bizum:801},total_cents:801,discount_cents:0};
@@ -13,16 +14,23 @@ const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'0000000
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
 try{const page=await browser.newPage({viewport:{width:220,height:900}});await mkdir('artifacts/native-lab',{recursive:true});
+ await page.route('https://native-fixture.invalid/img/logo.png',async route=>route.fulfill({contentType:'image/png',body:await readFile('assets/branding/hortimatic.png')}));
+ const withLogo={...document,merchant_logo_origin:'https://native-fixture.invalid',merchant:{...document.merchant,logo_path:'/img/logo.png'}};
+ for(const [origin,path] of [['javascript:alert(1)','/img/logo.png'],['https://fixture.invalid/path','/img/logo.png'],['https://fixture.invalid','/img/../secret.png'],['https://fixture.invalid','/img/logo.svg'],['https://fixture.invalid','/img/logo.png?secret=1']])assert.equal(receiptLogoUrl(origin,path),null);
+ assert.doesNotMatch(receiptHtml(withLogo,{showLogo:false}),/tpv-receipt-logo/);
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
  for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],
-  ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false})]]){
+  ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false})],
+  ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})]]){
   await page.setContent(prepareTpvPrintHtml(html,'TotusTPV · prueba 58 mm'));
   const dimensions=await page.evaluate(()=>window.fitPrint(document));assert.equal(dimensions.paperMm,58);assert.ok(dimensions.heightMm<(kind==='receipt-custom'?400:220));
-  assert.equal(await page.locator('script,img').count(),0,'Document values must remain text, not executable markup');
+  assert.equal(await page.locator('script').count(),0,'Document values must remain text, not executable markup');
+  assert.equal(await page.locator('img').count(),kind.endsWith('-logo')?1:0,'Only the verified merchant image may render');
+  if(kind.endsWith('-logo'))assert.equal(await page.locator('.tpv-receipt-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true,'The logo loads before printing');
   assert.equal(await page.evaluate(()=>document.body.scrollWidth>document.body.clientWidth+1),false,kind+' must fit the 48 mm print area');
-  if(kind==='gift')assert.doesNotMatch(await page.locator('body').innerText(),/8,01|€/);
+  if(kind.startsWith('gift'))assert.doesNotMatch(await page.locator('body').innerText(),/8,01|€/);
   else if(kind==='receipt-custom'){assert.doesNotMatch(await page.locator('body').innerText(),/Bizum|REFERENCIA-LARGA/);
    assert.match(await page.locator('body').innerText(),/Gracias por tu compra/);assert.equal(await page.locator('.tpv-document').evaluate(el=>getComputedStyle(el).fontSize),'16px');}
   else assert.match(await page.locator('body').innerText(),/Bizum/);
@@ -30,5 +38,5 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
   await page.screenshot({path:`artifacts/native-lab/${kind}-58mm.png`,clip:{x:0,y:0,width:220,height:await page.locator('body').evaluate(el=>Math.ceil(el.getBoundingClientRect().height))}});
  }
- console.log('PASS 58 mm paper / 48 mm content: receipt, gift, cash report and configured 16px monospace receipt, escaped values and PDF layout. Browser simulation; physical printer and drawer not tested.');
+ console.log('PASS 58 mm paper / 48 mm content: receipt, gift, cash report, configured 16px monospace receipt and loaded logos, escaped values and PDF layout. Browser simulation; logo delivery intercepted; physical printer and drawer not tested.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
