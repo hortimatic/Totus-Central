@@ -1,6 +1,20 @@
 # Estado de implementación de TotusTPV
 
-## Activación remota del 16/11/2026
+## Estado actualizado · 16/11/2026, 20:42 CET
+
+Conector QA propio 0.1.9 y servicio autenticado `totus-tpv` v6 activos. La relectura confirma los 30 archivos del servicio; el cambio desde v5 se limita al controlador y al servicio de lotes de mercancía. La migración de lotes está aplicada: RLS activo, acceso directo del navegador denegado y ejecución privilegiada solo desde el servidor. Los asesores no añaden avisos de seguridad respecto a la lectura anterior; esto no afirma que el proyecto entero carezca de avisos.
+
+El PR 212 se ha integrado en `7796c354971b47398cb54a28c8c8ad72201c0e7f` tras todos sus controles. Incluye acceso automático al puesto, entrada comprensible, fotos, categorías, vistas y preferencias de mostrador. La comprobación del commit servido y de la interfaz en la sesión remota sigue pendiente. La interfaz de lotes pertenece a la ampliación siguiente y todavía no está publicada.
+
+Prueba remota de esta fecha: pedidos 46544–46548 con cinco formas/repartos de pago, seis abonos por 10,50 € y siete unidades repuestas. Stock final del artículo QA: 14 unidades. El pedido 46549 no pertenece a esas pruebas y no se modifica. La caja compartida sigue abierta. El primer intento incierto conserva su incidencia y no se reenvía.
+
+Prueba aislada de lotes: 202 aserciones SQL y navegador en 1440/768/390, con escaneos rápidos repetidos y recuperación parcial sin segundo envío. Todavía no hay entrada de lote verificada contra la tienda remota. Véase [circuito de mercancía](TOTUSTPV_ENTRADAS_MERCANCIA_20261116.md).
+
+Continúan abiertos los traspasos, inventario, alta rápida, tabla común completa y ordenación global, todas las configuraciones solicitadas aún no contrastadas, presupuestos/reservas, crédito/anticipos/vales, concurrencia de facturación y hardware físico. La herramienta no se declara terminada ni lista para explotación comercial completa.
+
+## Registro histórico · primera activación del 16/11/2026
+
+Los párrafos siguientes conservan los estados de cada fase anterior; las versiones y pendientes vigentes son los de la actualización superior.
 
 Estado vigente: conector propio 0.1.2 instalado en PrestaShop de preproducción y permisos aditivos de su cuenta API #2 guardados y releídos. Nueve migraciones aditivas aplicadas en Central y nuevo servicio autenticado `totus-tpv` v1 desplegado; sus 29 archivos coinciden con la relectura remota. Cero asignaciones iniciales: no habilita automáticamente cajas ni tiendas. La interfaz ampliada aún está pendiente de publicación y aceptación remota. Véase [evidencia de activación](TOTUSTPV_ACTIVACION_QA_20261116.md).
 

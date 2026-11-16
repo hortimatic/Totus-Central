@@ -1,12 +1,12 @@
 # TotusTPV: memoria del trabajo y arquitectura de integración
 
-Fecha: 15 de noviembre de 2026. Documento principal del futuro módulo de Totus Central.
+Iniciado el 15 de noviembre de 2026; actualizado el 16 de noviembre. Memoria de integración del módulo de Totus Central. Las secciones fechadas conservan el historial; el estado vigente se consulta en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md).
 
 ## 1. Objetivo y estado real
 
 El objetivo es trabajar desde Totus Central: vender en mostrador, gestionar clientes, pagos, existencias y cajas, y registrar los pedidos en el PrestaShop seleccionado. TotusTPV forma parte de Central, con implementación propia y sin dependencia de otro TPV instalado.
 
-No existe todavía un módulo comercial completo. Hay una prueba de conexión y pedido en preproducción, reglas y aplicación propias, un recorrido de práctica y pruebas nativas locales de pagos, pedidos, factura y abonos. La prueba remota anterior necesitó una recuperación manual; las nuevas pruebas nativas locales no acreditan por sí solas la integración HTTP desplegada. El estado preciso está en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión actual sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
+No existe todavía un módulo comercial completo. Ya se han verificado desde la sesión normal de Central cinco pedidos en preproducción, seis abonos nativos y reposición de siete unidades. El conector propio 0.1.9 y el servicio autenticado v6 están activos. El módulo conserva separados los ensayos de práctica, las pruebas nativas aisladas y las escrituras verificadas en la tienda QA. El primer intento incierto no se ha repetido y sigue pendiente de cierre auditado. El estado preciso y los requisitos abiertos están en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
 
 Documentos complementarios:
 
