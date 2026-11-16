@@ -22,7 +22,7 @@ const headers={'Content-Type':'application/json','Cache-Control':'no-store',
  */
 export function createCentralTpvHandler({factory,env,request=fetch,resolve,onError=()=>{}}){
  return async function handle(req){
-  let audit=null;
+  let audit=null,stage='request';
   const respond=async(body,status=200)=>{
    if(audit){const record=audit;audit=null;try{await record.admin.rpc('totus_api_call',{p_id:record.id,
     p_revision:record.revision,p_call:record.call,p_result:{ok:status<400}});}catch{}}
@@ -38,7 +38,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     secret=JSON.parse(env.get('SUPABASE_SECRET_KEYS')||'{}').default||env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
    need(url&&key&&secret,'TPV_SERVER_CONFIGURATION_REQUIRED');
    const options={auth:{persistSession:false,autoRefreshToken:false}};
-   const authenticated=await factory(url,key,options).auth.getUser(bearer);
+   stage='authentication';const authenticated=await factory(url,key,options).auth.getUser(bearer);
    const user=authenticated?.data?.user;if(authenticated?.error||!uuid(user?.id))return respond({error:'TPV_AUTH_REQUIRED'},401);
    const scoped=factory(url,key,{...options,global:{headers:{Authorization:'Bearer '+bearer}}});
    const input=await boundedJson(req,65536);
@@ -69,7 +69,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      positive(input.selection.shopId)&&uuid(input.selection.drawerId)&&uuid(input.storeId)&&uuid(input.operatorId)&&
      Object.keys(input.selection).every(key=>['connectionId','shopId','drawerId'].includes(key)),'TPV_CONFIGURATION_INVALID');
     // Existing normal-user admin and store/RLS paths precede loading a key.
-    const manager=check(await scoped.rpc('totus_api_manager'));
+    stage='configuration-context';const manager=check(await scoped.rpc('totus_api_manager'));
     need(manager?.connections?.some(row=>row.id===input.selection.connectionId&&row.revision===input.revision),'TPV_CONTEXT_STALE');
     const metadata=check(await scoped.rpc('totus_sales_context'));
     const website=metadata.websites?.find(row=>row.connection_id===input.selection.connectionId&&row.origin===TOTUS_QA_POLICY.origin&&row.status==='active');
@@ -77,13 +77,13 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const drawer=check(await scoped.from('ops_cash_drawers').select('id,store_id,active').eq('id',input.selection.drawerId).eq('store_id',input.storeId).eq('active',true).maybeSingle());
     need(drawer,'TPV_CONFIGURATION_INVALID');
     const admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
-    const connection=check(await rpc('totus_api_server',{p_id:input.selection.connectionId,p_revision:input.revision}));
+    stage='configuration-connection';const connection=check(await rpc('totus_api_server',{p_id:input.selection.connectionId,p_revision:input.revision}));
     await beginAudit(admin,input.selection.connectionId,input.revision);
     const setupScope={actorId:user.id,connectionId:input.selection.connectionId,connectionRevision:input.revision,storeId:input.storeId,
      shopId:input.selection.shopId,drawerId:input.selection.drawerId,sessionId:input.operationId,currency:'EUR',environment:'qa'};
     const optionsFor=extension=>({request,resolve,qaPolicy:TOTUS_QA_POLICY,nativeExtension:extension,
      allowNativeCommand:async({command})=>{need(command==='setup.qa','TPV_NATIVE_COMMAND_DISABLED');check(await scoped.rpc('totus_api_manager'));return true;}});
-    let transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor(null));
+    stage='configuration-profile';let transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor(null));
     let native=await transport.inspectNativeProfile();
     need(native?.verified===true&&native.environment==='qa'&&native.native_version==='8.2.8'&&native.protocol===1&&
      uuid(native.installation_id)&&native.shop_id===setupScope.shopId,'TPV_NATIVE_PROFILE_INVALID');
@@ -92,7 +92,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      setupScope.currency=native.currency;setupScope.nativeInstallationId=native.installation_id;
      transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},setupScope,optionsFor({verified:true,
       installationId:native.installation_id,connectionId:setupScope.connectionId,connectionRevision:setupScope.connectionRevision,shopId:setupScope.shopId,protocol:1}));
-     const result=await createNativeRequestService({rpc,transport,scope:setupScope}).execute({operationId:input.operationId,command:'setup.qa',payload:{confirm_qa:true}});
+     stage='configuration-setup';const result=await createNativeRequestService({rpc,transport,scope:setupScope}).execute({operationId:input.operationId,command:'setup.qa',payload:{confirm_qa:true}});
      if(result.status!=='verified')return respond(result);
      native=await transport.readNativeProfile();
     }
@@ -101,7 +101,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      ['cash','card'].every(method=>methods.includes(method))&&methods.every(method=>Object.hasOwn(OPERATOR_PAYMENT_MODES,method)&&
       typeof native.payment_labels?.[method]==='string'),'TPV_PAYMENT_METHOD_NOT_CONFIGURED');
     native={...native,payment_labels:Object.fromEntries(methods.map(method=>[method,native.payment_labels[method]]))};
-    return respond(check(await rpc('totus_tpv_configure',{p_actor:user.id,p_operator:input.operatorId,p_connection:setupScope.connectionId,
+    stage='configuration-assignment';return respond(check(await rpc('totus_tpv_configure',{p_actor:user.id,p_operator:input.operatorId,p_connection:setupScope.connectionId,
      p_revision:input.revision,p_store:input.storeId,p_drawer:setupScope.drawerId,p_website:website.key,p_native:native,p_permissions:input.permissions})));
    }
    async function context(){const result=check(await scoped.rpc('totus_tpv_context'));
@@ -281,7 +281,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const checkout=createCheckoutService({authorize,ledger,native,settlements});
    const command={operationId:input.operationId,selection:input.selection,payments:input.payments};
    return respond(input.action==='recover'?await checkout.reconcile(command):await checkout.submit(command));
-  }catch(error){try{onError(error);}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
+  }catch(error){try{onError(error,{stage});}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
    ...(error?.message==='TPV_CUSTOMER_FIELDS_REJECTED'&&typeof error.detail==='string'?{detail:error.detail}:{})},400);}
  };
 }

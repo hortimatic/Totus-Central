@@ -52,6 +52,10 @@ export function createTpvNativeTransport(connection, scope, {
   const base=new URL(connection.endpoint);
   requireValue(base.origin === connection.website_origin && base.pathname.replace(/\/$/,'') === '/api' &&
     !base.search && !base.hash, 'TPV_NATIVE_ORIGIN_MISMATCH');
+  // Native WebserviceRequest::fetch trims the key. Match that canonical form
+  // before HTTP Basic encoding, including clipboard line breaks, without
+  // changing the stored credential or removing interior characters.
+  if(typeof connection.secret==='string')connection.secret=connection.secret.trim();
   const headers=connectionHeaders(connection);
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
   const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
@@ -88,7 +92,15 @@ export function createTpvNativeTransport(connection, scope, {
     const response=await request(target.href,{method,headers:{...headers,...(body?{'Content-Type':nativeCommand?'application/json':'application/xml'}:{})},
       ...(body?{body}:{}),redirect:'error',credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(20000)});
     if(!response.ok) {
-      await response.body?.cancel();
+      // Only the connector's fixed machine code crosses this boundary. Native
+      // errors may contain private data; never relay their arbitrary text.
+      let reason=null;
+      try{const body=await boundedJson(response,65536);
+       const errors=Array.isArray(body?.errors)?body.errors:[];
+       const code=errors.length===1?errors[0]?.message:null;
+       if(typeof code==='string'&&/^TOTUS_[A-Z0-9_]{1,60}$/.test(code))reason=code.slice(6);
+      }catch{}
+      if(reason)throw new Error('TPV_NATIVE_REMOTE_'+reason);
       throw new Error(`TPV_NATIVE_HTTP_${response.status}`);
     }
     const type=response.headers.get('content-type') || '';

@@ -38,6 +38,24 @@ test('read uses Central credentials privately, native shop context and no ambien
  assert.equal(init.credentials,'omit');assert.equal(init.redirect,'error');assert.equal(init.cache,'no-store');
 });
 
+test('clipboard whitespace uses the same canonical key as native authentication without mutating its source',async()=>{
+ const secret=' \t'+connection.secret+'\r\n',source={...connection,secret};
+ const f=fixture({connection:source});await f.transport.read('orders');
+ assert.equal(f.requests[0].init.headers.Authorization,'Basic '+btoa(connection.secret+':'));
+ assert.equal(source.secret,secret);
+ const interior=fixture({connection:{secret:'fixture internal whitespace'}});await interior.transport.read('orders');
+ assert.equal(interior.requests[0].init.headers.Authorization,'Basic '+btoa('fixture internal whitespace:'));
+});
+
+test('remote error diagnostics retain fixed connector codes and discard arbitrary native text',async()=>{
+ for(const [message,expected]of [['TOTUS_NATIVE_AUTH_REQUIRED','TPV_NATIVE_REMOTE_NATIVE_AUTH_REQUIRED'],
+  ['private customer data and SQL','TPV_NATIVE_HTTP_400']]){
+  const f=fixture({response:()=>new Response(JSON.stringify({errors:[{message}]}),{status:400,headers:{'content-type':'application/json'}})});
+  await assert.rejects(f.transport.read('orders'),error=>error.message===expected);
+  assert.equal(f.requests.length,1);
+ }
+});
+
 test('native commands retain operation identity and recover by GET without resubmitting',async()=>{
  const operationId='00000000-0000-4000-8000-000000000004';
  const denied=fixture({extension:true});

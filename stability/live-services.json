@@ -147,7 +147,7 @@
     },
     {
       "name": "totus-tpv",
-      "version": 1,
+      "version": 4,
       "verify_jwt": true,
       "files": {
         "src/api-presets.js": "2620900d25970e35db4f129f1ca5324b38759421b9a7ebdbc9cd7853a76f080a",
@@ -165,7 +165,7 @@
         "src/totustpv/server/native-adapter.js": "586ae69eadd0b62dced58b5847b80ac5d87b9e730aa3a0d5a52dc6bcf9badf09",
         "src/totustpv/server/native-capability-adapter.js": "4dcb520751eb30f73b9b8e4cfc320d6be560f14def172228ab3c870616973495",
         "src/totustpv/server/native-request-service.js": "116e9d463f5f22efa6e1a74e390f2f43746d44ea009b0a49aad51436553d45ad",
-        "src/totustpv/server/native-transport.js": "07f714c029b34911c459f1dc6f35da4d514ab5607165bc38fdfc5a1d0469fafe",
+        "src/totustpv/server/native-transport.js": "7265c44894a510fbcec12d6dd0d69917214fb203eee9b24f765e50601092919c",
         "src/totustpv/server/operator-payments.js": "202eb241768c8a9e0c54760024de62d88d8a110b4af8197ff3b56c2eb8c5580d",
         "src/totustpv/server/payment-readback.js": "856d251826f44e58d9bba95cc8e3f81d4cb540910e9dbdbddcc3899608c0281c",
         "src/totustpv/server/qa-policy.js": "056da201c92814ad911deac0ec04c6e247f6b2343c386c06431657c1e66052bd",
@@ -177,8 +177,8 @@
         "supabase/functions/totus-connections/contact-directory-delete.js": "b22882ec9ce02f9a8cf17b4cd434340f419c924942dca03f49473d0cc3aba38f",
         "supabase/functions/totus-connections/contact-directory-write.js": "99922d4666973e5ef0c290235efebc88fdb8906c3e7b25ec927cabace7ea20e4",
         "supabase/functions/totus-connections/transport.js": "dbeef702d3e054ab9b940eecbb02195fe6048107a633f5a6289a8e953ebbe619",
-        "supabase/functions/totus-tpv/handler.js": "9e9563cf63727af30f50411c9202cbc448c3af045dfc4dd09f07d879fc1ff4a5",
-        "supabase/functions/totus-tpv/index.ts": "47f227cd5f8bacba5f9f322ede0a321ae77b3b90f187c0be84a80ee359c36f73"
+        "supabase/functions/totus-tpv/handler.js": "e1ac3e94675ecc2196949c27834127e6923645ed4675c1d86848c71bfb4980e9",
+        "supabase/functions/totus-tpv/index.ts": "8d0d2529e04a8df3511cc1d8ac58f339cc8cefb6a0c7ce84e4af8fabb249aebb"
       }
     }
   ]

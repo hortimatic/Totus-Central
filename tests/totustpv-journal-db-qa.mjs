@@ -38,6 +38,7 @@ try {
  create table private.totus_websites(key text primary key,connection_id uuid,business_id uuid,status text,origin text,include_in_totals boolean default false);
  create function private.totus_module_can(email text,module text,action text) returns boolean
  language sql stable as $$select exists(select 1 from public.profiles p where p.email=$1 and p.active and p.role='admin')$$;
+ revoke all on function private.totus_module_can(text,text,text) from public,anon,authenticated,service_role;
  insert into public.profiles values('${id(5)}','operator@example.invalid',true,'admin'),('${id(9)}','denied@example.invalid',true,'employee');
  insert into public.ops_stores(id,active) values('${id(2)}',true),('${id(22)}',true);
  insert into public.ops_cash_drawers(id,store_id,active) values('${id(3)}','${id(2)}',true),('${id(33)}','${id(22)}',true);
@@ -56,6 +57,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116135126_totustpv_parked_tickets.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116142221_totustpv_order_lookup.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116150203_totustpv_cash_reports.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261116172741_totustpv_server_permission_helper.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
