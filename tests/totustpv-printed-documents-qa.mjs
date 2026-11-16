@@ -22,7 +22,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
  for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],
-  ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false})],
+  ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false,showOrderReference:false,numberLines:true})],
   ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})]]){
   await page.setContent(prepareTpvPrintHtml(html,'TotusTPV · prueba 58 mm'));
   const dimensions=await page.evaluate(()=>window.fitPrint(document));assert.equal(dimensions.paperMm,58);assert.ok(dimensions.heightMm<(kind==='receipt-custom'?400:220));
@@ -32,6 +32,8 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
   assert.equal(await page.evaluate(()=>document.body.scrollWidth>document.body.clientWidth+1),false,kind+' must fit the 48 mm print area');
   if(kind.startsWith('gift'))assert.doesNotMatch(await page.locator('body').innerText(),/8,01|€/);
   else if(kind==='receipt-custom'){assert.doesNotMatch(await page.locator('body').innerText(),/Bizum|REFERENCIA-LARGA/);
+   assert.doesNotMatch(await page.locator('body').innerText(),/QA-42/);assert.match(await page.locator('body').innerText(),/Pedido #42/);
+   assert.match(await page.locator('tbody tr').first().innerText(),/^1\. Café/);
    assert.match(await page.locator('body').innerText(),/Gracias por tu compra/);assert.equal(await page.locator('.tpv-document').evaluate(el=>getComputedStyle(el).fontSize),'16px');}
   else assert.match(await page.locator('body').innerText(),/Bizum/);
   const pdf=await page.pdf({preferCSSPageSize:true,printBackground:true,path:`artifacts/native-lab/${kind}-58mm.pdf`});

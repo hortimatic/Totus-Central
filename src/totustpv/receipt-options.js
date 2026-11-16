@@ -1,7 +1,7 @@
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,
+export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showOrderReference:true,numberLines:false,
  showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true});
-export const RECEIPT_CHECKS=Object.freeze({showLogo:'Logo del establecimiento',showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
+export const RECEIPT_CHECKS=Object.freeze({showLogo:'Logo del establecimiento',showOrderReference:'Referencia del pedido',numberLines:'Numerar artículos del ticket',showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
  showPayments:'Formas de pago',showDiscounts:'Total de descuentos',showDate:'Fecha del pedido'});
 export function receiptOptions(value){const out={...RECEIPT_DEFAULTS};
  for(const key of Object.keys(RECEIPT_CHECKS))if(typeof value?.[key]==='boolean')out[key]=value[key];

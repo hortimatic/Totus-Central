@@ -30,7 +30,12 @@ try{for(const width of [390,680,969,1280,1920,2560]){
  await page.evaluate(()=>document.fonts.ready);
  const widths=()=>page.locator('th[data-pr-column-heading="image"]').evaluate(n=>n.getBoundingClientRect().width);
  const before=await widths(),handle=page.getByRole('separator',{name:'Ancho de Foto',exact:true});await handle.press('ArrowRight');assert(Math.abs(await widths()-before-10)<2,'Keyboard resizes only the chosen column');
- await handle.scrollIntoViewIfNeeded();await handle.hover();const rect=await handle.boundingBox();assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle');
+ // The asynchronous account-save status can wrap and move the entire table.
+ // Finish that visible transition before measuring a physical pointer target.
+ await page.waitForFunction(()=>document.querySelector('[data-pr-layout-status]')?.textContent==='Guardado automáticamente en tu cuenta.');
+ await handle.scrollIntoViewIfNeeded();await handle.hover();const rect=await handle.boundingBox();
+ if(!rect||rect.y<0||rect.y+rect.height>900){await page.screenshot({path:'qa-artifacts/resize-failure-'+width+'.png'});console.error('RESIZE VISIBILITY DIAGNOSTIC',JSON.stringify({width,rect}));}
+ assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle at '+width);
  await page.evaluate(()=>{window.resizeEvents=[];document.addEventListener('pointerdown',event=>resizeEvents.push({type:event.type,button:event.button,target:event.target.outerHTML.slice(0,500),x:event.clientX,y:event.clientY}),true);});
  const point={x:rect.x+rect.width/2,y:rect.y+rect.height/2};await page.mouse.move(point.x,point.y);const hit=await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.outerHTML.slice(0,600),point);await page.mouse.down();
  const started=await page.evaluate(()=>document.querySelector('#productosRoot').classList.contains('prd-column-resizing'));

@@ -344,6 +344,10 @@ try {
  check((await prefs()).receipt.showLogo,true);
  check((await prefs(qaScope,{receipt:{showLogo:false}})).receipt.showLogo,false);
  await denied(()=>prefs(qaScope,{receipt:{showLogo:'true'}}),/INVALID/);
+ check((await prefs()).receipt.showOrderReference,true);
+ check((await prefs(qaScope,{receipt:{showOrderReference:false,numberLines:true}})).receipt.numberLines,true);
+ check((await prefs()).receipt.showOrderReference,false);
+ await denied(()=>prefs(qaScope,{receipt:{numberLines:1}}),/INVALID/);
  for(const receipt of [null,{unknown:true},{fontSize:'12'},{fontSize:12.5},{fontSize:17},{showDate:'false'},{title:''},{title:'x'.repeat(81)},
   {footer:'x'.repeat(501)},{fontFamily:'url(evil)'},{dateFormat:'injected'},{title:'Header\nInjected'}])await denied(()=>prefs(qaScope,{receipt}),/INVALID/);
  await denied(()=>prefs(qaScope,{columns:['name','name']}),/INVALID/);
