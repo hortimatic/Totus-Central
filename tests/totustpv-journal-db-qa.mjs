@@ -305,6 +305,20 @@ try {
  const secured=await db.query(`select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace
    where n.nspname='private' and c.relname in ('totus_tpv_assignments','totus_tpv_sessions','totus_tpv_operations','totus_tpv_payment_events') and c.relrowsecurity`);
  check(secured.rows[0].n,4);
+ await db.exec('set role service_role');
+ const failedId=id(310),failedExpected=expected(1910);
+ await journal('prepare',failedId,{expected:failedExpected,quoteExpiresAt:Date.now()+60000},historicalScope);
+ await journal('claim',failedId,{revision:1,expected:failedExpected,payments},historicalScope);
+ await journal('uncertain',failedId,{revision:1,reason:'TPV_TEST_NATIVE_FAILURE'},historicalScope);
+ const proof={operationId:failedId,cartId:1910,executionFinished:true,effectObserved:false,ordersObserved:0,nativeCommand:'sale.commit',nativeCode:'TOTUS_NATIVE_EXECUTION_FAILED',checkedAt:Date.now()};
+ const review=async(p=proof)=>(await db.query('select public.totus_tpv_resolve_incident($1::jsonb,$2,$3,$4,$5::jsonb) result',[JSON.stringify(historicalScope),failedId,'Ensayo sin pedido ni cobro externo','not-collected',JSON.stringify(p)])).rows[0].result;
+ await denied(()=>review({...proof,executionFinished:false}),/NATIVE_PROOF_REQUIRED/);
+ await denied(()=>review({...proof,ordersObserved:1}),/NATIVE_PROOF_REQUIRED/);
+ await denied(()=>review({...proof,effectObserved:true}),/NATIVE_PROOF_REQUIRED/);
+ check((await review()).status,'cancelled');check((await review()).status,'cancelled');
+ check((await journal('get',failedId,{},historicalScope)).status,'cancelled');
+ check((await journal('claim',failedId,{revision:1,expected:failedExpected,payments},historicalScope)).won,false);
+ await db.exec('set role authenticated');await denied(()=>review(),/permission denied/);await db.exec('reset role');
  const prefs=async(selected=qaScope,value=null)=>(await db.query('select public.totus_tpv_workspace_preferences($1,$2,$3,$4::jsonb) result',[selected.connectionId,selected.shopId,selected.drawerId,value===null?null:JSON.stringify(value)])).rows[0].result;
  await db.exec('set role anon');await denied(()=>prefs(),/permission denied/);
  await db.exec('reset role;set role authenticated');

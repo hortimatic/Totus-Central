@@ -48,3 +48,11 @@ El conector 0.1.8 está instalado en preproducción. Incorpora categorías acota
 La devolución detectó un override instalado de Order::hasBeenDelivered que devuelve falso sin controlador de back office. El historial SQL sí conserva el estado 33 con paid/delivery/shipped=1. La corrección 0.1.9 usa un objeto Order del conector que consulta esos indicadores con los métodos Core, exclusivamente tras verificar el recibo propio. No modifica el override, núcleo ni pedidos ajenos. Pendiente instalar y validar devolución real.
 
 Preferencias del mostrador guardadas en Central por usuario/conexión/tienda/caja. Migraciones de revisión de incidencias y preferencias aplicadas; acceso anónimo prohibido. Pruebas aisladas SQL: 167 aserciones. Vistas y cambio de cantidad comprobados con Playwright; pendiente publicación y aceptación de la nueva interfaz.
+
+### Devoluciones remotas verificadas
+
+Conector 0.1.9 instalado y probado. Los cinco pedidos 46544–46548 tienen seis devoluciones confirmadas por 10,50€: 46544 en dos parciales de 1,50€, 46545 por tarjeta de 1,50€, 46546 mixto por 3€ (1€ efectivo y 2€ tarjeta), 46547 Bizum 1,50€ y 46548 transferencia 1,50€. La relectura de Central confirma los importes y la base nativa conserva seis abonos; sus importes de precisión nativa redondean exactamente al céntimo de cada devolución. Stock del producto 170805913: 14 disponibles, 14 físicas y cero reservadas, igual al inicio.
+
+El pedido 46549 apareció durante la prueba y no forma parte de estas operaciones: no se devuelve ni se modifica. La caja Head queda abierta. La solicitud incierta original sigue retenida hasta su revisión administrativa mediante el flujo previsto.
+
+Evidencia: qa-artifacts/tpv-qa-cinco-pedidos-devueltos.jpg y conector-qa-018-instalado.jpg. Pruebas SQL aisladas ampliadas: 175 aserciones, incluyendo cierre auditado de intento fallido, rechazo de pruebas nativas incompletas y prohibición de reenviar el intento cancelado.
