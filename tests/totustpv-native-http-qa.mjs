@@ -59,7 +59,11 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--catalogue-filters-only')){
+ if(process.argv.includes('--stock-policy-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const stockPolicySetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,stockPolicySetup},profile:configured.result,base,focus:'stock-policy'});
+ }else if(process.argv.includes('--catalogue-filters-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const catalogueFilterSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/catalogue-filter-fixture.php',String(fixture.productId),String(variant.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture:{...fixture,variant,catalogueFilterSetup},profile:configured.result,base,focus:'catalogue-filters'});

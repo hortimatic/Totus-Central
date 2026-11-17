@@ -87,6 +87,7 @@ export function createTpvNativeTransport(connection, scope, {
         (key==='search'||key==='sort_field'&&['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(value)||key==='sort_direction'&&['asc','desc'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='search_fields'&&typeof value==='string'&&/^(reference|ean13|upc|isbn|name)(,(reference|ean13|upc|isbn|name)){0,4}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length||
          resource==='totus_tpv_catalogue'&&key==='sort_group_id'&&/^(0|[1-9][0-9]{0,9})$/.test(value)||
+         resource==='totus_tpv_catalogue'&&key==='stock_policy_only'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='hide_unavailable'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
          ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
@@ -164,6 +165,7 @@ export function createTpvNativeTransport(connection, scope, {
       return call('totus_tpv_returns','GET',{sale_operation_id:saleOperationId,actor_id:scope.actorId},undefined,false,true);
     },
     async readNativeCategories(){extensionScope();return call('totus_tpv_catalogue','GET',{categories_only:'1'},undefined,false,true);},
+    async readNativeStockPolicy(productId){extensionScope();requireValue(positive(productId)&&productId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');return call('totus_tpv_catalogue','GET',{product_id:String(productId),stock_policy_only:'1'},undefined,false,true);},
     async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0}={}){
       let fields,filters;try{fields=catalogueSearchFields(searchFields);filters=normalizeCatalogueFilters(catalogueFilters);}catch{throw Error('TPV_CATALOGUE_QUERY_INVALID');}
       extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&

@@ -22,7 +22,7 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
    ownedCart[key]===scope[key]),'TPV_CART_OWNERSHIP_REQUIRED');
  need(profile?.verified===true&&profile.nativeVersion==='8.2.8'&&
   ['connectionId','connectionRevision','shopId','currency','environment'].every(key=>profile[key]===scope[key])&&
-  positive(profile.quoteLifetimeMs)&&profile.quoteLifetimeMs<=120000&&
+  positive(profile.quoteLifetimeMs)&&profile.quoteLifetimeMs<=120000&&(profile.allowOutOfStock===undefined||typeof profile.allowOutOfStock==='boolean')&&
   typeof profile.paymentModule==='string'&&/^[a-z][a-z0-9_]{1,63}$/.test(profile.paymentModule),
   'TPV_NATIVE_QUOTE_PROFILE_INVALID');
  need(response?.verified===true&&response.native_reference===ownedCart.cartId&&
@@ -41,11 +41,13 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
  const lines=quote.lines.map(line=>{
   const key=`${line.product_id}:${line.attribute_id}`;
   need(positive(line.product_id)&&validUint(line.attribute_id)&&positive(line.quantity)&&line.quantity<=10000&&
-   !seen.has(key),'TPV_NATIVE_QUOTE_LINES_INVALID');seen.add(key);
+   !seen.has(key)&&(line.allow_out_of_stock===undefined||typeof line.allow_out_of_stock==='boolean'),'TPV_NATIVE_QUOTE_LINES_INVALID');seen.add(key);
+  need(profile.allowOutOfStock!==true||typeof line.allow_out_of_stock==='boolean','TPV_NATIVE_STOCK_POLICY_UNAVAILABLE');
   const records=stockRecords.filter(stock=>stock.productId===line.product_id&&stock.attributeId===line.attribute_id);
   need(records.length===1,'TPV_QUOTE_STOCK_MAPPING_REQUIRED');const stock=records[0];
   need(positive(stock.id)&&!usedStock.has(stock.id)&&stock.shopId===scope.shopId&&stock.shopGroupId===0&&
-   stock.dependsOnStock===false&&validUint(stock.quantity)&&stock.quantity>=line.quantity,
+   stock.dependsOnStock===false&&Number.isSafeInteger(stock.quantity)&&stock.quantity>=-2147483648&&stock.quantity<=2147483647&&
+   (stock.quantity>=line.quantity||profile.allowOutOfStock===true&&line.allow_out_of_stock===true&&stock.quantity-line.quantity>=-2147483648),
    'TPV_QUOTE_STOCK_UNAVAILABLE');usedStock.add(stock.id);
   const result={productId:line.product_id,attributeId:line.attribute_id,qty:line.quantity,
    unitTaxInclMicros:nativeMicros(line.unit_tax_incl),unitTaxExclMicros:nativeMicros(line.unit_tax_excl),
@@ -65,7 +67,7 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
  return {expected:{storeId:scope.storeId,shopId:scope.shopId,cartId:ownedCart.cartId,currency:scope.currency,
   customerId:ownedCart.customerId,invoiceAddressId:ownedCart.invoiceAddressId,deliveryAddressId:ownedCart.deliveryAddressId,
   currencyId:ownedCart.currencyId,languageId:ownedCart.languageId,carrierId:ownedCart.carrierId,
-  totalCents,totalTaxExclCents,productsTaxInclCents,productsTaxExclCents,shippingCents,discountCents,lines,
+  totalCents,totalTaxExclCents,productsTaxInclCents,productsTaxExclCents,shippingCents,discountCents,lines,...(profile.allowOutOfStock===true?{allowOutOfStock:true}:{}),
   nativeRoundMode:quote.round_mode,nativeRoundType:quote.round_type,nativeQuoteFingerprint:response.quote_fingerprint,
   paymentModule:profile.paymentModule,nativePaymentLabels:structuredClone(profile.nativePaymentLabels),
   operatorPaymentPolicy:structuredClone(profile.operatorPaymentPolicy),paidStateIds:[...profile.paidStateIds]},

@@ -16,6 +16,11 @@ function fixture(change={}){
   readNativeOperation:async operationId=>{calls.push({read:operationId});return {status:'verified',result:receipt};}};
  return {calls,adapter:createNativeCapabilityAdapter({scope,transport,verifyPrepared:async()=>({unchanged:true,cartId:7})})};
 }
+test('native sale receives an explicit shortage opt-in only from a prepared server record',async()=>{
+ const f=fixture();await f.adapter.submitOrderOnce({scope,operationId:id,expected:{...expected,allowOutOfStock:true},payments});
+ assert.equal(f.calls[0].payload.allow_out_of_stock,true);
+ const ordinary=fixture();await ordinary.adapter.submitOrderOnce({scope,operationId:id,expected,payments});assert.equal(Object.hasOwn(ordinary.calls[0].payload,'allow_out_of_stock'),false);
+});
 test('mixed payment uses one named native command with immutable quote and exact cash received',async()=>{
  const f=fixture();assert.deepEqual(await f.adapter.submitOrderOnce({scope,operationId:id,expected,payments}),{orderId:42});
  assert.equal(f.calls.length,2);assert.equal(f.calls[0].command,'sale.commit');

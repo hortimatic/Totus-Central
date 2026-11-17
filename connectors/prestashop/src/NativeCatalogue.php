@@ -6,6 +6,11 @@ namespace TotusCentralConnector;
  */
 final class NativeCatalogue
 {
+    private static function counterStockOverride(): bool
+    {
+        $parameters=(new \ReflectionMethod(\Cart::class,'updateQty'))->getParameters();
+        return isset($parameters[8])&&$parameters[8]->getName()==='skipAvailabilityCheckOutOfStock';
+    }
     private static function integer($value,int $min,int $max): int
     {Protocol::ensure(is_string($value)&&preg_match('/^(0|[1-9][0-9]*)$/D',$value)===1&&
         (float)$value>=$min&&(float)$value<=$max,'CATALOGUE_QUERY_INVALID');return (int)$value;}
@@ -36,6 +41,7 @@ final class NativeCatalogue
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
+        $policyOnly=self::integer((string)($query['stock_policy_only']??'0'),0,1)===1;Protocol::ensure(!$policyOnly||$productId>0,'CATALOGUE_QUERY_INVALID');
         $sortGroupId=self::integer((string)($query['sort_group_id']??'0'),0,2147483647);
         Protocol::ensure($productId>0||$sortGroupId===0,'CATALOGUE_VARIANT_GROUP_INVALID');$variantGroups=[];
         $sort=$query['sort_field']??'name';$direction=$query['sort_direction']??'asc';
@@ -114,6 +120,7 @@ final class NativeCatalogue
             $sql.=' ORDER BY '.$orders[$sort].' '.strtoupper($direction).',p.id_product '.strtoupper($direction);
             if($sort!=='price'||$productId>0)$sql.=' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
+            if($policyOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-stock-policy','product_id'=>$productId,'shop_id'=>$shop,'allow_out_of_stock'=>self::counterStockOverride()];}
             if($sort==='price'&&$productId===0){
                 $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
                 $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields,$hideUnavailable){
@@ -251,7 +258,7 @@ final class NativeCatalogue
             'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
             'variant_name'=>$label,'variant_attributes'=>$attributes,'reference'=>(string)($variant['reference']??$product['reference']),
             'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'isbn'=>(string)($variant['isbn']??$product['isbn']),'choose_variant'=>$choose,
-            'minimum_quantity'=>max(1,$minimum),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
+            'minimum_quantity'=>max(1,$minimum),'allow_out_of_stock'=>self::counterStockOverride(),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),
             'preview_cents'=>(int)round(100*\Tools::ps_round((float)$incl,2)),
             'preview_tax_excl_cents'=>(int)round(100*\Tools::ps_round((float)$excl,2)),

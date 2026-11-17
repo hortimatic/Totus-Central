@@ -1,8 +1,10 @@
 # Estado de implementación de TotusTPV
 
-## Estado vigente · 17/11/2026, 13:44 CET
+## Estado vigente · 17/11/2026, 15:04 CET
 
-La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las diez migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías, precios con/sin IVA, buscador y visibilidad siguen pendientes de aplicación remota.
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las once migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías, precios con/sin IVA, buscador, visibilidad, orden de variantes y política de existencias siguen pendientes de aplicación remota.
+
+El inventario vigente acredita 53 configuraciones implementadas y probadas de forma aislada y conserva 96 abiertas. La política de venta sin existencias admite simples y variantes con cero/negativo, por cuenta y caja, conservando la política de venta online. Aprueban 531 aserciones SQL, los 50 recorridos afectados, las pruebas PHP, la regresión nativa completa y el recorrido específico con cobro, respuesta perdida, recuperación sin duplicar, devolución y escritorio/móvil. La prueba verifica que el artículo bloqueado online mantiene `out_of_stock=0` después de venta y devolución en el mostrador. Detalle: `TOTUSTPV_EXISTENCIAS_20261117.md`. Las cifras de los apartados históricos siguientes corresponden a cada avance, no al estado vigente.
 
 La selección de billetes y monedas y el contador de efectivo ya se integran en apertura, cobro y arqueo. Se ha comprobado su persistencia privada y un cierre de 108,01 € después de una venta nativa de 8,01 €, con respuesta perdida y recuperación del mismo identificador. Los campos de movimientos conservan un ancho utilizable en móvil. La suite SQL supera 408 aserciones y los 43 recorridos afectados de esta ampliación han aprobado. CFG-03-05 pasa a implementación aislada pendiente de aceptación remota; el inventario conserva 108 opciones todavía abiertas y 41 implementadas de forma aislada. Detalle: `TOTUSTPV_ARQUEO_MONEDAS_20261117.md`.
 

@@ -14,7 +14,7 @@ try{for(const width of [1440,390]){
   const adapter={mode:'qa',context:async()=>({stores:[{id:'store',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'store',name:'Caja ficticia',canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'store',drawerId:'drawer',status:'open'}]}),selectSession:async()=>{},categories:async()=>[],
    searchProducts:async query=>{variantFixture.queries.push(structuredClone(query));if(query.productId&&variantFixture.fail){variantFixture.fail=false;throw Error('No se han podido consultar las variantes. Vuelve a intentarlo.');}
     const rows=structuredClone(query.productId?variants:[parent]);Object.defineProperties(rows,{hasMore:{value:false},totalCount:{value:rows.length},variantGroups:{value:query.productId?[{id:3,name:'Color'}]:[]}});return rows;}};
-  variantFixture.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,createLiveAdapter:()=>adapter,workspacePreferences:async()=>({display:{variantOrder:'stock:desc'}})});variantFixture.workspace.mount(document.querySelector('#tpv'));
+  variantFixture.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,createLiveAdapter:()=>adapter,workspacePreferences:async()=>({display:{variantOrder:'stock:desc',returnToStart:true}})});variantFixture.workspace.mount(document.querySelector('#tpv'));
  });
  const parent=page.locator('[data-tpv-add="12:0"]'),dialog=page.locator('.tpv-variant-dialog');await parent.waitFor();await parent.click();
  await dialog.getByRole('alert').filter({hasText:'No se han podido consultar las variantes'}).waitFor();

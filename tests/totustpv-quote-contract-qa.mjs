@@ -20,6 +20,20 @@ test('native quote keeps exact unit prices, authoritative rounded line totals an
  assert.equal(result.expected.lines[0].unitTaxInclMicros,8012100);assert.equal(result.expected.lines[0].lineTaxInclCents,801);
  assert.equal(result.expected.lines[0].stockRecordId,801);assert.equal(result.quoteExpiresAt,219900);
 });
+test('insufficient stock requires explicit workstation policy and sealed native counter permission, including negative-stock bounds',async()=>{
+ const withPolicy=async({enabled,native=true,quantity=0}={})=>{
+  const changed={...quote,lines:[{...quote.lines[0],allow_out_of_stock:native}]};
+  return run({profile:{...profile,allowOutOfStock:enabled},stockRecords:[{...stockRecords[0],quantity}],response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}});
+ };
+ for(const enabled of [undefined,false])await assert.rejects(withPolicy({enabled}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:true,native:false}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:'true'}),/PROFILE_INVALID/);
+ await assert.rejects(withPolicy({enabled:true,native:'true'}),/LINES_INVALID/);
+ await assert.rejects(run({profile:{...profile,allowOutOfStock:true}}),/STOCK_POLICY_UNAVAILABLE/);
+ const allowed=await withPolicy({enabled:true,quantity:-2});assert.equal(allowed.expected.allowOutOfStock,true);assert.equal(allowed.expected.lines[0].stockBefore,-2);
+ await assert.rejects(withPolicy({enabled:true,quantity:-2147483648}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:true,quantity:0.5}),/STOCK_UNAVAILABLE/);
+});
 test('canonical fingerprint is insensitive to field order, but not changed line prices',async()=>{
  const reverse=Object.fromEntries(Object.entries(quote).reverse());assert.equal(await nativeQuoteFingerprint(reverse),await nativeQuoteFingerprint(quote));
  const response={verified:true,native_reference:701,quoted_at:99900,quote:{...quote,total_tax_incl:'7.00'},quote_fingerprint:await nativeQuoteFingerprint(quote)};

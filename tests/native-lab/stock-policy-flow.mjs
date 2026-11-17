@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths}){
+ const items=fixture.stockPolicySetup.items,drawer={connectionId:selection.connectionId,shopId:selection.shopId,id:selection.drawerId};
+ const setPolicy=enabled=>preferences(drawer,{stockPolicy:{allowOutOfStock:enabled}});
+ const catalogue=()=>call({action:'catalogue',selection,operationId:randomUUID(),search:fixture.stockPolicySetup.prefix});
+ const quantity=async(productId,attributeId=0)=>{const data=await nativeRead(`stock_availables?filter[id_product]=[${productId}]&filter[id_product_attribute]=[${attributeId}]&filter[id_shop]=[1]`);assert.equal(data.stock_availables.length,1);return Number(data.stock_availables[0].quantity);};
+ const sales=()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length;
+ const payments=(operationId,total)=>({allocations:[{id:'cash-stock-policy',method:'cash',amountCents:total,receivedCents:total}],confirmation:{operationId,totalCents:total,currency:'EUR',accepted:true}});
+ const rows=await catalogue();assert.equal(rows.items.length,4);assert.equal(rows.items.find(row=>row.product_id===items.allowed.id).allow_out_of_stock,true);assert.equal(rows.items.find(row=>row.product_id===items.denied.id).allow_out_of_stock,true);
+ assert.deepEqual((await preferences(drawer)).stockPolicy,{allowOutOfStock:false});
+ const id=randomUUID(),intent={action:'prepare',selection,operationId:id,lines:[{productId:items.allowed.id,attributeId:0,qty:1}]},before=sales();
+ for(const forged of [{allowOutOfStock:true},{stockPolicy:{allowOutOfStock:true}}]){const writes=paths.filter(row=>row.method==='POST').length,result=await raw({...intent,...forged});assert.equal(result.status,400);assert.equal(result.result.error,'TPV_REQUEST_FIELD_FORBIDDEN');assert.equal(paths.filter(row=>row.method==='POST').length,writes);}
+ const blocked=await raw(intent);assert.equal(blocked.status,400);assert.equal(blocked.result.error,'TPV_QUOTE_STOCK_UNAVAILABLE');assert.equal(sales(),before);assert.equal(await quantity(items.allowed.id),0);
+ await setPolicy(true);const prepared=await call(intent);assert.equal(prepared.status,'ready');assert.equal(prepared.expected.allowOutOfStock,true);assert.equal(prepared.expected.lines[0].stockBefore,0);
+ await setPolicy(false);const stale=await raw({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)});assert.equal(stale.status,400);assert.equal(stale.result.error,'TPV_STOCK_POLICY_STALE');assert.equal(sales(),before);assert.equal(await quantity(items.allowed.id),0);
+ await setPolicy(true);const confirmed=await call({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)});assert.equal(confirmed.status,'confirmed',JSON.stringify(confirmed));assert.equal(await quantity(items.allowed.id),-1);
+ const after=sales();assert.equal((await call({action:'recover',selection,operationId:id})).orderId,confirmed.orderId);assert.equal((await call({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)})).orderId,confirmed.orderId);assert.equal(sales(),after);assert.equal(await quantity(items.allowed.id),-1);
+ const negativeId=randomUUID(),negativePrepared=await call({action:'prepare',selection,operationId:negativeId,lines:[{productId:items.negative.id,attributeId:0,qty:1}]});assert.equal(negativePrepared.expected.lines[0].stockBefore,-2);
+ const negative=await call({action:'submit',selection,operationId:negativeId,payments:payments(negativeId,negativePrepared.expected.totalCents)});assert.equal(negative.status,'confirmed',JSON.stringify(negative));assert.equal(await quantity(items.negative.id),-3);
+ const variantId=randomUUID(),variantPrepared=await call({action:'prepare',selection,operationId:variantId,lines:[{productId:items.variant.id,attributeId:items.variant.attributeId,qty:2}]});assert.equal(variantPrepared.expected.lines[0].stockBefore,0);
+ const variant=await call({action:'submit',selection,operationId:variantId,payments:payments(variantId,variantPrepared.expected.totalCents)});assert.equal(variant.status,'confirmed',JSON.stringify(variant));assert.equal(await quantity(items.variant.id,items.variant.attributeId),-2);
+ for(const [saleId,productId,original,attributeId,qty,total] of [[id,items.allowed.id,0,0,1,801],[negativeId,items.negative.id,-2,0,1,801],[variantId,items.variant.id,0,items.variant.attributeId,2,1602]]){
+  const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId});const refundId=randomUUID();
+  const refund=await call({action:'prepare-refund',selection,operationId:refundId,saleId,items:[{detailId:available.items[0].detail_id,qty,restock:true}],payments:[{method:'cash',amountCents:total}]});assert.equal(refund.status,'ready');
+  assert.equal((await call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:total,currency:'EUR'}})).status,'confirmed');assert.equal(await quantity(productId,attributeId),original);
+ }
+ await setPolicy(false);const deniedBefore=sales(),writesBefore=paths.filter(row=>row.method==='POST').length,denied=await raw({action:'prepare',selection,operationId:randomUUID(),lines:[{productId:items.denied.id,attributeId:0,qty:1}]});assert.equal(denied.status,400);assert.equal(denied.result.error,'TPV_QUOTE_STOCK_UNAVAILABLE');assert.equal(sales(),deniedBefore);assert.equal(paths.filter(row=>row.method==='POST').length,writesBefore,'A native policy refusal is checked before creating a cart or financial request');assert.equal(await quantity(items.denied.id),0);
+ console.log('PASS native stock policy: default refusal, authenticated preference, changed-policy refusal before dispatch, explicit sealed native counter permission, zero/negative sale with invoice/payment/movement readback, same-request recovery and refund/restock. Actual isolated PostgreSQL/PrestaShop; no remote shop.');
+ return {saleIds:[id,negativeId,variantId],orderIds:[confirmed.orderId,negative.orderId,variant.orderId]};
+}

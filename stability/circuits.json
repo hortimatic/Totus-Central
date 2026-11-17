@@ -473,7 +473,11 @@
         "supabase/migrations/20261117111400_totustpv_catalogue_filters.sql",
         "tests/native-lab/catalogue-filter-",
         "tests/totustpv-variant-selector-browser-qa.mjs",
-        "supabase/migrations/20261117123814_totustpv_variant_order.sql"
+        "supabase/migrations/20261117123814_totustpv_variant_order.sql",
+        "src/totustpv/stock-policy.js",
+        "tests/totustpv-stock-policy-qa.mjs",
+        "tests/native-lab/stock-policy-",
+        "supabase/migrations/20261117125500_totustpv_stock_policy.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -521,7 +525,8 @@
         "tests/totustpv-price-display-qa.mjs",
         "tests/totustpv-search-preferences-qa.mjs",
         "tests/totustpv-catalogue-preferences-qa.mjs",
-        "tests/totustpv-variant-selector-browser-qa.mjs"
+        "tests/totustpv-variant-selector-browser-qa.mjs",
+        "tests/totustpv-stock-policy-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -529,7 +534,8 @@
         "uncertain remote order cannot be blindly resubmitted",
         "confirmation requires remote payment state lines and stock readback",
         "server-only PostgreSQL journal commits order confirmation and payment events atomically",
-        "one active physical drawer session and one remote cart dispatch across workers"
+        "one active physical drawer session and one remote cart dispatch across workers",
+        "insufficient stock requires explicit server-loaded workstation policy and sealed native cart permission without changing webshop stock policy; default refusal and attributed stock readback remain mandatory"
       ]
     },
     {

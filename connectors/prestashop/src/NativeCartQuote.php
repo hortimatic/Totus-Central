@@ -80,6 +80,7 @@ final class NativeCartQuote
                     'product_id'=>(int)$product['id_product'],
                     'attribute_id'=>(int)($product['id_product_attribute'] ?? 0),
                     'quantity'=>(int)$product['cart_quantity'],
+                    'allow_out_of_stock'=>($owner['allow_out_of_stock']??false)===true,
                     'unit_tax_incl'=>self::decimal($product['price_wt'] ?? null),
                     'unit_tax_excl'=>self::decimal($product['price_with_reduction_without_tax'] ?? null),
                     'line_tax_incl'=>self::decimal($product['total_wt'] ?? null),

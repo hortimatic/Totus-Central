@@ -1,4 +1,7 @@
 const messages={
+ TPV_NATIVE_STOCK_POLICY_UNAVAILABLE:'La tienda aún no ha confirmado la regla de venta sin existencias. Pide al responsable que complete la preparación del puesto.',
+ TPV_STOCK_POLICY_STALE:'La regla de venta sin existencias ha cambiado. Revisa el ticket y vuelve a calcular antes de confirmar.',
+ TPV_STOCK_POLICY_FORBIDDEN:'Tu acceso permite consultar la configuración; necesitas permiso de venta para cambiar esta regla de existencias.',
  TPV_NATIVE_REMOTE_CATALOGUE_VARIANT_GROUP_INVALID:'Ese atributo ya no está disponible en este artículo. Vuelve a productos y selecciona de nuevo la variante.',
  TPV_NATIVE_REMOTE_CATALOGUE_VARIANT_ATTRIBUTES_LIMIT:'Este artículo tiene demasiados atributos para mostrarlos de forma segura. Pide al responsable que revise sus combinaciones.',
  TPV_NATIVE_REMOTE_CATALOGUE_FILTER_CATEGORY_INVALID:'Una categoría oculta ya no está disponible en esta tienda. Revisa las categorías en Configuración y guarda de nuevo.',

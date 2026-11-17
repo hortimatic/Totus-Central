@@ -48,6 +48,7 @@ export function createNativeCapabilityAdapter({scope,transport,verifyPrepared}){
   async submitOrderOnce({scope:requested,operationId,expected,payments}){
    validatePayments({scope:requested,expected,payments});need(uuid(operationId),'TPV_NATIVE_OPERATION_INVALID');
    const response=await transport.nativeCommand({operationId,command:'sale.commit',payload:{cart_id:expected.cartId,
+    ...(expected.allowOutOfStock===true?{allow_out_of_stock:true}:{}),
     quote_operation_id:expected.nativeQuoteOperationId,quote_fingerprint:expected.nativeQuoteFingerprint,
     payments:payments.map(row=>({method:row.method,amount_cents:row.amountCents,
      ...(row.method==='cash'?{received_cents:row.receivedCents}:{})}))}});

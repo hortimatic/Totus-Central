@@ -33,8 +33,8 @@ final class NativeSale
     {
         $payload=$command['payload'] ?? [];
         Protocol::ensure(($command['command'] ?? null)==='sale.commit' &&
-            array_diff(array_keys($payload),['cart_id','quote_operation_id','quote_fingerprint','payments'])===[] &&
-            count($payload)===4 && is_int($payload['cart_id']??null) && $payload['cart_id']>0 &&
+            array_diff(array_keys($payload),['cart_id','quote_operation_id','quote_fingerprint','payments','allow_out_of_stock'])===[] &&
+            count($payload)===(array_key_exists('allow_out_of_stock',$payload)?5:4) && (!array_key_exists('allow_out_of_stock',$payload)||is_bool($payload['allow_out_of_stock'])) && is_int($payload['cart_id']??null) && $payload['cart_id']>0 &&
             Protocol::uuid($payload['quote_operation_id']??null) &&
             is_string($payload['quote_fingerprint']??null) && preg_match('/^[a-f0-9]{64}$/D',$payload['quote_fingerprint']) &&
             is_array($payload['payments']??null) && array_is_list($payload['payments']) &&
@@ -65,6 +65,10 @@ final class NativeSale
         Protocol::ensure($allocated===($quote['total_cents']??null),'SALE_PAYMENT_TOTAL_MISMATCH');
         return [$payload,$saved,$owner];
     }
+
+    private static function allowsShortage(array $payload,array $line,array $owner): bool
+    {return ($payload['allow_out_of_stock']??false)===true&&($line['allow_out_of_stock']??false)===true&&
+        ($owner['allow_out_of_stock']??false)===true;}
 
     public function execute(array $command): array
     {
@@ -98,7 +102,7 @@ final class NativeSale
                 $lock=$db->prepare('SELECT quantity,id_shop,depends_on_stock FROM `'._DB_PREFIX_.'stock_available` WHERE id_stock_available=? FOR UPDATE');
                 $lock->execute([$id]);$stock=$lock->fetch(\PDO::FETCH_ASSOC);
                 Protocol::ensure($stock && (int)$stock['id_shop']===$command['shop_id'] &&
-                    !(bool)$stock['depends_on_stock'] && (int)$stock['quantity']>=$line['quantity'],'SALE_STOCK_SCOPE_OR_QUANTITY');
+                    !(bool)$stock['depends_on_stock'] && ((int)$stock['quantity']>=$line['quantity']||self::allowsShortage($payload,$line,$owner)&&(int)$stock['quantity']-$line['quantity']>=-2147483648),'SALE_STOCK_SCOPE_OR_QUANTITY');
             }
             \Cache::clean('*');
             $cart->getProducts(true);$cart->getPackageList(true);$cart->getDeliveryOptionList($context->country,true);
@@ -113,7 +117,7 @@ final class NativeSale
                 Protocol::ensure(\Validate::isLoadedObject($product) && $product->active && $product->available_for_order &&
                     !$product->is_virtual && !\Pack::isPack((int)$product->id),'SALE_PRODUCT_UNSUPPORTED');
                 $quantity=(int)\StockAvailable::getQuantityAvailableByProduct($line['product_id'],$line['attribute_id'],$command['shop_id']);
-                Protocol::ensure($quantity>=$line['quantity'],'SALE_STOCK_INSUFFICIENT');
+                Protocol::ensure($quantity>=$line['quantity']||self::allowsShortage($payload,$line,$owner)&&$quantity-$line['quantity']>=-2147483648,'SALE_STOCK_INSUFFICIENT');
                 $before[$line['product_id'].':'.$line['attribute_id']]=$quantity;
             }
             $label=count($payload['payments'])>1?'Mixto':$this->profile['payment_labels'][$payload['payments'][0]['method']];

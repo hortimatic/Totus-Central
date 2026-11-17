@@ -12,6 +12,7 @@ import {createStockReceiptService} from '../../../src/totustpv/server/stock-rece
 import {createOfficialProductWriter} from '../../../src/totustpv/server/official-products.js';
 import {createProductIntakeService} from '../../../src/totustpv/server/product-intake-service.js';
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
+import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive=value=>Number.isSafeInteger(value)&&value>0;
@@ -22,7 +23,7 @@ export function catalogueForActor(data,canReadCosts){
   need(Array.isArray(data.variant_groups)&&data.variant_groups.length<=64,'TPV_CATALOGUE_INVALID');
   groups=data.variant_groups.map(row=>{need(row&&positive(row.id)&&typeof row.name==='string'&&Array.from(row.name).length<=128,'TPV_CATALOGUE_INVALID');return {id:row.id,name:row.name};});
  }
- const fields=['id','product_id','attribute_id','name','variant_name','variant_attributes','reference','ean','upc','isbn','choose_variant','minimum_quantity',
+ const fields=['id','product_id','attribute_id','name','variant_name','variant_attributes','reference','ean','upc','isbn','choose_variant','minimum_quantity','allow_out_of_stock',
   'stock','unit_tax_incl','unit_tax_excl','preview_cents','preview_tax_excl_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
  return {...data,...(groups?{variant_groups:groups}:{}),items:data.items.map(item=>{
   const projected=Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]]));
@@ -353,7 +354,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
     modes:Object.fromEntries(Object.keys(fresh.nativeProfile.payment_labels).map(method=>[method,OPERATOR_PAYMENT_MODES[method]]))};};
    async function profile(){const fresh=(await selected()).row,p=fresh.nativeProfile;
+    const currentStockPolicy=stockPolicy(check(await rpc('totus_tpv_stock_policy',{p_scope:scope})));
     return {verified:true,nativeVersion:'8.2.8',connectionId:scope.connectionId,connectionRevision:scope.connectionRevision,
+     allowOutOfStock:currentStockPolicy.allowOutOfStock,
      shopId:scope.shopId,currency:scope.currency,environment:'qa',quoteLifetimeMs:120000,paymentModule:'totuscentralconnector',
      nativePaymentLabels:p.payment_labels,paidStateIds:[p.paid_state_id],operatorPaymentPolicy:await policy()};}
    async function stockRecords(lines){
@@ -375,6 +378,13 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(Array.isArray(input.lines)&&input.lines.length>0&&input.lines.length<=200&&input.lines.every(line=>
      Object.keys(line).every(key=>['productId','attributeId','qty','discount'].includes(key))&&positive(line.productId)&&
      Number.isSafeInteger(line.attributeId)&&line.attributeId>=0&&positive(line.qty)&&line.qty<=10000),'TPV_LINES_INVALID');
+    const preparationProfile=await profile();
+    {
+     const nativeLines=input.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty})),stocks=await stockRecords(nativeLines),shortages=new Set();
+     for(let i=0;i<nativeLines.length;i++){const line=nativeLines[i],stock=stocks[i];need(stock&&stock.productId===line.product_id&&stock.attributeId===line.attribute_id&&stock.shopId===scope.shopId&&stock.shopGroupId===0&&!stock.dependsOnStock&&Number.isSafeInteger(stock.quantity)&&stock.quantity>=-2147483648&&stock.quantity<=2147483647,'TPV_QUOTE_STOCK_UNAVAILABLE');if(stock.quantity<line.quantity)shortages.add(line.product_id);}
+     need(shortages.size===0||preparationProfile.allowOutOfStock,'TPV_QUOTE_STOCK_UNAVAILABLE');
+     const ids=[...shortages];for(let i=0;i<ids.length;i+=4)await Promise.all(ids.slice(i,i+4).map(async productId=>{const policy=await transport.readNativeStockPolicy(productId);need(policy?.source==='native-product-stock-policy'&&policy.product_id===productId&&policy.shop_id===scope.shopId&&policy.allow_out_of_stock===true,'TPV_NATIVE_STOCK_POLICY_UNAVAILABLE');}));
+    }
     const customerId=input.customerId??row.nativeProfile.counter_customer_id,
      invoiceAddressId=input.invoiceAddressId??row.nativeProfile.counter_address_id,deliveryAddressId=input.deliveryAddressId??invoiceAddressId;
     let draft=null;
@@ -387,7 +397,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      draft=check(await drafts('bind',input.draftId,{version:input.draftVersion,payload,checkoutId:input.operationId}));
     }else need(input.draftVersion===undefined,'TPV_DRAFT_REQUEST_INVALID');
     const cart=needNative(await nativeRequests.execute({operationId:await nativeStepId(input.operationId,'cart'),command:'cart.prepare',payload:{
-     session_id:scope.sessionId,drawer_id:scope.drawerId,customer_id:customerId,invoice_address_id:invoiceAddressId,
+     session_id:scope.sessionId,drawer_id:scope.drawerId,customer_id:customerId,invoice_address_id:invoiceAddressId,...(preparationProfile.allowOutOfStock?{allow_out_of_stock:true}:{}),
      delivery_address_id:deliveryAddressId,lines:input.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty,
       ...(line.discount?{discount:line.discount}:{})})),
      ...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})}}));
@@ -395,7 +405,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const quoted=needNative(await nativeRequests.execute({operationId:quoteId,command:'cart.quote',payload:{cart_id:cart.cart_id}}));
     const p=row.nativeProfile,prepared=await expectedFromNativeQuote({scope,ownedCart:{...scope,id:cart.cart_id,cartId:cart.cart_id,
      customerId,invoiceAddressId,deliveryAddressId,currencyId:p.currency_id,languageId:p.language_id,carrierId:p.carrier_id},
-     profile:await profile(),response:quoted,stockRecords:await stockRecords(quoted.quote.lines)});
+     profile:preparationProfile,response:quoted,stockRecords:await stockRecords(quoted.quote.lines)});
     prepared.expected.nativeQuoteOperationId=quoteId;
     if(draft){prepared.expected.draftId=draft.id;prepared.expected.draftVersion=draft.version;}
     return respond(await ledger.prepare({scope,operationId:input.operationId,...prepared}));
@@ -405,7 +415,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(response.quote_fingerprint===record.expected.nativeQuoteFingerprint,'TPV_QUOTE_CHANGED');
     const fresh=await profile();need(fresh.operatorPaymentPolicy.revision===record.expected.operatorPaymentPolicy.revision&&
      JSON.stringify(fresh.nativePaymentLabels)===JSON.stringify(record.expected.nativePaymentLabels),'TPV_PAYMENT_POLICY_STALE');
-    const prior=record.expected;
+    const prior=record.expected;need((prior.allowOutOfStock===true)===(fresh.allowOutOfStock===true),'TPV_STOCK_POLICY_STALE');
     await expectedFromNativeQuote({scope,ownedCart:{...scope,id:prior.cartId,cartId:prior.cartId,customerId:prior.customerId,
      invoiceAddressId:prior.invoiceAddressId,deliveryAddressId:prior.deliveryAddressId,currencyId:prior.currencyId,
      languageId:prior.languageId,carrierId:prior.carrierId},profile:fresh,response,stockRecords:await stockRecords(response.quote.lines)});

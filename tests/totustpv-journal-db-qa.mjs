@@ -74,6 +74,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117105231_totustpv_search_preferences.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117111400_totustpv_catalogue_filters.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117123814_totustpv_variant_order.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117125500_totustpv_stock_policy.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -374,6 +375,19 @@ try {
  for(const variantOrder of ['name:asc','name:desc','stock:asc','stock:desc','price:asc','price:desc','reference:asc','reference:desc'])check((await prefs(qaScope,{display:{variantOrder}})).display.variantOrder,variantOrder);
  check((await prefs(qaScope,{viewMode:'table'})).display.variantOrder,'reference:desc');
  for(const variantOrder of [null,true,3,{},'stock','cost:desc','name;drop:asc'])await denied(()=>prefs(qaScope,{display:{variantOrder}}),/INVALID/);
+ check((await prefs()).stockPolicy,{allowOutOfStock:false});
+ check((await prefs(qaScope,{stockPolicy:{allowOutOfStock:true}})).stockPolicy,{allowOutOfStock:true});
+ check((await prefs(qaScope,{viewMode:'table'})).stockPolicy,{allowOutOfStock:true});
+ for(const stockPolicy of [null,[],true,{allowOutOfStock:'true'},{allowOutOfStock:null},{allowOutOfStock:1},{sell:true},{allowOutOfStock:true,actorId:id(9)}])await denied(()=>prefs(qaScope,{stockPolicy}),/INVALID/);
+ check((await prefs(qaScope,{stockPolicy:{allowOutOfStock:false}})).stockPolicy,{allowOutOfStock:false});
+ const serverStockPolicy=async selected=>(await db.query('select public.totus_tpv_stock_policy($1::jsonb) result',[JSON.stringify(selected)])).rows[0].result;
+ await denied(()=>serverStockPolicy(qaScope),/permission denied/);await db.exec('reset role;set role service_role');check(await serverStockPolicy(qaScope),{allowOutOfStock:false});
+ await denied(()=>serverStockPolicy({...qaScope,actorId:id(9)}),/FORBIDDEN|INVALID/);await db.exec('reset role;set role authenticated');
+ await prefs(qaScope,{stockPolicy:{allowOutOfStock:true}});await db.exec('reset role;set role service_role');check(await serverStockPolicy(qaScope),{allowOutOfStock:true});
+ await denied(()=>serverStockPolicy({...qaScope,drawerId:id(999)}),/FORBIDDEN|INVALID/);await db.exec('reset role;set role authenticated');await prefs(qaScope,{stockPolicy:{allowOutOfStock:false}});
+ await asAdmin(`update private.totus_tpv_assignments set can_reconcile=false where connection_id='${qaConnection}' and actor_id='${id(5)}'`);check(await serverStockPolicy(qaScope),{allowOutOfStock:false});
+ await db.exec('reset role;set role authenticated');await denied(()=>prefs(),/WORKSPACE_PREFERENCES_FORBIDDEN/);
+ await asAdmin(`update private.totus_tpv_assignments set can_reconcile=true where connection_id='${qaConnection}' and actor_id='${id(5)}'`);await db.exec('reset role;set role authenticated');
  check((await prefs()).search,{fields:['reference','ean13','upc','name'],numericKeyboard:false});
  check((await prefs(qaScope,{search:{fields:['isbn'],numericKeyboard:true}})).search,{fields:['isbn'],numericKeyboard:true});
  check((await prefs(qaScope,{search:{numericKeyboard:false}})).search.fields,['isbn']);
@@ -488,6 +502,9 @@ try {
  access=await accessRow();await db.exec('reset role');await db.query('update private.totus_tpv_assignments set can_sell=true where connection_id=$1 and actor_id=$2',[qaConnection,id(5)]);await db.exec('set role service_role');
  await denied(()=>accessChange(id(503),accessData(observer)),/ACCESS_CHANGED/);access=await accessRow();
  await accessChange(id(504),accessData(observer));access=await accessRow();
+ await db.exec('reset role;set role authenticated');await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
+ check((await prefs()).stockPolicy,{allowOutOfStock:false});await denied(()=>prefs(qaScope,{stockPolicy:{allowOutOfStock:true}}),/STOCK_POLICY_FORBIDDEN/);
+ check((await prefs(qaScope,{viewMode:'table'})).stockPolicy,{allowOutOfStock:false});await db.exec('reset role;set role service_role');
  check((await cash('summary',id(505),{},qaScope)).status,'open');
  check((await lookup({...qaScope,sessionId:undefined},911))[0].orderId,911);
  await denied(()=>lookup({...qaScope,sessionId:undefined,storeId:id(22)},911),/ASSIGNMENT_OR_CONNECTION_INVALID/);
@@ -495,6 +512,7 @@ try {
  check((await db.query('select public.totus_tpv_check($1::jsonb,$2) result',[JSON.stringify(historicalScope),'sell'])).rows[0].result,true);
 
  await denied(()=>journal('prepare',id(506),{expected:expected(1999),quoteExpiresAt:Date.now()+60000},qaScope),/ACTION_FORBIDDEN/);
+ await denied(()=>serverStockPolicy(qaScope),/ACTION_FORBIDDEN/);
  await denied(()=>cash('movement',id(507),{kind:'cash-in',amountCents:100,reason:'Solo consulta'},qaScope),/ACTION_FORBIDDEN/);
  await denied(()=>cash('close',id(508),{countedCents:0,note:'Solo consulta'},qaScope),/ACTION_FORBIDDEN/);
  await accessChange(id(509),accessData(cashManager));access=await accessRow();
