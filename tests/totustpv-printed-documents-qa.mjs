@@ -4,6 +4,7 @@ import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
 import {prepareTpvPrintHtml,receiptHtml,TOTUS_PRINTER_PROFILE} from '../src/totustpv/documents.js';
 import {cashReportHtml} from '../src/totustpv/cash-reports.js';
+import {budgetDocumentHtml} from '../src/totustpv/budget-document.js';
 import {receiptLogoUrl,receiptWebsiteUrl} from '../src/totustpv/receipt-options.js';
 const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',ticket_number:{kind:'sale',number:46631,prefix:'V-',label:'V-46631'},created_at:'2026-11-16 12:00:00',
  merchant:{name:'Totus · laboratorio',address:'Calle de prueba',city:'Madrid'},lines:[{name:'Café ñandú <img src=x onerror=alert(1)>',reference:'REFERENCIA-LARGA-DE-PRUEBA-1234567890',quantity:1,line_cents:801}],
@@ -13,6 +14,7 @@ const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'0000000
  openingCents:10000,expectedCashCents:9900,countedCents:9900,differenceCents:0,orderCount:1,refundCount:1,payments:{bizum:801},refunds:{bizum:801},
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
+const budget={reference:'P-000001',title:'Oferta comercial',storeName:'Tienda de prueba',status:'saved',createdAt:'2026-11-17T10:00:00Z',validUntil:'2026-12-17T10:00:00Z',publicNote:'Recogida en tienda',payload:{note:'PRIVATE NOTE NOT FOR PRINT'},snapshot:{currency:'EUR',totalCents:801,totalTaxExclCents:662,customer:null,merchant:{name:'Comercio ficticio',address:'Calle ficticia 1'},lines:[{name:'Artículo de presupuesto con nombre suficientemente largo para comprobar el ajuste de línea',qty:1,unitTaxInclMicros:8012100,lineTaxInclCents:801}]}};
 const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,line_discounts_complete:true,line_discount_cents:399,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,original_unit_tax_incl_micros:10000000,original_line_cents:2000,line_discount_cents:399,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOriginalPrice:true,showLineDiscount:true,showOperator:true,showWebsite:true,fontFamily:'monospace',fontSize:16};
 for(const url of ['javascript:alert(1)','https://tienda.invalid/path','https://tienda.invalid/?key=private','https://user:password@tienda.invalid'])assert.equal(receiptWebsiteUrl(url),null);
 assert.doesNotMatch(receiptHtml(itemPrices),/Te atendió|tienda\.ejemplo\.invalid/,'Merchant website and operator are opt-in');
@@ -31,7 +33,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
- for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],['receipt-item-prices',receiptHtml(itemPrices,priceOptions)],
+ for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],['budget',budgetDocumentHtml(budget)],['receipt-item-prices',receiptHtml(itemPrices,priceOptions)],
   ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false,showOrderReference:false,numberLines:true})],
   ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})],
   ['receipt-customer',receiptHtml({...document,customer},customerOptions)],['gift-customer',receiptHtml({...document,customer,kind:'gift'},customerOptions)]]){
@@ -46,6 +48,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
    assert.doesNotMatch(await page.locator('body').innerText(),/QA-42/);assert.match(await page.locator('body').innerText(),/Pedido #42/);
    assert.match(await page.locator('tbody tr').first().innerText(),/^1\. Café/);
    assert.match(await page.locator('body').innerText(),/Gracias por tu compra/);assert.equal(await page.locator('.tpv-document').evaluate(el=>getComputedStyle(el).fontSize),'16px');}
+  else if(kind==='budget'){assert.match(await page.locator('body').innerText(),/P-000001/);assert.doesNotMatch(await page.locator('body').innerText(),/PRIVATE NOTE/);}
   else assert.match(await page.locator('body').innerText(),/Bizum/);
   if(kind==='receipt-customer')assert.match(await page.locator('.tpv-receipt-customer').innerText(),/Cliente ficticio[\s\S]*Empresa ficticia[\s\S]*600000000[\s\S]*cliente-laboratorio[\s\S]*Aviso <img[\s\S]*Destinatario ficticio/);
   if(kind==='gift-customer')assert.doesNotMatch(await page.locator('body').innerText(),/Cliente ficticio|cliente-laboratorio|600000000/);

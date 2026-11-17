@@ -510,6 +510,13 @@
         "tests/totustpv-receipt-series-qa.mjs",
         "tests/totustpv-receipt-series-browser-qa.mjs",
         "src/totustpv/server/commercial-quote-contract.js",
+        "src/totustpv/budget-contract.js",
+        "src/totustpv/budget-document.js",
+        "tests/totustpv-budget-",
+        "src/totustpv/server/commercial-budget-service.js",
+        "supabase/migrations/20261117191716_totustpv_commercial_budgets.sql",
+        "tests/totustpv-budget-contract-qa.mjs",
+        "tests/native-lab/budget-ledger-assertions.mjs",
         "tests/totustpv-commercial-quote-qa.mjs",
         "tests/native-lab/commercial-"
       ],
@@ -575,7 +582,11 @@
         "tests/totustpv-line-name-browser-qa.mjs",
         "tests/totustpv-receipt-series-qa.mjs",
         "tests/totustpv-receipt-series-browser-qa.mjs",
-        "tests/totustpv-commercial-quote-qa.mjs"
+        "tests/totustpv-commercial-quote-qa.mjs",
+        "tests/totustpv-budget-contract-qa.mjs",
+        "tests/totustpv-budget-adapter-qa.mjs",
+        "tests/totustpv-budget-document-qa.mjs",
+        "tests/totustpv-budget-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

@@ -109,7 +109,8 @@ final class NativeOwnedCarts
                     is_int($line['attribute_id']??null) && $line['attribute_id']>=0 &&
                     is_int($line['quantity']??null) && $line['quantity']>0 && $line['quantity']<=10000,'CART_LINE_INVALID');
                 $key=$line['product_id'].':'.$line['attribute_id'];Protocol::ensure(!isset($seen[$key]),'CART_LINE_DUPLICATE');$seen[$key]=true;
-                if($line['attribute_id']>0){$variant=new \Combination($line['attribute_id']);Protocol::ensure(\Validate::isLoadedObject($variant)&&(int)$variant->id_product===$line['product_id'],'CART_VARIANT_MISMATCH');}
+                if($commercial){$commercialProduct=new \Product($line['product_id'],false,(int)$context->language->id,$command['shop_id']);Protocol::ensure(\Validate::isLoadedObject($commercialProduct)&&$commercialProduct->isAssociatedToShop($command['shop_id']),'CART_PRODUCT_SHOP_REQUIRED');}
+                if($line['attribute_id']>0){$variant=new \Combination($line['attribute_id']);Protocol::ensure(\Validate::isLoadedObject($variant)&&(int)$variant->id_product===$line['product_id']&&(!$commercial||$variant->isAssociatedToShop($command['shop_id'])),'CART_VARIANT_MISMATCH');}
                 else{$product=new \Product($line['product_id'],false,(int)$context->language->id,$command['shop_id']);
                     Protocol::ensure(\Validate::isLoadedObject($product)&&!$product->hasAttributes(),'CART_VARIANT_REQUIRED');}
                 Protocol::ensure($cart->updateQty($line['quantity'],$line['product_id'],$line['attribute_id'],false,'up',(int)$delivery->id,$context->shop,true,$commercial||($p['allow_out_of_stock']??false)===true)>0,'CART_NATIVE_LINE_FAILED');

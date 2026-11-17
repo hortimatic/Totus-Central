@@ -12,6 +12,8 @@ import {createStockReceiptService} from '../../../src/totustpv/server/stock-rece
 import {createOfficialProductWriter} from '../../../src/totustpv/server/official-products.js';
 import {createProductIntakeService} from '../../../src/totustpv/server/product-intake-service.js';
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
+import {createCommercialBudgetService} from '../../../src/totustpv/server/commercial-budget-service.js';
+import {budgetDraft} from '../../../src/totustpv/budget-contract.js';
 import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
 import {lineName} from '../../../src/totustpv/line-name.js';
@@ -77,7 +79,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
-     'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+     'budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
@@ -87,6 +89,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
     'customer-write':['action','selection','operationId','resource','operation','recordId','fields'],
+    budgets:['action','selection','operationId','query'],'budget-get':['action','selection','operationId'],
+    'budget-create':['action','selection','operationId','payload'],
+    'budget-open':['action','selection','operationId','version'],'budget-cancel':['action','selection','operationId','version'],
     drafts:['action','selection','operationId'],'get-draft':['action','selection','operationId','draftId'],
     park:['action','selection','operationId','draftId','version','label','payload'],
     'claim-draft':['action','selection','operationId','draftId','version'],'release-draft':['action','selection','operationId','draftId','version'],
@@ -110,6 +115,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'submit-refund':['action','selection','operationId','confirmation'],'recover-refund':['action','selection','operationId'],
     'cancel-refund':['action','selection','operationId']};
    need(Object.keys(input).every(key=>permitted[input.action].includes(key)),'TPV_REQUEST_FIELD_FORBIDDEN');
+   if(input.action==='budget-create')input.payload=budgetDraft(input.payload);
    if(['workstations','update-workstation-access'].includes(input.action)){
     const connectionId=input.action==='workstations'?input.connectionId:input.selection?.connectionId;
     need(connectionId===TOTUS_QA_POLICY.connectionId&&positive(input.revision),'TPV_CONFIGURATION_INVALID');
@@ -179,7 +185,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
-    const readWithoutCash=['cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
+    const readWithoutCash=['budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
      'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
@@ -199,6 +205,10 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    async function authorize({action}){const fresh=await selected();
     need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
     check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
+   if(['budgets','budget-get','budget-open','budget-cancel'].includes(input.action)){
+    await authorize({action:input.action==='budget-open'?'sell':'read'});const budgets=createCommercialBudgetService({rpc,scope});
+    return respond(input.action==='budgets'?await budgets.list(input.query):input.action==='budget-open'?await budgets.open(input.operationId,input.version):input.action==='budget-cancel'?await budgets.cancel(input.operationId,input.version):await budgets.get(input.operationId));
+   }
    if(input.action==='history')return respond(check(await rpc('totus_tpv_history',{p_scope:scope,p_before:input.before??null})));
    const orderRows=async orderId=>{
     const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:orderId??null,p_sale_id:null}));
@@ -236,7 +246,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   if(input.action!=='categories')await authorize({action:['orders','catalogue','customers','customer-metadata','document',
+   if(input.action!=='categories')await authorize({action:['budget-create','orders','catalogue','customers','customer-metadata','document',
     'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action)?'read':
     ['resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
@@ -275,9 +285,21 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     nativeExtension:{verified:true,installationId:row.nativeProfile.installation_id,connectionId:scope.connectionId,
      connectionRevision:scope.connectionRevision,shopId:scope.shopId,protocol:1},
     allowNativeQuote:async()=>{await authorize({action:'sell'});return true;},
-    allowNativeCommand:async({command,operationId})=>{await authorize({action:'sell'});
+    allowNativeCommand:async({command,operationId})=>{
+     if(input.action==='budget-create'){
+      need(['cart.prepare','cart.quote'].includes(command),'TPV_NATIVE_COMMAND_DISABLED');
+      await authorize({action:'read'});check(await rpc('totus_tpv_commercial_options',{p_scope:scope}));return true;
+     }
+     await authorize({action:'sell'});
      if(command==='return.commit')check(await rpc('totus_tpv_refund_journal',{p_action:'get',p_id:operationId,p_scope:scope,p_data:{}}));
      return true;}});
+   if(input.action==='budget-create'){
+    const budgets=createCommercialBudgetService({rpc,scope,transport,nativeProfile:row.nativeProfile,authorizeCustomer:async()=>{
+     const directory=check(await scoped.rpc('totus_directory_context',{p_kind:'clientes',p_action:'view'}));
+     need(directory.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_CUSTOMER_CONTEXT_INVALID');
+    }});
+    return respond(await budgets.create(input.operationId,input.payload));
+   }
    if(input.action==='categories')return respond(await transport.readNativeCategories());
    if(input.action==='orders'){
     const reference=input.reference.toUpperCase(),response=await transport.read('orders',{

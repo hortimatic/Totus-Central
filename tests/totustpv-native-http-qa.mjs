@@ -60,7 +60,9 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--commercial-quote-only')){
+ if(process.argv.includes('--budget-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'budgets',inspectCommercialCart:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--commercial-quote-only')){
   await exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
  }else if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));

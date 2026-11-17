@@ -6,6 +6,7 @@ import {createCheckoutService} from '../src/totustpv/checkout-service.js';
 import {createNativeRequestService} from '../src/totustpv/server/native-request-service.js';
 import {createStockReceiptService} from '../src/totustpv/server/stock-receipt-service.js';
 import {productIntakeDraft,productIntakeBase,productIntakePlan} from '../src/totustpv/product-intake-contract.js';
+import {exerciseBudgetLedger} from './native-lab/budget-ledger-assertions.mjs';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope={actorId:id(5),connectionId:id(1),connectionRevision:1,storeId:id(2),shopId:1,
@@ -83,6 +84,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117170825_totustpv_temporary_line_names.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117191716_totustpv_commercial_budgets.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -422,6 +424,7 @@ try {
  await db.exec('reset role;set role authenticated;savepoint counter_decrease');await denied(()=>series({lastSaleNumber:40}),/COUNTER_DECREASE_FORBIDDEN/);await db.exec('rollback to counter_decrease');
  await db.exec('rollback');
  for(const lineOptions of [null,[],true,{allowPriceChanges:'true'},{allowPriceChanges:null},{allowPriceChanges:1},{price:true},{allowPriceChanges:true,actorId:id(9)}])await denied(()=>prefs(qaScope,{lineOptions}),/INVALID/);
+ await exerciseBudgetLedger({db,scope:qaScope,id,check,denied});
  check((await prefs(qaScope,{lineOptions:{allowPriceChanges:true}})).lineOptions,{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
  check((await prefs(qaScope,{viewMode:'table'})).lineOptions,{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
  const serverLineOptions=async selected=>(await db.query('select public.totus_tpv_line_options($1::jsonb) result',[JSON.stringify(selected)])).rows[0].result;

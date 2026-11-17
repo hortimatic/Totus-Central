@@ -12,7 +12,9 @@ function ordered(value){if(Array.isArray(value))return value.map(ordered);
  if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])]));
  need(value===null||['string','boolean'].includes(typeof value)||Number.isSafeInteger(value),'TPV_NATIVE_QUOTE_VALUE_INVALID');return value;}
 export async function nativeQuoteFingerprint(quote){
- const bytes=new TextEncoder().encode(JSON.stringify(ordered(quote)));
+ // PHP JSON_UNESCAPED_UNICODE still escapes these two line separators.
+ const serialized=JSON.stringify(ordered(quote)).replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+ const bytes=new TextEncoder().encode(serialized);
  const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 export async function expectedFromNativeQuote({scope,ownedCart,profile,response,stockRecords,now=Date.now()}) {

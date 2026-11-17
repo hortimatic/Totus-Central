@@ -11,14 +11,14 @@ final class Currency extends Entity {public int $precision=2;public string $iso_
 final class Language extends Entity {}
 final class Shop extends Entity {}
 final class Country extends Entity {}
-final class Configuration {public static function get($key){return ['PS_TAX_ADDRESS_TYPE'=>'id_address_invoice','PS_PRICE_ROUND_MODE'=>2,'PS_ROUND_TYPE'=>2][$key]??null;}}
+final class Configuration {public static function get($key){return ['PS_TAX_ADDRESS_TYPE'=>'id_address_invoice','PS_PRICE_ROUND_MODE'=>2,'PS_ROUND_TYPE'=>2,'PS_SHOP_NAME'=>"Comercio\n de prueba"][$key]??null;}}
 final class Tools {public static function ps_round($value,$precision,$mode){return round($value,$precision);}}
 final class StockAvailable {public static int $policy=0;public static array $calls=[];public static function outOfStock($product,$shop){self::$calls[]=[$product,$shop];return self::$policy;}}
 final class Product {public static function isAvailableWhenOutOfStock($policy){return $policy===1?1:0;}}
 final class Cart {
  public const BOTH=3,ONLY_PRODUCTS=1,ONLY_SHIPPING=5,ONLY_DISCOUNTS=2;
  public int $id=701,$id_shop=1,$id_customer=501,$id_address_invoice=601,$id_address_delivery=602,$id_currency=1,$id_lang=1,$id_carrier=5;
- public bool $ordered=false,$fail=false,$rulesApplied=false,$gift=false,$recyclable=false,$allow_seperated_package=false;
+ public bool $ordered=false,$fail=false,$rulesApplied=false,$gift=false,$recyclable=false,$allow_seperated_package=false,$zero=false;
  public function orderExists(){return $this->ordered;}
  public function getProducts($refresh){
   if(!$this->rulesApplied)throw new Exception('Automatic rules must run before reading lines');
@@ -26,7 +26,7 @@ final class Cart {
   return [['id_product'=>101,'id_product_attribute'=>7,'cart_quantity'=>1,'price_wt'=>'8.01','allow_out_of_stock'=>true,
    'price'=>'99.00','price_with_reduction_without_tax'=>'6.619835','total_wt'=>'8.01','total'=>'6.619835']];
  }
- public function getOrderTotal($tax,$type){$this->rulesApplied=true;return match($type){self::BOTH,self::ONLY_PRODUCTS=>$tax?'8.01':'6.619835',self::ONLY_SHIPPING,self::ONLY_DISCOUNTS=>'0.00'};}
+ public function getOrderTotal($tax,$type){$this->rulesApplied=true;if($this->zero)return '0.00';return match($type){self::BOTH,self::ONLY_PRODUCTS=>$tax?'8.01':'6.619835',self::ONLY_SHIPPING,self::ONLY_DISCOUNTS=>'0.00'};}
 }
 final class ContextFixture {
  public array $set=[];public int $restored=0;
@@ -55,4 +55,9 @@ $denied=new NativeCartQuote(fn()=> null,$context,fn()=> $cart);rejects(fn()=> $d
 check($handler->reconcile($command,[])===null);
 $allowedHandler=new NativeCartQuote(fn()=> [...$owner,'allow_out_of_stock'=>true],$context,fn()=> $cart);$allowed=$allowedHandler->execute($command);check($allowed['quote']['lines'][0]['allow_out_of_stock']===true);check($allowed['quote_fingerprint']!==$result['quote_fingerprint']);
 $commercialHandler=new NativeCartQuote(fn()=> [...$owner,'commercial_only'=>true],$context,fn()=> $cart);$commercial=$commercialHandler->execute($command);check($commercial['quote']['commercial_only']===true);check($commercial['quote']['lines'][0]['allow_out_of_stock']===true);check($commercial['quote_fingerprint']!==$result['quote_fingerprint']);check(StockAvailable::$calls===[]);
+rejects(fn()=> $handler->execute([...$command,'payload'=>['cart_id'=>701,'commercial_only'=>true]]),'COMMERCIAL_MODE_REQUIRED');
+rejects(fn()=> $handler->execute([...$command,'payload'=>['cart_id'=>701,'commercial_only'=>'true']]),'QUOTE_INVALID');
+check($commercialHandler->execute([...$command,'payload'=>['cart_id'=>701,'commercial_only'=>true]])['quote']['commercial_only']===true);
+$cart->zero=true;check($commercialHandler->execute($command)['quote']['total_cents']===0);rejects(fn()=> $handler->execute($command),'CART_TOTAL_INVALID');$cart->zero=false;
+check($commercial['quote']['document_parties']['merchant']['name']==='Comercio  de prueba');check(!isset($result['quote']['document_parties']));
 echo "PASS native quote boundary: {$checks} assertions using fixture native classes. Not a native order or installed endpoint.\n";

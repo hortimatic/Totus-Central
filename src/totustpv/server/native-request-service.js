@@ -21,9 +21,11 @@ export function createNativeRequestService({rpc,transport,scope}){
   }
   need(positive(result.native_reference),'TPV_NATIVE_READBACK_REQUIRED');
   if(record.command==='cart.prepare')need(positive(result.cart_id)&&result.native_reference===result.cart_id&&
-   result.session_id===record.payload.session_id&&result.drawer_id===record.payload.drawer_id,'TPV_NATIVE_PREPARED_CART_MISMATCH');
+   result.session_id===record.payload.session_id&&result.drawer_id===record.payload.drawer_id&&
+   (record.payload.commercial_only??false)===(result.commercial_only??false),'TPV_NATIVE_PREPARED_CART_MISMATCH');
   else if(record.command==='cart.quote')need(result.native_reference===record.payload.cart_id&&
-   result.quote?.cart_id===record.payload.cart_id&&result.quote?.shop_id===scope.shopId,'TPV_NATIVE_QUOTE_RESPONSE_INVALID');
+   result.quote?.cart_id===record.payload.cart_id&&result.quote?.shop_id===scope.shopId&&
+   (record.payload.commercial_only??false)===(result.quote?.commercial_only??false),'TPV_NATIVE_QUOTE_RESPONSE_INVALID');
   else if(record.command==='stock.receive')need(result.product_id===record.payload.product_id&&
    result.attribute_id===record.payload.attribute_id&&result.quantity===record.payload.quantity&&result.shop_id===scope.shopId&&
    result.stock_movement_id===result.native_reference,'TPV_NATIVE_STOCK_RESPONSE_INVALID');
@@ -56,9 +58,9 @@ export function createNativeRequestService({rpc,transport,scope}){
 /** Stable sub-operation identities survive a server restart between cart,
  * quote and prepared-sale persistence. They are not authentication tokens.
  */
-export async function nativeStepId(operationId,step){
- need(typeof operationId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(operationId)&&['cart','quote'].includes(step),'TPV_NATIVE_OPERATION_INVALID');
- const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('TotusTPV:1:'+operationId+':'+step))).slice(0,16);
+export async function nativeStepId(operationId,step,purpose='sale'){
+ need(typeof operationId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(operationId)&&['cart','quote'].includes(step)&&['sale','budget'].includes(purpose),'TPV_NATIVE_OPERATION_INVALID');
+ const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode((purpose==='sale'?'TotusTPV:1:':'TotusTPV:budget:1:')+operationId+':'+step))).slice(0,16);
  bytes[6]=(bytes[6]&15)|128;bytes[8]=(bytes[8]&63)|128;
  const hex=[...bytes].map(byte=>byte.toString(16).padStart(2,'0')).join('');
  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;

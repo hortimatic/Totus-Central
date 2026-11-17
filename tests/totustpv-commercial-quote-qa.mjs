@@ -19,3 +19,11 @@ test('zero-price commercial quotes are valid without constructing a zero-value p
  const q={...quote,total_cents:0,total_tax_incl:'0.000000',total_tax_excl:'0.000000',products_tax_incl:'0.000000',products_tax_excl:'0.000000',lines:[{...quote.lines[0],unit_tax_incl:'0.000000',unit_tax_excl:'0.000000',line_tax_incl:'0.000000',line_tax_excl:'0.000000'}]};
  const result=await run({},q);assert.equal(result.snapshot.totalCents,0);assert.equal(result.expected,undefined);
 });
+test('commercial contacts are bounded native snapshots and counter details stay off the customer document',async()=>{
+ const customer=Object.fromEntries(['name','email','taxId','company','address','address2','postcode','city','phone','country'].map(key=>[key,key==='name'?'Cliente de prueba':'']));
+ const merchant=Object.fromEntries(['name','address','address2','postcode','city','phone','email','registration'].map(key=>[key,key==='name'?'Comercio de prueba':'']));
+ const q={...quote,document_parties:{merchant,customer,delivery:customer}};
+ const saved=await run({},q);assert.deepEqual(saved.snapshot.customer,customer);assert.deepEqual(saved.snapshot.merchant,merchant);merchant.name='Changed after parsing';assert.equal(saved.snapshot.merchant.name,'Comercio de prueba');
+ const counter=await run({ownedCart:{...ownedCart,counterCustomerId:ownedCart.customerId}},q);assert.equal(counter.snapshot.customer,null);assert.equal(counter.snapshot.delivery,null);
+ for(const document_parties of [null,[],{merchant}, {...q.document_parties,merchant:{...merchant,secret:'unexpected'}}])await assert.rejects(run({}, {...q,document_parties}),/TPV_BUDGET_DOCUMENT_INVALID/);
+});

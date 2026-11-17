@@ -10,6 +10,8 @@ final class NativeCartQuote
 {
     public static function supportsLineNames(): bool{return true;}
     public static function supportsCommercialQuotes(): bool{return true;}
+    public static function supportsCommercialScope(): bool{return true;}
+    public static function supportsCommercialDocument(): bool{return true;}
     private $ownerLookup;
     private $contextManager;
     private $cartLoader;
@@ -27,14 +29,16 @@ final class NativeCartQuote
     public function execute(array $command): array
     {
         $payload=$command['payload'] ?? [];
-        Protocol::ensure(($command['command'] ?? null)==='cart.quote' && array_keys($payload)===['cart_id'] &&
-            is_int($payload['cart_id']) && $payload['cart_id']>0,'CART_QUOTE_INVALID');
+        Protocol::ensure(($command['command'] ?? null)==='cart.quote' && array_diff(array_keys($payload),['cart_id','commercial_only'])===[] && count($payload)>=1&&count($payload)<=2&&
+            (!array_key_exists('commercial_only',$payload)||is_bool($payload['commercial_only']))&&
+            is_int($payload['cart_id']??null) && $payload['cart_id']>0,'CART_QUOTE_INVALID');
         $cartId=$payload['cart_id'];
         $owner=($this->ownerLookup)($cartId,$command);
         Protocol::ensure(is_array($owner) && ($owner['verified'] ?? false)===true &&
             ($owner['cart_id'] ?? null)===$cartId && ($owner['shop_id'] ?? null)===$command['shop_id'] &&
             ($owner['installation_id'] ?? null)===$command['installation_id'] &&
             ($owner['api_account_id'] ?? null)===$command['api_account_id'],'CART_OWNERSHIP_REQUIRED');
+        Protocol::ensure(($payload['commercial_only']??false)!==true||($owner['commercial_only']??false)===true,'CART_COMMERCIAL_MODE_REQUIRED');
         $cart=($this->cartLoader)($cartId);
         Protocol::ensure($cart instanceof \Cart && (int)$cart->id===$cartId &&
             (int)$cart->id_shop===$command['shop_id'] && (int)$cart->id_customer>0 &&
@@ -109,13 +113,18 @@ final class NativeCartQuote
                 'round_mode'=>(int)\Configuration::get('PS_PRICE_ROUND_MODE'),
                 'round_type'=>(int)\Configuration::get('PS_ROUND_TYPE'),
             ];
-            if(($owner['commercial_only']??false)===true)$quote['commercial_only']=true;
+            if(($owner['commercial_only']??false)===true){
+                $quote['commercial_only']=true;$merchant=[];
+                foreach(['name'=>'PS_SHOP_NAME','address'=>'PS_SHOP_ADDR1','address2'=>'PS_SHOP_ADDR2','postcode'=>'PS_SHOP_CODE','city'=>'PS_SHOP_CITY','phone'=>'PS_SHOP_PHONE','email'=>'PS_SHOP_EMAIL','registration'=>'PS_SHOP_REGISTRATION_NUMBER'] as $field=>$setting)
+                    $merchant[$field]=self::documentText(\Configuration::get($setting,null,null,(int)$cart->id_shop));
+                $quote['document_parties']=['merchant'=>$merchant,'customer'=>self::documentCustomer($customer,$invoice),'delivery'=>self::documentCustomer($customer,$delivery)];
+            }
             if(isset($owner['sale_note']))$quote['sale_note_hash']=hash('sha256',NativeSaleNote::normalize($owner['sale_note']));
             $payable=\Tools::ps_round((float)$totalIncl,2,$quote['round_mode']);
             $decimal=number_format($payable,2,'.','');
             Protocol::ensure(preg_match('/^(0|[1-9][0-9]{0,8})\.[0-9]{2}$/D',$decimal)===1,'CART_TOTAL_INVALID');
             $quote['total_cents']=(int)str_replace('.','',$decimal);
-            Protocol::ensure($quote['total_cents']>0,'CART_TOTAL_INVALID');
+            Protocol::ensure($quote['total_cents']>0||($owner['commercial_only']??false)===true,'CART_TOTAL_INVALID');
             return ['verified'=>true,'native_reference'=>$cartId,'quoted_at'=>(int)floor(microtime(true)*1000),'quote'=>$quote,
                 'quote_fingerprint'=>hash('sha256',Protocol::canonical($quote))];
         } finally {
@@ -135,5 +144,19 @@ final class NativeCartQuote
         Protocol::ensure((is_string($value)||is_int($value)||is_float($value)) && is_numeric($value) &&
             is_finite((float)$value) && (float)$value>=0 && (float)$value<=1000000000,'NATIVE_AMOUNT_INVALID');
         return number_format((float)$value,6,'.','');
+    }
+    private static function documentText($value): string
+    {
+        $text=preg_replace('/[\r\n\t]+/',' ',trim((string)$value));
+        Protocol::ensure(preg_match('//u',$text)===1&&preg_match_all('/./us',$text)<=512&&!preg_match('/[\x00-\x1f\x7f]/u',$text),'COMMERCIAL_DOCUMENT_TEXT_INVALID');
+        return $text;
+    }
+    private static function documentCustomer($customer,$address): array
+    {
+        $result=['name'=>self::documentText(trim(($address->firstname??$customer->firstname??'').' '.($address->lastname??$customer->lastname??''))),
+            'email'=>self::documentText($customer->email??''),'taxId'=>self::documentText(($address->vat_number??'')?:($address->dni??''))];
+        foreach(['company'=>'company','address'=>'address1','address2'=>'address2','postcode'=>'postcode','city'=>'city'] as $field=>$property)$result[$field]=self::documentText($address->$property??'');
+        $result['phone']=self::documentText(($address->phone??'')?:($address->phone_mobile??''));
+        $country=new \Country((int)$address->id_country);$result['country']=self::documentText($country->iso_code??'');return $result;
     }
 }

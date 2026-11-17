@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import {nativeCents} from '../../src/totustpv/server/native-adapter.js';
 import {commercialFromNativeQuote} from '../../src/totustpv/server/commercial-quote-contract.js';
 export async function exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect}){
- const capabilities=await api('totus_tpv_catalogue?product_id='+fixture.productId+'&product_capabilities_only=1');assert.equal(capabilities.result.commercial_quotes,true);
+ const capabilities=await api('totus_tpv_catalogue?product_id='+fixture.productId+'&product_capabilities_only=1');assert.equal(capabilities.result.commercial_quotes,true);assert.equal(capabilities.result.commercial_scope,true);
  const before=inspect(fixture.productId,0);assert.ok(before.stock>0&&before.stock<10000);
  for(const qty of [1,10000]){
   const cartCommand=command('cart.prepare',{session_id:session,drawer_id:drawer,customer_id:customerId,invoice_address_id:addressId,delivery_address_id:addressId,commercial_only:true,lines:[{product_id:fixture.productId,attribute_id:0,quantity:qty}]});
   const prepared=await api('totus_tpv_carts',{method:'POST',body:cartCommand});assert.equal(prepared.result.verified,true,JSON.stringify(prepared.result));assert.equal(prepared.result.commercial_only,true);
   assert.deepEqual((await api('totus_tpv_carts',{method:'POST',body:cartCommand})).result,prepared.result);
   const recovered=await api('totus_tpv_operations?operation_id='+cartCommand.operation_id,{actor:cartCommand.actor_id});assert.equal(recovered.result.status,'verified');assert.equal(recovered.result.result.commercial_only,true);
-  const quotedCommand=command('cart.quote',{cart_id:prepared.result.cart_id}),quoted=await api('totus_tpv_quotes',{method:'POST',body:quotedCommand});assert.equal(quoted.result.verified,true,JSON.stringify(quoted.result));
+  const quotedCommand=command('cart.quote',{cart_id:prepared.result.cart_id,commercial_only:true}),quoted=await api('totus_tpv_quotes',{method:'POST',body:quotedCommand});assert.equal(quoted.result.verified,true,JSON.stringify(quoted.result));
   assert.equal(quoted.result.quote.commercial_only,true);assert.equal(quoted.result.quote.lines[0].quantity,qty);assert.ok(quoted.result.quote.lines[0].catalogue_name.length>0);
   const total=nativeCents(quoted.result.quote.total_tax_incl);assert.ok(total>0);
   const q=quoted.result.quote,scope={actorId:cartCommand.actor_id,connectionId:'local-connection',connectionRevision:1,storeId:'local-store',shopId:1,drawerId:drawer,sessionId:session,currency:q.currency,environment:'qa'};

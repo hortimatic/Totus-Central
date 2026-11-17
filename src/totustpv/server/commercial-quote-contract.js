@@ -29,7 +29,14 @@ export async function commercialFromNativeQuote({scope,ownedCart,profile,respons
  });
  const totalCents=nativeCents(q.total_tax_incl),totalTaxExclCents=nativeCents(q.total_tax_excl),productsTaxInclCents=nativeCents(q.products_tax_incl),productsTaxExclCents=nativeCents(q.products_tax_excl),shippingCents=nativeCents(q.shipping_tax_incl),discountCents=nativeCents(q.discounts_tax_incl);
  need(totalCents===q.total_cents&&totalTaxExclCents<=totalCents&&productsTaxExclCents<=productsTaxInclCents&&lines.reduce((sum,line)=>sum+line.lineTaxInclCents,0)===productsTaxInclCents&&productsTaxInclCents+shippingCents-discountCents===totalCents,'TPV_NATIVE_QUOTE_TOTAL_INVALID');
+ let document={};if(q.document_parties!==undefined){
+  need(q.document_parties&&typeof q.document_parties==='object'&&!Array.isArray(q.document_parties)&&Object.keys(q.document_parties).length===3&&['merchant','customer','delivery'].every(key=>Object.hasOwn(q.document_parties,key)),'TPV_BUDGET_DOCUMENT_INVALID');
+  const fields=(value,keys)=>{need(value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(key=>typeof value[key]==='string'&&Array.from(value[key]).length<=512&&!/[\u0000-\u001f\u007f\uD800-\uDFFF]/u.test(value[key])),'TPV_BUDGET_DOCUMENT_INVALID');return Object.fromEntries(keys.map(key=>[key,value[key]]));};
+  const merchant=fields(q.document_parties.merchant,['name','address','address2','postcode','city','phone','email','registration']),keys=['name','email','taxId','company','address','address2','postcode','city','phone','country'];
+  const customer=fields(q.document_parties.customer,keys),delivery=fields(q.document_parties.delivery,keys);
+  document={merchant,customer:ownedCart.customerId===ownedCart.counterCustomerId?null:customer,delivery:ownedCart.customerId===ownedCart.counterCustomerId?null:delivery};
+ }
  return {commercial:true,snapshot:{currency:scope.currency,customerId:ownedCart.customerId,invoiceAddressId:ownedCart.invoiceAddressId,deliveryAddressId:ownedCart.deliveryAddressId,
-  totalCents,totalTaxExclCents,productsTaxInclCents,productsTaxExclCents,shippingCents,discountCents,lines,nativeRoundMode:q.round_mode,nativeRoundType:q.round_type,nativeQuoteFingerprint:response.quote_fingerprint,nativeCartId:ownedCart.cartId},
+  totalCents,totalTaxExclCents,productsTaxInclCents,productsTaxExclCents,shippingCents,discountCents,lines,...document,nativeRoundMode:q.round_mode,nativeRoundType:q.round_type,nativeQuoteFingerprint:response.quote_fingerprint,nativeCartId:ownedCart.cartId},
   calculatedAt:response.quoted_at,calculationExpiresAt:Math.min(now+profile.quoteLifetimeMs,response.quoted_at+profile.quoteLifetimeMs)};
 }

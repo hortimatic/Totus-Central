@@ -3,6 +3,7 @@
  * Request IDs survive response loss; financial commands are never auto-retried.
  */
 import {lineName} from './line-name.js';
+import {budgetDraft} from './budget-contract.js';
 import {saleNote} from './sale-note.js';
 import {parkingExpiry} from './parking-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
@@ -38,11 +39,12 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
  const scopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]);
- async function operation(kind,payload,requestedId=null){const data=saved(),scope=scopeKey(),
+ const budgetScopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId]);
+ async function operation(kind,payload,requestedId=null){const data=saved(),scope=kind==='budget'?budgetScopeKey():scopeKey(),
   fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(payload))))].map(n=>n.toString(16).padStart(2,'0')).join(''),prior=data[kind];
   if(prior?.scope===scope&&prior.fingerprint===fingerprint)return prior.id;
   if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft','stock-receipt'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
-  const id=requestedId||uuid();data[kind]={id,scope,fingerprint};storage.setItem(key,JSON.stringify(data));return id;}
+  const id=requestedId||uuid();data[kind]={id,scope,fingerprint,...(kind==='budget'?{payload:clone(payload)}:{})};storage.setItem(key,JSON.stringify(data));return id;}
  function forget(kind,id){const data=saved();if(data[kind]?.id===id){delete data[kind];storage.setItem(key,JSON.stringify(data));}}
  const selection=()=>{need(selected,'Selecciona un puesto de caja.');return {connectionId:selected.connectionId,shopId:selected.shopId,
   drawerId:selected.drawerId,...(session?{sessionId:session.id}:{})};};
@@ -68,6 +70,20 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  const summary=row=>({...row,salesCents:Object.values(row.payments||{}).reduce((n,v)=>n+v,0),cashCents:row.payments?.cash||0,
   refundCashCents:row.refunds?.cash||row.refundPayments?.cash||0,unresolved:(row.unresolvedSales||row.pendingSales||0)+(row.pendingRefunds||0),
   differenceCents:row.countedCents==null?null:row.countedCents-row.expectedCashCents});
+ async function restoreClaimedDraft(result){
+  if(['sold','archived'].includes(result.status)){activeDraft=null;throw new Error('Este ticket ya se ha vendido o archivado. Consulta su historial.');}
+  need(result.status==='claimed'&&result.mine,'Otro operador está utilizando este ticket.');activeDraft=result;
+  const p=activeDraft.payload;let displayCustomer=null;customer=null;
+  if(p.customerId&&p.customerId!==selected.nativeProfile?.counter_customer_id){
+   const data=await call('customers',{customerId:p.customerId}),client=data.items?.find(row=>row.id===p.customerId),address=data.addresses?.find(row=>row.id===p.invoiceAddressId);
+   need(client&&address,'Revisa el cliente y la dirección de este ticket antes de cobrar.');
+   customer={id:p.customerId,addressId:p.invoiceAddressId};displayCustomer={...customer,name:[client.firstname,client.lastname].join(' '),addressLabel:address.alias};
+  }
+  return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,note:saleNote(p.note),
+   lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:lineName(line.displayName)||line.label||'Producto #'+line.productId,originalName:line.originalLabel||line.label||'Producto #'+line.productId,...(lineName(line.displayName)?{customName:lineName(line.displayName)}:{}),
+    qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
+    ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};
+ }
  return Object.freeze({
   mode:'qa',
   async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
@@ -143,6 +159,23 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const result=['confirmed','cancelled'].includes(status.status)?status:await call('recover',{},operationId);
    if(['confirmed','cancelled'].includes(result.status)){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}return receipt(result,{totalCents:status.totalCents});},
   async drafts(){return call('drafts');},
+  async budgets(query={}){return call('budgets',{query});},
+  async getBudget(id){return call('budget-get',{},id);},
+  pendingBudget(){return saved().budget?.scope===budgetScopeKey();},
+  async recoverBudgetPreparation(){const pending=saved().budget;if(!pending||pending.scope!==budgetScopeKey())return null;
+   need(pending.payload,'No se conservan los datos de este presupuesto. Revisa su resultado antes de preparar otro.');
+   const result=await call('budget-create',{payload:budgetDraft(pending.payload)},pending.id);need(result.id===pending.id,'No se ha confirmado el presupuesto.');forget('budget',pending.id);return result;},
+  async saveBudget({lines,adjustment,coupon,note,title,publicNote,validDays}){
+   const payload=budgetDraft({...cartIntent(lines,adjustment,coupon,false,note),title,publicNote,validDays});
+   need(new TextEncoder().encode(JSON.stringify(payload)).byteLength<=60000,'El presupuesto contiene demasiado texto. Reduce los nombres o el número de artículos.');
+   const id=await operation('budget',payload),result=await call('budget-create',{payload},id);need(result.id===id&&result.status==='saved','No se ha confirmado el guardado del presupuesto.');forget('budget',id);return result;
+  },
+  async openBudget({id,version}){need(!activeDraft,'Aparca o descarta el ticket actual antes de abrir un presupuesto.');
+   const result=await call('budget-open',{version},id);need(result.budget?.id===id&&result.draft,'No se ha confirmado la conversión del presupuesto.');
+   if(result.draft.status==='checkout')return {budget:result.budget,checkoutId:result.draft.checkoutId};
+   return {...await restoreClaimedDraft({...result.draft,...parkingExpiry(result.draft)}),budget:result.budget};
+  },
+  async cancelBudget({id,version}){const result=await call('budget-cancel',{version},id);need(result.budget?.id===id&&result.budget.status==='cancelled','No se ha confirmado la anulación del presupuesto.');return result.budget;},
   async archiveDraft({draftId,version}){const values={draftId,version},id=await operation('archive-draft',values),result=await call('archive-draft',values,id);
    need(result.status==='archived','No se ha confirmado el archivo del ticket.');forget('archive-draft',id);return result;},
   async park({lines,adjustment,coupon,note,label}){
@@ -158,18 +191,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(!activeDraft||activeDraft.id===draftId,'Aparca o descarta el ticket actual antes de abrir otro.');
    const current=await call('get-draft',{draftId}),values={draftId,version:current.version},id=await operation('claim-draft',values);
    const result=await call('claim-draft',values,id);forget('claim-draft',id);
-   if(['sold','archived'].includes(result.status)){activeDraft=null;throw new Error('Este ticket ya se ha vendido o archivado. Consulta su historial.');}
-   need(result.status==='claimed'&&result.mine,'Otro operador está utilizando este ticket.');activeDraft=result;
-   const p=activeDraft.payload;let displayCustomer=null;customer=null;
-   if(p.customerId&&p.customerId!==selected.nativeProfile?.counter_customer_id){
-    const data=await call('customers',{customerId:p.customerId}),client=data.items?.find(row=>row.id===p.customerId),address=data.addresses?.find(row=>row.id===p.invoiceAddressId);
-    need(client&&address,'Revisa el cliente y la dirección de este ticket antes de cobrar.');
-    customer={id:p.customerId,addressId:p.invoiceAddressId};displayCustomer={...customer,name:[client.firstname,client.lastname].join(' '),addressLabel:address.alias};
-   }
-   return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,note:saleNote(p.note),
-    lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:lineName(line.displayName)||line.label||'Producto #'+line.productId,originalName:line.originalLabel||line.label||'Producto #'+line.productId,...(lineName(line.displayName)?{customName:lineName(line.displayName)}:{}),
-     qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
-     ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};
+   return restoreClaimedDraft(result);
   },
   async abandonDraft(){if(!activeDraft)return;const current=await call('get-draft',{draftId:activeDraft.id});
    if(current.status==='archived'){activeDraft=null;return;}await releaseDraft();
