@@ -1,10 +1,25 @@
 import {receiptOptions,receiptLogoUrl,receiptBarcodeUrl,receiptWebsiteUrl} from './receipt-options.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
+const discountAmount=value=>new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(value/100);
 const unitMoney=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:6}).format(value/1000000);
 function linePriceDetails(line,o,gift){if(gift)return '';
- return `${o.showUnitPrice&&Number.isSafeInteger(line.unit_tax_incl_micros)?`<small>Precio unitario: ${unitMoney(line.unit_tax_incl_micros)}</small>`:''}${o.showLineTax&&Number.isSafeInteger(line.tax_cents)?`<small>Impuesto de línea: ${money(line.tax_cents)}</small>`:''}`;}
+ return `${o.showOriginalPrice&&Number.isSafeInteger(line.original_unit_tax_incl_micros)?`<small>Precio original: ${unitMoney(line.original_unit_tax_incl_micros)}</small>`:''}${o.showUnitPrice&&Number.isSafeInteger(line.unit_tax_incl_micros)?`<small>Precio unitario: ${unitMoney(line.unit_tax_incl_micros)}</small>`:''}${o.showLineTax&&Number.isSafeInteger(line.tax_cents)?`<small>Impuesto de línea: ${money(line.tax_cents)}</small>`:''}`;}
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
+function receiptLineRows(lines,o,gift){
+ const discountColumn=!gift&&o.showLineDiscount;
+ return lines.map((line,index)=>{
+  const name=`${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}`;
+  const details=linePriceDetails(line,o,gift);
+  // On narrow paper the product keeps the full width; its quantity, reduction
+  // and amount form a separate, readable row with actual aligned columns.
+  return `${discountColumn?`<tr class="tpv-receipt-item-name"><td colspan="3">${name}</td></tr>`:''}<tr>
+   ${discountColumn?'':`<td>${name}</td>`}<td>${esc(line.quantity)}</td>
+   ${discountColumn?`<td>${Number.isSafeInteger(line.line_discount_cents)&&line.line_discount_cents>0?'−'+discountAmount(line.line_discount_cents):'—'}</td>`:''}
+   ${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>
+   ${details?`<tr class="tpv-receipt-line-details"><td colspan="3">${details}</td></tr>`:''}`;
+ }).join('');
+}
 function customerHtml(customer,o){if(!o.showCustomer||!customer?.invoice)return '';
  const address=a=>[a.address1,a.address2,[a.postcode,a.city].filter(Boolean).join(' '),a.country].filter(Boolean).map(esc).join(' · '),invoice=customer.invoice;
  return `<section class="tpv-receipt-customer" aria-label="Cliente"><strong>Cliente</strong><div>${esc(invoice.name)}</div>
@@ -28,8 +43,9 @@ export function receiptHtml(document,options,{preview=false}={}){
   ${o.showWebsite&&receiptWebsiteUrl(document.merchant_origin)?`<small>${esc(receiptWebsiteUrl(document.merchant_origin))}</small>`:''}
   ${o.showOperator&&typeof document.operator_name==='string'&&document.operator_name.trim()?`<small>Te atendió: ${esc(document.operator_name)}</small>`:''}
   ${gift?'':customerHtml(document.customer,o)}
-  <table><thead><tr><th>Artículo</th><th>Ud.</th>${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${document.lines.map((line,index)=>`<tr><td>${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}${linePriceDetails(line,o,gift)}</td><td>${esc(line.quantity)}</td>${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>`).join('')}</tbody></table>
-  ${gift?'':`<dl>${o.showDiscounts&&document.discount_cents?`<div><dt>Descuentos de ticket</dt><dd>−${money(document.discount_cents)}</dd></div>`:''}<div><dt>Total</dt><dd><strong>${money(document.total_cents)}</strong></dd></div>
+  ${!gift&&!preview&&(o.showOriginalPrice||o.showLineDiscount||o.includeLineDiscountsInTotal)&&document.line_discounts_complete!==true?'<small>Este pedido no dispone del desglose histórico de precios y descuentos de artículos.</small>':''}
+  <table ${!gift&&o.showLineDiscount?'data-item-discounts':''}><thead><tr>${!gift&&o.showLineDiscount?'<th>Ud.</th><th><abbr title="Descuento del artículo">Dto.</abbr><small>€</small></th>':'<th>Artículo</th><th>Ud.</th>'}${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${receiptLineRows(document.lines,o,gift)}</tbody></table>
+  ${gift?'':`<dl>${o.showDiscounts&&(document.discount_cents||o.includeLineDiscountsInTotal&&document.line_discounts_complete&&document.line_discount_cents)?`<div><dt>${o.includeLineDiscountsInTotal&&document.line_discounts_complete?'Total descuentos':'Descuentos de ticket'}</dt><dd>−${money(document.discount_cents+(o.includeLineDiscountsInTotal&&document.line_discounts_complete?document.line_discount_cents:0))}</dd></div>`:''}<div><dt>Total</dt><dd><strong>${money(document.total_cents)}</strong></dd></div>
    ${o.showPayments?Object.entries(document.payments).map(([method,cents])=>`<div><dt>${esc(paymentLabel(method))}</dt><dd>${money(cents)}</dd></div>`).join(''):''}</dl>${preview?'':'<small>La factura nativa está disponible en Documentos de este pedido.</small>'}`}
   ${o.footer?`<p class="tpv-receipt-footer" style="white-space:pre-wrap">${esc(o.footer)}</p>`:''}
   ${barcodeHtml(document,o,preview)}
@@ -39,7 +55,7 @@ export function receiptPreviewHtml(options){return receiptHtml({kind:'receipt',c
  merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador de ejemplo',
  merchant:{name:'Tu establecimiento',address:'Dirección del establecimiento',city:'Localidad',phone:'Teléfono',registration:'Datos fiscales'},
  customer:{email:'cliente@ejemplo.invalid',invoice:{name:'Cliente de ejemplo',company:'Empresa de ejemplo',address1:'Dirección del cliente',postcode:'00000',city:'Localidad',country:'País',phone:'Teléfono del cliente',comment:'Comentario de ejemplo'},delivery:{name:'Destinatario de ejemplo',address1:'Dirección de entrega',postcode:'00000',city:'Localidad',country:'País'}},
- lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:2,line_cents:1000,unit_tax_incl_micros:5000000,tax_cents:174}],payments:{cash:900},total_cents:900,discount_cents:100},options,{preview:true});}
+ lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:2,line_cents:1000,unit_tax_incl_micros:5000000,original_unit_tax_incl_micros:6000000,original_line_cents:1200,line_discount_cents:200,tax_cents:174}],payments:{cash:900},total_cents:900,discount_cents:100,line_discount_cents:200,line_discounts_complete:true},options,{preview:true});}
 export async function downloadNativePdf(document){
  if(document?.mime!=='application/pdf'||!document.existing_document||!/^totus-(invoice|delivery|credit-note)-[1-9][0-9]*\.pdf$/.test(document.filename||'')||
   !/^[a-f0-9]{64}$/.test(document.sha256||'')||typeof document.base64!=='string'||document.base64.length>1900000)throw Error('PDF nativo no válido.');
@@ -60,7 +76,7 @@ export function fitTpvPrintPage(document){
  document.head.append(paper);return {paperMm:TOTUS_PRINTER_PROFILE.paperMm,heightMm};
 }
 export function prepareTpvPrintHtml(html,title){
- return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:auto;margin:5mm}*{box-sizing:border-box}body{display:flow-root;font:11px Arial,sans-serif;color:#111;margin:0;width:48mm;overflow-wrap:anywhere}h3,p{margin:6px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;font-size:10px}th,td{text-align:left;padding:5px 2px;border-bottom:1px solid #ddd}th:first-child{width:50%}th:nth-child(2){width:15%;white-space:nowrap}th:last-child,td:last-child{text-align:right;white-space:nowrap}small{display:block;font-size:9px}dl>div{display:flex;justify-content:space-between;gap:5px;padding:3px 0}dt{min-width:0}dd{margin:0;text-align:right;white-space:nowrap}.tpv-document th:last-child{font-size:.85em;white-space:nowrap}.tpv-document table{font-size:.91em}.tpv-document small{font-size:.82em}.inline-actions{display:none}</style></head><body>${html}</body></html>`;
+ return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:auto;margin:5mm}*{box-sizing:border-box}body{display:flow-root;font:11px Arial,sans-serif;color:#111;margin:0;width:48mm;overflow-wrap:anywhere}h3,p{margin:6px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;font-size:10px}th,td{text-align:left;padding:5px 2px;border-bottom:1px solid #ddd}th:first-child{width:50%}th:nth-child(2){width:15%;white-space:nowrap}th:last-child,td:last-child{text-align:right;white-space:nowrap}small{display:block;font-size:9px}dl>div{display:flex;justify-content:space-between;gap:5px;padding:3px 0}dt{min-width:0}dd{margin:0;text-align:right;white-space:nowrap}.tpv-document th:last-child{font-size:.85em;white-space:nowrap}.tpv-document table{font-size:.91em}.tpv-document small{font-size:.82em}.tpv-document table[data-item-discounts] th:first-child{width:20%}.tpv-document table[data-item-discounts] th:nth-child(2){width:35%;font-size:.85em}.tpv-document table[data-item-discounts] th:nth-child(3){width:45%}.tpv-document table[data-item-discounts] th:last-child{width:45%}.tpv-document table[data-item-discounts] abbr{text-decoration:none}.tpv-document :is(.tpv-receipt-item-name,.tpv-receipt-line-details)>td{white-space:normal;text-align:left}.inline-actions{display:none}</style></head><body>${html}</body></html>`;
 }
 export function printTpvMarkup(html,title,{current=()=>true}={}){
  const frame=globalThis.document.createElement('iframe');

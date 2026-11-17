@@ -80,6 +80,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117145654_totustpv_line_price_options.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117152204_totustpv_parking_expiry.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117155256_totustpv_private_sale_note.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -442,6 +443,8 @@ try {
  check((await prefs(qaScope,{viewMode:'grid'})).receipt.footer,'Gracias\nHasta pronto');
  check((await prefs(qaScope,{receipt:{showDate:false}})).receipt.title,'Mi justificante');
  check((await prefs()).receipt.showReferences,false);
+ for(const key of ['showOriginalPrice','showLineDiscount','includeLineDiscountsInTotal']){check((await prefs()).receipt[key],false);check((await prefs(qaScope,{receipt:{[key]:true}})).receipt[key],true);check((await prefs(qaScope,{viewMode:'grid'})).receipt[key],true);for(const value of ['true',1,null])await denied(()=>prefs(qaScope,{receipt:{[key]:value}}),/INVALID/);check((await prefs(qaScope,{receipt:{[key]:false}})).receipt[key],false);}
+
  check((await prefs()).receipt.showLogo,true);
  check((await prefs()).receipt.showBarcode,false);
  for(const key of ['showUnitPrice','showLineTax','showOperator','showWebsite']){

@@ -1,6 +1,6 @@
 {
     "source": "NativeDocuments::referenceBarcode with installed PrestaShop 8.2.8 TCPDF and GD; fictional references only",
-    "encoder_sha256": "28e3e2dd023bc4e8cda9a7969b64846ade25467ddc23adc2ffd3750f5e460a15",
+    "encoder_sha256": "844e27d16048ecef14511c731fb30cbc09bc9ba26f5bd8a35ba9b526dfcca41f",
     "cases": [
         {
             "format": "Code128",

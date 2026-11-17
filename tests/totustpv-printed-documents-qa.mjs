@@ -13,7 +13,7 @@ const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'0000000
  openingCents:10000,expectedCashCents:9900,countedCents:9900,differenceCents:0,orderCount:1,refundCount:1,payments:{bizum:801},refunds:{bizum:801},
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
-const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,fontFamily:'monospace',fontSize:16};
+const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,line_discounts_complete:true,line_discount_cents:399,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,original_unit_tax_incl_micros:10000000,original_line_cents:2000,line_discount_cents:399,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOriginalPrice:true,showLineDiscount:true,showOperator:true,showWebsite:true,fontFamily:'monospace',fontSize:16};
 for(const url of ['javascript:alert(1)','https://tienda.invalid/path','https://tienda.invalid/?key=private','https://user:password@tienda.invalid'])assert.equal(receiptWebsiteUrl(url),null);
 assert.doesNotMatch(receiptHtml(itemPrices),/Te atendió|tienda\.ejemplo\.invalid/,'Merchant website and operator are opt-in');
 assert.match(receiptHtml(itemPrices,priceOptions),/Te atendió: Operador &lt;script&gt; de prueba/);
@@ -36,7 +36,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
   ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})],
   ['receipt-customer',receiptHtml({...document,customer},customerOptions)],['gift-customer',receiptHtml({...document,customer,kind:'gift'},customerOptions)]]){
   await page.setContent(prepareTpvPrintHtml(html,'TotusTPV · prueba 58 mm'));
-  const dimensions=await page.evaluate(()=>window.fitPrint(document));assert.equal(dimensions.paperMm,58);assert.ok(dimensions.heightMm<(kind==='receipt-custom'?400:220));
+  const dimensions=await page.evaluate(()=>window.fitPrint(document));assert.equal(dimensions.paperMm,58);if(dimensions.heightMm>=(kind==='receipt-custom'?400:220))await page.screenshot({path:'artifacts/native-lab/receipt-layout-failure.png',fullPage:true});assert.ok(dimensions.heightMm<(kind==='receipt-custom'?400:220),kind+': '+dimensions.heightMm+' mm exceeds the compact receipt boundary');
   assert.equal(await page.locator('script').count(),0,'Document values must remain text, not executable markup');
   assert.equal(await page.locator('img').count(),kind.endsWith('-logo')?1:0,'Only the verified merchant image may render');
   if(kind.endsWith('-logo'))assert.equal(await page.locator('.tpv-receipt-logo').evaluate(img=>img.complete&&img.naturalWidth>0),true,'The logo loads before printing');

@@ -5,6 +5,22 @@ namespace TotusCentralConnector;
  * payment, order or number, and never calls setInvoice/setDelivery. */
 final class NativeDocuments
 {
+    /** Historical OrderDetail values only: never consult today's Product/Tax. */
+    public static function linePricingSnapshot(array $line,int $roundMode,int $roundType): array
+    {
+        foreach(['original_product_price','tax_rate','ecotax','ecotax_tax_rate','total_price_tax_incl','product_quantity'] as $key)
+            if(!isset($line[$key])||!is_numeric($line[$key])||!is_finite((float)$line[$key])||(float)$line[$key]<0)return [];
+        $quantity=(int)$line['product_quantity'];$base=(float)$line['original_product_price'];$eco=(float)$line['ecotax'];
+        if($quantity<1||$quantity>10000||$base<$eco||!in_array($roundType,[1,2,3],true)||$roundMode<0||$roundMode>5)return [];
+        // The native original price includes ecotax without its tax. Its two
+        // historical rates can differ, so apply each recorded component.
+        $original=\Tools::ps_round(($base-$eco)*(1+(float)$line['tax_rate']/100)+$eco*(1+(float)$line['ecotax_tax_rate']/100),6,$roundMode);
+        $lineOriginal=$roundType===\Order::ROUND_ITEM?\Tools::ps_round($original,2,$roundMode)*$quantity:\Tools::ps_round($original*$quantity,2,$roundMode);
+        $unitMicros=round($original*1000000);$lineCents=round($lineOriginal*100);$paidCents=round((float)$line['total_price_tax_incl']*100);
+        if($unitMicros>9007199254740991||$lineCents>9007199254740991||$paidCents>9007199254740991)return [];
+        return ['original_unit_tax_incl_micros'=>(int)$unitMicros,'original_line_cents'=>(int)$lineCents,
+            'line_discount_cents'=>max(0,(int)$lineCents-(int)$paidCents)];
+    }
     public static function merchantLogoPath($filename): ?string
     {return is_string($filename)&&preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/iD',$filename)===1?'/img/'.$filename:null;}
     public static function referenceBarcode($reference): ?array
@@ -83,14 +99,16 @@ final class NativeDocuments
             ...($kind==='gift'?[]:['line_cents'=>(int)round(100*(float)$line['total_price_tax_incl']),
                 'unit_tax_incl_micros'=>(int)round(1000000*(float)$line['unit_price_tax_incl']),
                 'tax_cents'=>(int)round(100*(float)$line['total_price_tax_incl'])-(int)round(100*(float)$line['total_price_tax_excl']),
-                'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl'])])];
+                'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl']),...self::linePricingSnapshot($line,(int)$order->round_mode,(int)$order->round_type)])];
         return ['kind'=>$kind,'order_id'=>(int)$order->id,'reference'=>(string)$order->reference,'created_at'=>(string)$order->date_add,
             'reference_barcode'=>self::referenceBarcode((string)$order->reference),
             'merchant'=>$merchant+['logo_path'=>self::merchantLogoPath(\Configuration::get('PS_SHOP_LOGO',null,null,(int)$order->id_shop))],
             ...($kind==='gift'?[]:['customer'=>self::customerForOrder($order,(int)($profile['counter_customer_id']??0))]),
             'currency'=>(new \Currency((int)$order->id_currency))->iso_code,'lines'=>$lines,
             ...($kind==='gift'?[]:['total_cents'=>(int)$sale['total_cents'],'discount_cents'=>(int)round(100*(float)$order->total_discounts_tax_incl),
-                'payments'=>$sale['payments'],'payment_intent'=>$sale['payment_intent']]),
+                'payments'=>$sale['payments'],'payment_intent'=>$sale['payment_intent'],
+                'line_discounts_complete'=>count(array_filter($lines,static fn($line)=>isset($line['line_discount_cents'])))===count($lines),
+                'line_discount_cents'=>array_sum(array_column($lines,'line_discount_cents'))]),
             'invoice_id'=>(int)$sale['invoice_ids'][0],'existing_document'=>true,'environment'=>'qa'];
     }
     private static function pdf(\PDF $pdf,string $kind,int $orderId): array
