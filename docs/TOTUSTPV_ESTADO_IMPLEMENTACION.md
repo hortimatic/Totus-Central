@@ -1,6 +1,14 @@
 # Estado de implementación de TotusTPV
 
-## Estado actualizado · 16/11/2026, 20:42 CET
+## Estado vigente · 17/11/2026, 02:38 CET
+
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. La migración de catálogo y preferencias sigue pendiente de aplicación remota.
+
+El laboratorio con PrestaShop 8.2.8/PHP 8.2/MariaDB ha verificado catálogo contextual completo, caducidad de ofertas, pedidos, pagos, factura, devoluciones y abonos, stock, recepción por albarán, recuperación sin duplicados, cierre y escritorio/móvil. La ampliación del justificante incluye cliente opcional, logo, formatos, numeración de líneas, precio unitario histórico e impuesto, operador de la venta, web autorizada y código Code128 que permite localizar el pedido original. Se han comprobado 276 aserciones SQL, 82 recorridos de regresión durante la ampliación y papel simulado de 58 mm; los detalles y las limitaciones de cada prueba constan en TOTUSTPV_VERIFICACION_NATIVA_20261117.md. Ninguna de estas pruebas certifica la impresora, cajón o lector físicos.
+
+La tabla de 149 configuraciones y el registro maestro permanecen abiertos: solo se marca cada opción con su implementación y evidencia concreta. Siguen pendientes funciones de mercancía, configuraciones compartidas y permisos, presupuestos/crédito/vales, otras opciones de las capturas, aceptación remota y documentación final. Las 29 capturas originales se conservan en la documentación privada, fuera del repositorio público.
+
+## Registro de estado anterior · 16/11/2026, 20:42 CET
 
 Ampliación en desarrollo · 16/11/2026, 23:05 CET: la sesión normal remota ya confirmó el frontend publicado `7796c354`, entrada automática y fotografías del catálogo. El PR 213 permanece como borrador para reunir la entrega completa solicitada, sin publicación parcial del nuevo mostrador. La rama incorpora tabla común y preferencias, índice contextual de ordenación por PVP y opciones de tarjetas/orden del ticket/sonido. Validación local: 218 aserciones SQL, 33 pruebas Node de transporte/caja/adaptadores/práctica, PHP 8.2.35 y navegador con progreso cancelable y recuperación de preferencias en tres tamaños. El índice usa precios sintéticos en su prueba SQLite; todavía requiere verificación MySQL/PrestaShop instalado. La nueva migración de catálogo y estas opciones no están aplicadas en remoto. Las pruebas no acreditan audio o hardware físicos ni resolución de las 149 configuraciones.
 

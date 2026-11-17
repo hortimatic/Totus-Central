@@ -4,13 +4,13 @@ alter table private.totus_tpv_workspace_preferences add constraint totus_tpv_wor
 alter table private.totus_tpv_workspace_preferences
  add column catalogue_columns jsonb not null default '["photo","name","reference","stock","price"]',
  add column display_options jsonb not null default '{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}',
- add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showBarcode":false,"showUnitPrice":false,"showLineTax":false,"showAfterSale":false,"printAfterSale":false,"showOrderReference":true,"numberLines":false,"showCustomer":false,"showCustomerPhone":false,"showCustomerEmail":false,"showAddressComment":false,"showDeliveryAddress":false,"showCustomerCompany":false,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
+ add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showBarcode":false,"showUnitPrice":false,"showLineTax":false,"showOperator":false,"showWebsite":false,"showAfterSale":false,"printAfterSale":false,"showOrderReference":true,"numberLines":false,"showCustomer":false,"showCustomerPhone":false,"showCustomerEmail":false,"showAddressComment":false,"showDeliveryAddress":false,"showCustomerCompany":false,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
  add column sort_field text not null default 'name' check(sort_field in ('name','reference','stock','id','cost','manufacturer','supplier','price')),
  add column sort_direction text not null default 'asc' check(sort_direction in ('asc','desc'));
 create or replace function public.totus_tpv_workspace_preferences(p_connection uuid,p_shop bigint,p_drawer uuid,p_preferences jsonb default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); ctx jsonb; saved private.totus_tpv_workspace_preferences;
- receipt_defaults constant jsonb:='{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showBarcode":false,"showUnitPrice":false,"showLineTax":false,"showAfterSale":false,"printAfterSale":false,"showOrderReference":true,"numberLines":false,"showCustomer":false,"showCustomerPhone":false,"showCustomerEmail":false,"showAddressComment":false,"showDeliveryAddress":false,"showCustomerCompany":false,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}';
+ receipt_defaults constant jsonb:='{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showBarcode":false,"showUnitPrice":false,"showLineTax":false,"showOperator":false,"showWebsite":false,"showAfterSale":false,"printAfterSale":false,"showOrderReference":true,"numberLines":false,"showCustomer":false,"showCustomerPhone":false,"showCustomerEmail":false,"showAddressComment":false,"showDeliveryAddress":false,"showCustomerCompany":false,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}';
 begin
  if actor is null then raise exception 'TPV_AUTH_REQUIRED';end if;
  ctx:=public.totus_tpv_context();
@@ -48,9 +48,9 @@ begin
   end if;
   if p_preferences?'receipt' then
    if jsonb_typeof(p_preferences->'receipt') is distinct from 'object' then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
-   if (p_preferences->'receipt')-array['title','footer','fontFamily','fontSize','dateFormat','showLogo','showBarcode','showUnitPrice','showLineTax','showAfterSale','printAfterSale','showOrderReference','numberLines','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate']<>'{}'::jsonb
+   if (p_preferences->'receipt')-array['title','footer','fontFamily','fontSize','dateFormat','showLogo','showBarcode','showUnitPrice','showLineTax','showOperator','showWebsite','showAfterSale','printAfterSale','showOrderReference','numberLines','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate']<>'{}'::jsonb
     or exists(select 1 from jsonb_each(p_preferences->'receipt') e where
-      e.key in ('showLogo','showBarcode','showUnitPrice','showLineTax','showAfterSale','printAfterSale','showOrderReference','numberLines','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate') and jsonb_typeof(e.value) is distinct from 'boolean'
+      e.key in ('showLogo','showBarcode','showUnitPrice','showLineTax','showOperator','showWebsite','showAfterSale','printAfterSale','showOrderReference','numberLines','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany','showReferences','showAddress','showPhone','showPayments','showDiscounts','showDate') and jsonb_typeof(e.value) is distinct from 'boolean'
       or e.key in ('title','footer','fontFamily','dateFormat') and jsonb_typeof(e.value) is distinct from 'string'
       or e.key='fontSize' and (jsonb_typeof(e.value) is distinct from 'number' or e.value::text !~ '^(1[0-6])$'))
     or (p_preferences->'receipt'?'title' and (length(btrim(p_preferences->'receipt'->>'title')) not between 1 and 80 or p_preferences->'receipt'->>'title' ~ '[[:cntrl:]]'))
@@ -103,4 +103,30 @@ begin
 end $$;
 revoke all on function public.totus_tpv_context() from public,anon;
 grant execute on function public.totus_tpv_context() to authenticated;
+-- The display name belongs to the recorded sale actor, never the caller.
+create or replace function public.totus_tpv_orders(p_scope jsonb,p_order_id bigint default null,p_sale_id uuid default null) returns jsonb
+language plpgsql security invoker set search_path='' as $$
+declare result jsonb;
+begin
+ perform private.totus_tpv_authorize(p_scope,'reconcile');
+ if p_order_id is not null and p_order_id<=0 then raise exception 'TPV_ORDER_QUERY_INVALID';end if;
+ select coalesce(jsonb_agg(t.entry order by t.created_at desc,t.id desc),'[]'::jsonb) into result from (
+  select o.id,o.created_at,private.totus_tpv_operation_json(o)||jsonb_build_object(
+   'operatorName',(select nullif(btrim(p.full_name),'') from public.profiles p where p.id=o.created_by),
+   'createdAt',o.created_at,'drawerName',(select d.name from public.ops_cash_drawers d where d.id=o.drawer_id),
+   'totalCents',(o.expected->>'totalCents')::bigint,
+   'lines',o.expected->'lines','refunds',coalesce((select jsonb_agg(jsonb_build_object(
+    'id',r.id,'status',r.status,'totalCents',r.total_cents,'actorId',r.actor_id) order by r.created_at,r.id)
+    from private.totus_tpv_refunds r where r.sale_id=o.id),'[]'::jsonb)) entry
+  from private.totus_tpv_operations o where o.status='confirmed'
+   and o.connection_id=(p_scope->>'connectionId')::uuid and o.store_id=(p_scope->>'storeId')::uuid
+   and o.shop_id=(p_scope->>'shopId')::bigint
+   and o.currency=p_scope->>'currency' and o.environment=p_scope->>'environment'
+   and (p_order_id is null or o.order_id=p_order_id) and (p_sale_id is null or o.id=p_sale_id)
+  order by o.created_at desc,o.id desc limit 100
+ ) t;
+ return result;
+end $$;
+revoke all on function public.totus_tpv_orders(jsonb,bigint,uuid) from public,anon,authenticated;
+grant execute on function public.totus_tpv_orders(jsonb,bigint,uuid) to service_role;
 commit;

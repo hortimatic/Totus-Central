@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
 import {prepareTpvPrintHtml,receiptHtml,TOTUS_PRINTER_PROFILE} from '../src/totustpv/documents.js';
 import {cashReportHtml} from '../src/totustpv/cash-reports.js';
-import {receiptLogoUrl} from '../src/totustpv/receipt-options.js';
+import {receiptLogoUrl,receiptWebsiteUrl} from '../src/totustpv/receipt-options.js';
 const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',created_at:'2026-11-16 12:00:00',
  merchant:{name:'Totus · laboratorio',address:'Calle de prueba',city:'Madrid'},lines:[{name:'Café ñandú <img src=x onerror=alert(1)>',reference:'REFERENCIA-LARGA-DE-PRUEBA-1234567890',quantity:1,line_cents:801}],
  payments:{bizum:801},total_cents:801,discount_cents:0};
@@ -13,7 +13,10 @@ const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'0000000
  openingCents:10000,expectedCashCents:9900,countedCents:9900,differenceCents:0,orderCount:1,refundCount:1,payments:{bizum:801},refunds:{bizum:801},
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
-const itemPrices={...document,total_cents:1601,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,fontFamily:'monospace',fontSize:16};
+const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,fontFamily:'monospace',fontSize:16};
+for(const url of ['javascript:alert(1)','https://tienda.invalid/path','https://tienda.invalid/?key=private','https://user:password@tienda.invalid'])assert.equal(receiptWebsiteUrl(url),null);
+assert.doesNotMatch(receiptHtml(itemPrices),/Te atendió|tienda\.ejemplo\.invalid/,'Merchant website and operator are opt-in');
+assert.match(receiptHtml(itemPrices,priceOptions),/Te atendió: Operador &lt;script&gt; de prueba/);
 assert.doesNotMatch(receiptHtml(itemPrices),/Precio unitario|Impuesto de línea/,'Item price details are opt-in');
 assert.match(receiptHtml(itemPrices,priceOptions),/8,006/,'Unit prices preserve the native six-decimal precision');
 assert.doesNotMatch(receiptHtml({...itemPrices,kind:'gift'},priceOptions),/Precio unitario|Impuesto de línea|€/,'Gift documents never expose the optional item amounts');

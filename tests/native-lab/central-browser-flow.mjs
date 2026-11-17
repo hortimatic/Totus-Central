@@ -125,6 +125,9 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.match(await page.locator('.tpv-document').innerText(),width===390?/7,01/:/8,01/);
   assert.match(await page.locator('.tpv-document tbody').innerText(),/Precio unitario: [0-9]+,[0-9]+/);
   assert.match(await page.locator('.tpv-document tbody').innerText(),/Impuesto de línea: [0-9]+,[0-9]{2}/);
+  assert.match(await page.locator('.tpv-document').innerText(),/Te atendió: Operador original de la venta/);
+  assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/Te atendió: Cajero del laboratorio/);
+  assert.match(await page.locator('.tpv-document').innerText(),/https:\/\/preproduccion\.hortimatic\.com/);
   await page.waitForFunction(()=>{const logo=document.querySelector('.tpv-receipt-logo');return logo?.complete&&logo.naturalWidth>0;});
   await page.waitForFunction(()=>{const barcode=document.querySelector('.tpv-reference-barcode');return barcode?.complete&&barcode.naturalWidth>0;});
   const barcodeImage=await page.locator('.tpv-reference-barcode').getAttribute('src');

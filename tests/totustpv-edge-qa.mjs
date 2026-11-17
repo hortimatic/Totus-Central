@@ -10,7 +10,7 @@ test('catalogue response excludes procurement data without server-observed Produ
  assert.equal(catalogueForActor(native,true).items[0].cost_base_cents,75);
  assert.equal(Object.hasOwn(catalogueForActor(native,true).items[0],'unexpected_private_field'),false);
 });
-function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows}={}){
+function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows,nativeDocument}={}){
  const calls=[],nativeRequests=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
  const row={connectionId:otherConnection?actor:connection,connectionRevision:5,shopId:1,storeId:actor,drawerId:drawer,
@@ -28,14 +28,14 @@ function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:'fictional-key-not-valid-at-any-shop'}};
    if(name==='totus_api_call')return {data:{ok:true}};
    if(name==='totus_tpv_orders')return reportDenied?{error:{message:'TPV_ACTION_FORBIDDEN'}}:{data:args.p_order_id&&args.p_order_id!==42?[]:
-    [{id:actor,status:'confirmed',orderId:42,createdAt:'2026-11-17T12:00:00Z',drawerName:'Caja ficticia',totalCents:150,lines:[],refunds:[],private_marker:'must not escape'}]};
+    [{id:actor,status:'confirmed',scope:{actorId:actor},operatorName:'Cajero original',orderId:42,createdAt:'2026-11-17T12:00:00Z',drawerName:'Caja ficticia',totalCents:150,lines:[],refunds:[],private_marker:'must not escape'}]};
    throw Error('Unexpected RPC '+name);
   }};
  };
  const handle=createCentralTpvHandler({factory,env,resolve:async()=>['93.184.216.34'],request:async(url,options)=>{
   outbound++;nativeRequests.push({url,method:options.method});assert.equal(options.method,'GET');
   if(nativeRows===undefined)throw Error('Unexpected native request');
-  return new Response(JSON.stringify({orders:nativeRows}),{status:200,headers:{'Content-Type':'application/json'}});
+  return new Response(JSON.stringify(nativeDocument??{orders:nativeRows}),{status:200,headers:{'Content-Type':'application/json'}});
  }});
  const call=async(body,auth='Bearer verified-fixture-token')=>{
   const response=await handle(new Request('https://central.invalid/tpv',{method:'POST',headers:{...(auth?{Authorization:auth}:{}),
@@ -87,6 +87,12 @@ test('closed cash reports require current reconciliation rights but no new cash 
 });
 
 const orderLookup={action:'orders',operationId:session,selection:{connectionId:connection,shopId:1,drawerId:drawer,sessionId:session}};
+test('receipt operator and website come from the authorized journal and connection, never native text or the current browser',async()=>{
+ const f=fixture({nativeRows:[],nativeDocument:{kind:'receipt',operator_name:'Forged operator',merchant_origin:'https://unrelated.invalid'}});
+ const result=await f.call({action:'document',operationId:actor,selection:orderLookup.selection,kind:'receipt'});
+ assert.equal(result.status,200);assert.equal(result.body.operator_name,'Cajero original');assert.equal(result.body.merchant_origin,'https://preproduccion.hortimatic.com');
+ assert.equal(f.nativeRequests.length,1);assert.equal(new URL(f.nativeRequests[0].url).searchParams.get('actor_id'),actor);
+});
 test('reference lookup reads native IDs then returns only the matching authorized Central sale',async()=>{
  const f=fixture({nativeRows:[{id:'42',reference:'ABCDEFGHI',id_shop:'1'}]});
  const result=await f.call({...orderLookup,reference:'abcdefghi'});assert.equal(result.status,200);assert.equal(result.body[0].orderId,42);

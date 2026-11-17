@@ -1,7 +1,7 @@
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showAfterSale:false,printAfterSale:false,showOrderReference:true,numberLines:false,showCustomer:false,showCustomerPhone:false,showCustomerEmail:false,showAddressComment:false,showDeliveryAddress:false,showCustomerCompany:false,
+export const RECEIPT_DEFAULTS=Object.freeze({title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:false,printAfterSale:false,showOrderReference:true,numberLines:false,showCustomer:false,showCustomerPhone:false,showCustomerEmail:false,showAddressComment:false,showDeliveryAddress:false,showCustomerCompany:false,
  showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true});
-export const RECEIPT_CHECKS=Object.freeze({showLogo:'Logo del establecimiento',showBarcode:'Código de barras del pedido',showUnitPrice:'Precio unitario de cada artículo',showLineTax:'Impuesto de cada artículo',showAfterSale:'Mostrar justificante al confirmar',printAfterSale:'Imprimir justificante al confirmar',showOrderReference:'Referencia del pedido',numberLines:'Numerar artículos del ticket',showCustomer:'Nombre y dirección del cliente',showCustomerPhone:'Teléfono del cliente',showCustomerEmail:'Correo del cliente',showAddressComment:'Comentario de dirección',showDeliveryAddress:'Dirección de entrega',showCustomerCompany:'Empresa del cliente',showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
+export const RECEIPT_CHECKS=Object.freeze({showLogo:'Logo del establecimiento',showBarcode:'Código de barras del pedido',showUnitPrice:'Precio unitario de cada artículo',showLineTax:'Impuesto de cada artículo',showOperator:'Operador que atendió la venta',showWebsite:'Dirección de la web',showAfterSale:'Mostrar justificante al confirmar',printAfterSale:'Imprimir justificante al confirmar',showOrderReference:'Referencia del pedido',numberLines:'Numerar artículos del ticket',showCustomer:'Nombre y dirección del cliente',showCustomerPhone:'Teléfono del cliente',showCustomerEmail:'Correo del cliente',showAddressComment:'Comentario de dirección',showDeliveryAddress:'Dirección de entrega',showCustomerCompany:'Empresa del cliente',showReferences:'Referencia de cada artículo',showAddress:'Dirección del establecimiento',showPhone:'Teléfono del establecimiento',
  showPayments:'Formas de pago',showDiscounts:'Total de descuentos',showDate:'Fecha del pedido'});
 export function receiptOptions(value){const out={...RECEIPT_DEFAULTS};
  for(const key of Object.keys(RECEIPT_CHECKS))if(typeof value?.[key]==='boolean')out[key]=value[key];
@@ -14,6 +14,7 @@ export function receiptOptions(value){const out={...RECEIPT_DEFAULTS};
 }
 export function receiptLogoUrl(origin,path){try{const base=new URL(origin);if(base.protocol==='https:'&&base.href===base.origin+'/'&&
  typeof path==='string'&&/^\/img\/[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/i.test(path))return base.origin+path;}catch{}return null;}
+export function receiptWebsiteUrl(origin){try{const url=new URL(origin);if(url.protocol==='https:'&&url.href===url.origin+'/')return url.origin;}catch{}return null;}
 export function receiptBarcodeUrl(barcode,reference){return typeof reference==='string'&&reference===reference.trim()&&/^[A-Za-z0-9-]{1,10}$/.test(reference)&&
  barcode?.format==='Code128'&&barcode.mime==='image/png'&&barcode.text===reference&&barcode.payload==='R:'+reference&&
  typeof barcode.data==='string'&&barcode.data.length<100000&&/^iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(barcode.data)?'data:image/png;base64,'+barcode.data:null;}
@@ -21,8 +22,8 @@ export function receiptOptionsFromForm(fields){return receiptOptions({title:fiel
  fontSize:Number(fields.get('receipt-fontSize')),dateFormat:fields.get('receipt-dateFormat'),
  ...Object.fromEntries(Object.keys(RECEIPT_CHECKS).map(key=>[key,fields.get('receipt-'+key)==='on']))});}
 const customerKeys=['showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany'];
-const receiptGroups=[['Establecimiento',['showLogo','showAddress','showPhone']],
- ['Contenido del ticket',['showOrderReference','showBarcode','showUnitPrice','showLineTax','numberLines','showReferences','showPayments','showDiscounts','showDate']],
+const receiptGroups=[['Establecimiento',['showLogo','showAddress','showPhone','showWebsite']],
+ ['Contenido del ticket',['showOperator','showOrderReference','showBarcode','showUnitPrice','showLineTax','numberLines','showReferences','showPayments','showDiscounts','showDate']],
  ['Al confirmar una venta',['showAfterSale','printAfterSale']]];
 export function receiptOptionsHtml(value){const o=receiptOptions(value),checks=entries=>entries.map(([key,label])=>`<label class="tpv-check"><input type="checkbox" name="receipt-${key}" ${o[key]?'checked':''}> ${label}</label>`).join('');return `<fieldset class="tpv-receipt-settings"><legend>Justificante y ticket regalo</legend>
  <label>Título del justificante<input name="receipt-title" maxlength="80" required value="${esc(o.title)}"></label>

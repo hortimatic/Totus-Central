@@ -29,7 +29,7 @@ try {
  create schema auth;
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  create role anon;create role authenticated;create role service_role;
- create table public.profiles(id uuid primary key,email text,active boolean,role text);
+ create table public.profiles(id uuid primary key,email text,active boolean,role text,full_name text default 'Operador original de la venta');
  create table public.ops_stores(id uuid primary key,active boolean,name text default 'Tienda de prueba');
  create table public.ops_cash_drawers(id uuid primary key,store_id uuid,active boolean,name text default 'Caja de prueba');
  create table public.team_members(email text,active boolean,role text);
@@ -40,7 +40,7 @@ try {
  create function private.totus_module_can(email text,module text,action text) returns boolean
  language sql stable as $$select exists(select 1 from public.profiles p where p.email=$1 and p.active and p.role='admin')$$;
  revoke all on function private.totus_module_can(text,text,text) from public,anon,authenticated,service_role;
- insert into public.profiles values('${id(5)}','operator@example.invalid',true,'admin'),('${id(9)}','denied@example.invalid',true,'employee');
+ insert into public.profiles(id,email,active,role) values('${id(5)}','operator@example.invalid',true,'admin'),('${id(9)}','denied@example.invalid',true,'employee');
  insert into public.ops_stores(id,active) values('${id(2)}',true),('${id(22)}',true);
  insert into public.ops_cash_drawers(id,store_id,active) values('${id(3)}','${id(2)}',true),('${id(33)}','${id(22)}',true);
  insert into private.totus_api_connections values('${id(1)}',1,1,true,true,'prestashop');
@@ -283,6 +283,7 @@ try {
  const lookup=async(selected=draftScope,orderId=null,saleId=null)=>(await db.query('select public.totus_tpv_orders($1::jsonb,$2,$3) result',
   [JSON.stringify(selected),orderId,saleId])).rows[0].result;
  check((await lookup(draftScope,4901))[0].orderId,4901);
+ check((await lookup(draftScope,4901))[0].operatorName,'Operador original de la venta');
  check((await lookup(draftScope,4902)).length,0);
  check((await lookup(draftScope,null,id(255)))[0].id,id(255));
  await denied(()=>lookup(draftScope,0),/ORDER_QUERY_INVALID/);
@@ -343,7 +344,7 @@ try {
  check((await prefs()).receipt.showReferences,false);
  check((await prefs()).receipt.showLogo,true);
  check((await prefs()).receipt.showBarcode,false);
- for(const key of ['showUnitPrice','showLineTax']){
+ for(const key of ['showUnitPrice','showLineTax','showOperator','showWebsite']){
   check((await prefs()).receipt[key],false);
   check((await prefs(qaScope,{receipt:{[key]:true}})).receipt[key],true);
   await denied(()=>prefs(qaScope,{receipt:{[key]:'true'}}),/INVALID/);

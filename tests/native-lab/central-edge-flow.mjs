@@ -13,7 +13,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  try{
   await db.exec(`create schema private;create schema auth;create role anon;create role authenticated;create role service_role;
    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
-   create table public.profiles(id uuid primary key,email text,active boolean,role text);
+   create table public.profiles(id uuid primary key,email text,active boolean,role text,full_name text default 'Operador original de la venta');
    create table public.team_members(email text,active boolean,role text);
    create table public.ops_stores(id uuid primary key,active boolean,name text);
    create table public.ops_cash_drawers(id uuid primary key,store_id uuid,active boolean,name text);
@@ -25,7 +25,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    revoke all on function private.totus_module_can(text,text,text) from public,anon,authenticated;
    create function private.totus_can(module text,action text) returns boolean language sql stable as $$
     select private.totus_module_can((select email from public.profiles where id=auth.uid()),module,action)$$;
-   insert into public.profiles values('${actor}','edge-fixture@example.invalid',true,'admin');
+   insert into public.profiles(id,email,active,role) values('${actor}','edge-fixture@example.invalid',true,'admin');
    insert into public.team_members values('edge-fixture@example.invalid',true,'admin');
    insert into public.ops_stores values('${store}',true,'QA local');
    insert into public.ops_cash_drawers values('${drawer}','${store}',true,'Mostrador local');
@@ -64,7 +64,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
    assert.equal(response.error,undefined,response.error?.message);return response.data;
   };
-  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,

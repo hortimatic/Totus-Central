@@ -249,7 +249,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     }
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
     const document=await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind});
-    return respond(['receipt','gift'].includes(input.kind)?{...document,merchant_logo_origin:TOTUS_QA_POLICY.origin}:document);
+    return respond(['receipt','gift'].includes(input.kind)?{...document,merchant_logo_origin:TOTUS_QA_POLICY.origin,
+     merchant_origin:TOTUS_QA_POLICY.origin,operator_name:typeof sale.operatorName==='string'?sale.operatorName.slice(0,100):null}:document);
    }
    if(input.action==='catalogue'){
     need(input.sortField!=='cost'||row.canReadCosts===true,'TPV_COST_FORBIDDEN');
