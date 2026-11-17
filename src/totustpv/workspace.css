@@ -90,3 +90,5 @@
 @container (max-width:600px){.tpv-settings form{grid-template-columns:1fr}.tpv-product-list{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}.tpv-product img{width:64px;height:64px}.tpv-catalogue-controls{grid-template-columns:minmax(0,1fr) 110px}.tpv-product strong{font-size:.82rem}}
 
 @media(max-width:999px){.totus-tpv .tpv-settings form>button[type=submit]{grid-column:1/-1;position:sticky;top:0;z-index:3;justify-self:stretch;box-shadow:0 4px 0 var(--panel)}}
+
+@media(min-width:761px){.tpv-active .tpv-sale-grid.tpv-layout-catalogue:not(.tpv-checkout-grid){grid-template-columns:minmax(0,2fr) minmax(320px,1fr)}.tpv-active .tpv-sale-grid.tpv-layout-ticket:not(.tpv-checkout-grid){grid-template-columns:minmax(0,1fr) minmax(320px,1.4fr)}}

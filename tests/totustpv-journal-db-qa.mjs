@@ -334,6 +334,12 @@ try {
  check((await prefs(qaScope,{viewMode:'table'})).sortDirection,'desc');
  check((await prefs(qaScope,{display:{showPrices:false,ticketNewestFirst:true}})).display.showPrices,false);
  check((await prefs()).display.showStock,true);
+ check((await prefs()).display.layout,'balanced');
+ check((await prefs()).display.returnToStart,false);
+ for(const layout of ['catalogue','ticket','balanced'])check((await prefs(qaScope,{display:{layout}})).display.layout,layout);
+ check((await prefs(qaScope,{display:{returnToStart:true}})).display.returnToStart,true);
+ for(const layout of ['<script>',true,null,4])await denied(()=>prefs(qaScope,{display:{layout}}),/INVALID/);
+ await denied(()=>prefs(qaScope,{display:{returnToStart:'true'}}),/INVALID/);
  check((await prefs(qaScope,{columns:['name','price']})).display.ticketNewestFirst,true);
  await denied(()=>prefs(qaScope,{display:{showPrices:'false'}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:{canChangeTax:true}}),/INVALID/);

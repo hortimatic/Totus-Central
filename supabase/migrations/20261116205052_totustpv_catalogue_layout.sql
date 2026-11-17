@@ -3,7 +3,7 @@ alter table private.totus_tpv_workspace_preferences drop constraint totus_tpv_wo
 alter table private.totus_tpv_workspace_preferences add constraint totus_tpv_workspace_preferences_view_mode_check check(view_mode in ('grid','compact','list','table'));
 alter table private.totus_tpv_workspace_preferences
  add column catalogue_columns jsonb not null default '["photo","name","reference","stock","price"]',
- add column display_options jsonb not null default '{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}',
+ add column display_options jsonb not null default '{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false,"returnToStart":false,"layout":"balanced"}',
  add column receipt_options jsonb not null default '{"title":"Justificante de compra","footer":"","fontFamily":"arial","fontSize":11,"dateFormat":"native","showLogo":true,"showBarcode":false,"showUnitPrice":false,"showLineTax":false,"showOperator":false,"showWebsite":false,"showAfterSale":false,"printAfterSale":false,"showOrderReference":true,"numberLines":false,"showCustomer":false,"showCustomerPhone":false,"showCustomerEmail":false,"showAddressComment":false,"showDeliveryAddress":false,"showCustomerCompany":false,"showReferences":true,"showAddress":true,"showPhone":true,"showPayments":true,"showDiscounts":true,"showDate":true}',
  add column sort_field text not null default 'name' check(sort_field in ('name','reference','stock','id','cost','manufacturer','supplier','price')),
  add column sort_direction text not null default 'asc' check(sort_direction in ('asc','desc'));
@@ -42,8 +42,8 @@ begin
   end if;
   if p_preferences?'display' then
    if jsonb_typeof(p_preferences->'display') is distinct from 'object' then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
-   if (p_preferences->'display')-array['showPrices','showStock','showReferences','beepOnAdd','ticketNewestFirst']<>'{}'::jsonb
-    or exists(select 1 from jsonb_each(p_preferences->'display') e where jsonb_typeof(e.value) is distinct from 'boolean')
+   if (p_preferences->'display')-array['showPrices','showStock','showReferences','beepOnAdd','ticketNewestFirst','returnToStart','layout']<>'{}'::jsonb
+    or exists(select 1 from jsonb_each(p_preferences->'display') e where e.key<>'layout' and jsonb_typeof(e.value) is distinct from 'boolean' or e.key='layout' and (jsonb_typeof(e.value) is distinct from 'string' or e.value#>>'{}' not in ('balanced','catalogue','ticket')))
     then raise exception 'TPV_WORKSPACE_PREFERENCES_INVALID';end if;
   end if;
   if p_preferences?'receipt' then
@@ -64,7 +64,7 @@ begin
     coalesce(p_preferences->>'initialCategoryId',saved.initial_category_id::text,'0')::bigint,
     coalesce(p_preferences->'columns',saved.catalogue_columns,'["photo","name","reference","stock","price"]'),
     coalesce(p_preferences->>'sortField',saved.sort_field,'name'),coalesce(p_preferences->>'sortDirection',saved.sort_direction,'asc'),
-    coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}')||coalesce(p_preferences->'display','{}'),
+    coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false,"returnToStart":false,"layout":"balanced"}')||coalesce(p_preferences->'display','{}'),
     coalesce(saved.receipt_options,receipt_defaults)||coalesce(p_preferences->'receipt','{}'))
    on conflict(actor_id,connection_id,shop_id,drawer_id) do update set view_mode=excluded.view_mode,
     initial_category_id=excluded.initial_category_id,catalogue_columns=excluded.catalogue_columns,
@@ -75,7 +75,7 @@ begin
  return jsonb_build_object('viewMode',coalesce(saved.view_mode,'grid'),'initialCategoryId',coalesce(saved.initial_category_id,0),
   'columns',coalesce(saved.catalogue_columns,'["photo","name","reference","stock","price"]'),
   'sortField',coalesce(saved.sort_field,'name'),'sortDirection',coalesce(saved.sort_direction,'asc'),
-  'display',coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false}'),
+  'display',coalesce(saved.display_options,'{"showPrices":true,"showStock":true,"showReferences":true,"beepOnAdd":false,"ticketNewestFirst":false,"returnToStart":false,"layout":"balanced"}'),
   'receipt',coalesce(saved.receipt_options,receipt_defaults));
 end $$;
 revoke all on function public.totus_tpv_workspace_preferences(uuid,bigint,uuid,jsonb) from public,anon;

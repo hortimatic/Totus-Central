@@ -1,6 +1,8 @@
-export const TPV_DISPLAY_DEFAULTS=Object.freeze({showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false});
+export const TPV_DISPLAY_DEFAULTS=Object.freeze({showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:false,layout:'balanced'});
 export const TPV_DISPLAY_LABELS=Object.freeze({showPrices:'Mostrar precios en las tarjetas de artículos',showStock:'Mostrar existencias en las tarjetas de artículos',
- showReferences:'Mostrar referencias en las tarjetas de artículos',beepOnAdd:'Sonido al añadir un artículo al ticket',ticketNewestFirst:'Mostrar primero el último artículo añadido al ticket'});
-export function displayPreferences(value){return Object.fromEntries(Object.entries(TPV_DISPLAY_DEFAULTS).map(([key,fallback])=>[key,typeof value?.[key]==='boolean'?value[key]:fallback]));}
-export function displayPreferencesHtml(value){const options=displayPreferences(value);return Object.entries(TPV_DISPLAY_LABELS).map(([key,label])=>
+ showReferences:'Mostrar referencias en las tarjetas de artículos',beepOnAdd:'Sonido al añadir un artículo al ticket',ticketNewestFirst:'Mostrar primero el último artículo añadido al ticket',returnToStart:'Volver a la categoría inicial al añadir un artículo'});
+const layouts=[['balanced','Distribución habitual'],['catalogue','Más espacio para el catálogo'],['ticket','Más espacio para el ticket']];
+export function displayPreferences(value){return Object.fromEntries(Object.entries(TPV_DISPLAY_DEFAULTS).map(([key,fallback])=>[key,key==='layout'?layouts.some(([id])=>id===value?.layout)?value.layout:fallback:typeof value?.[key]==='boolean'?value[key]:fallback]));}
+export function displayPreferencesFromForm(fields){return displayPreferences(Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,key==='layout'?fields.get(key):fields.get(key)==='on'])));}
+export function displayPreferencesHtml(value){const options=displayPreferences(value);return `<label>Espacio de catálogo y ticket<select name="layout">${layouts.map(([id,label])=>`<option value="${id}" ${options.layout===id?'selected':''}>${label}</option>`).join('')}</select><small>En móvil se conserva la navegación entre Catálogo y Ticket.</small></label>`+Object.entries(TPV_DISPLAY_LABELS).map(([key,label])=>
  `<label class="tpv-check"><input type="checkbox" name="${key}" ${options[key]?'checked':''}> ${label}</label>`).join('');}

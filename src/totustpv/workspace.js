@@ -8,7 +8,7 @@ import {createTpvCustomerPanel} from './customers.js';
 import {createCashReportsPanel} from './cash-reports.js';
 import {createStockIntake} from './stock-intake.js';
 import {createCatalogueTable,priceBuildHtml} from './catalogue-table.js';
-import {TPV_DISPLAY_DEFAULTS,displayPreferences,displayPreferencesHtml} from './display-preferences.js';
+import {displayPreferences,displayPreferencesHtml,displayPreferencesFromForm} from './display-preferences.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 export function inputCents(value) {
@@ -88,7 +88,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   catalogueTable.mount(host);
   if(!busy&&tab==='history'&&focusOrderLookup){const field=host.querySelector('[data-tpv-order-search] [name=orderId]');if(field){field.focus();field.select();focusOrderLookup=false;}}
  }
- function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><button class="btn primary" type="submit">Guardar mostrador</button><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,formValues.preferences[key]==='on'])):displayOptions)}</fieldset>${receiptOptionsHtml(receiptSettingsDraft())}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
+ function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><button class="btn primary" type="submit">Guardar mostrador</button><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?displayPreferencesFromForm(new Map(Object.entries(formValues.preferences))):displayOptions)}</fieldset>${receiptOptionsHtml(receiptSettingsDraft())}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
  function receiptSettingsDraft(){return formValues.preferences?receiptOptionsFromForm(new Map(Object.entries(formValues.preferences))):receiptStyle;}
  function updateReceiptPreview(target){if(!target.name?.startsWith('receipt-'))return;
   const preview=host?.querySelector('[data-tpv-receipt-preview]');if(preview)preview.innerHTML=receiptPreviewHtml(receiptOptionsFromForm(new FormData(target.form)));}
@@ -121,7 +121,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   return `<div class="tpv-product-list tpv-view-${catalogueView}">${products.map(p=>`<button type="button" class="tpv-product" ${stock?'data-tpv-stock':'data-tpv-add'}="${esc(p.id)}" ${!stock&&p.stock<=0||!(stock?canStock():can('create'))||payment?'disabled':''}>
    ${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy" decoding="async" width="88" height="88" referrerpolicy="no-referrer">`:''}<span><strong>${esc(p.name)}</strong><small>${[displayOptions.showReferences?p.reference:'',displayOptions.showStock?p.stock+' disponibles':'',p.chooseVariant?'Elegir variante':''].filter(Boolean).map(esc).join(' · ')}</small></span>${displayOptions.showPrices?`<b>${money(p.priceCents)}</b>`:''}</button>`).join('')||'<p class="tpv-empty">No hay artículos con esa búsqueda.</p>'}</div>`;
  }
- function saleHtml(){return `<div class="tpv-sale-grid tpv-pane-${mobilePane} ${payment?'tpv-checkout-grid':''}"><div class="tpv-mobile-switch">${button('show-products','Catálogo')}${button('show-ticket','Ticket · '+lines.reduce((n,l)=>n+l.qty,0))}</div><section class="tpv-panel tpv-catalogue" aria-label="Artículos" ${payment?'hidden':''}>
+ function saleHtml(){return `<div class="tpv-sale-grid tpv-layout-${displayOptions.layout} tpv-pane-${mobilePane} ${payment?'tpv-checkout-grid':''}"><div class="tpv-mobile-switch">${button('show-products','Catálogo')}${button('show-ticket','Ticket · '+lines.reduce((n,l)=>n+l.qty,0))}</div><section class="tpv-panel tpv-catalogue" aria-label="Artículos" ${payment?'hidden':''}>
   <label>Buscar artículo o referencia<input type="search" data-tpv-search placeholder="Nombre o referencia" value="${esc(search)}" autocomplete="off"></label>
   ${catalogueControlsHtml()}${catalogueItemsHtml()}
   ${live()?`<div class="inline-actions">${variantProduct?button('back-products','Volver a productos'):''}${button('catalogue-previous','Anterior','secondary',productPage===0)}<span>Página ${productPage+1}${Number.isSafeInteger(products.totalCount)?' · '+products.totalCount+' artículos':''}</span>${button('catalogue-next','Siguiente','secondary',!products.hasMore)}</div>`:''}</section>
@@ -202,11 +202,14 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    payment=observed.payment;receipt=null;paymentValues={};draftInfo=observed.draft||null;}else{receipt=observed;if(observed.status==='confirmed'){
     draftInfo=null;delete formValues.ticket;delete formValues.pay;paymentValues={};formDirty=Object.keys(formValues).length>0;notice='';return;
    }}await reloadProducts();}
- function addProduct(p){const existing=lines.find(l=>l.productId===p.id),quantity=existing?existing.qty+1:(p.minimumQty||1);
+ async function addProduct(p){const existing=lines.find(l=>l.productId===p.id),quantity=existing?existing.qty+1:(p.minimumQty||1);
   if(quantity>p.stock||quantity>10000)throw new Error('No hay unidades suficientes para añadir este artículo.');
   if(existing){existing.qty=quantity;if(displayOptions.ticketNewestFirst){lines.splice(lines.indexOf(existing),1);lines.push(existing);}}
   else lines.push({productId:p.id,name:p.name,qty:quantity,unitCents:p.priceCents,stock:p.stock,minimumQty:p.minimumQty||1});
-  if(displayOptions.beepOnAdd)playAddFeedback();}
+  if(displayOptions.beepOnAdd)playAddFeedback();
+  if(live()&&displayOptions.returnToStart){const run=generation,operator=identity();searchRevision++;clearTimeout(searchTimer);search='';categoryId=initialCategoryId;productPage=0;variantProduct=0;
+   try{await reloadProducts();}catch(error){if(run!==generation||operator!==identity()||!allowed())throw error;
+    products=[];notice='Artículo añadido. No se ha podido cargar la categoría inicial. Vuelve a seleccionarla para reintentar.';}}}
  function playAddFeedback(){try{const Audio=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Audio)return;
   audioFeedback??=new Audio();const context=audioFeedback;
   void context.resume().then(()=>{if(context!==audioFeedback||context.state!=='running')return;
@@ -224,7 +227,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   search=scan.value;
   await work(async()=>{products=await adapter.searchProducts({sessionId:session.id,search:scan.value});const p=products[0],query=scan.value.toLocaleLowerCase('es');
    if(products.length===1&&!products.hasMore&&!p.chooseVariant&&[p.reference,p.barcode,p.upc,String(p.nativeProductId||'')].some(value=>value&&String(value).toLocaleLowerCase('es')===query)){
-    if(tab==='stock'){stockIntake.add(p);notice='Unidad añadida a la entrada de mercancía.';}else{addProduct(p);notice='Artículo añadido al ticket.';}
+    if(tab==='stock'){stockIntake.add(p);notice='Unidad añadida a la entrada de mercancía.';}else{notice='Artículo añadido al ticket.';await addProduct(p);}
    }else notice=products.length?'Selecciona el artículo y su variante entre las coincidencias.':'No hay artículos con ese código.';
   });
   }
@@ -388,7 +391,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     const viewMode=fields.get('viewMode'),initial=Number(fields.get('initialCategoryId'));
     if(!['grid','compact','list','table'].includes(viewMode)||initial!==0&&!categories.some(c=>c.id===initial))throw Error('Selecciona una categoría disponible.');
     const drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer));
-    const display=Object.fromEntries(Object.keys(TPV_DISPLAY_DEFAULTS).map(key=>[key,fields.get(key)==='on']));
+    const display=displayPreferencesFromForm(fields);
     const receipt=receiptOptionsFromForm(fields);
     await workspacePreferences(drawer,{viewMode,initialCategoryId:initial,display,receipt});receiptStyle=receipt;displayOptions=display;catalogueView=viewMode;initialCategoryId=initial;notice='Mostrador guardado en tu cuenta.';
    }else if(kind==='configure'){
@@ -504,7 +507,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  return {mount(root){dispose();host=root;mountedActor=identity();
    stockIntake.reset();
    catalogueTable.setColumns();catalogueSort={field:'name',direction:'asc'};
-   orderLookup='';focusOrderLookup=false;incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
+   orderLookup='';focusOrderLookup=false;displayOptions=displayPreferences();receiptStyle=receiptOptions();incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
    formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;productPage=0;variantProduct=0;stockProduct=null;configuration=null;configurationId=null;documentPreview=null;selectedCustomer=null;customers.reset();reports.reset();parked=[];draftInfo=null;
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}
    abort=new AbortController();for(const [type,handler] of [['click',click],['submit',submit],['change',change],['input',input],['keydown',keydown]])
