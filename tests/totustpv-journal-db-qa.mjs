@@ -5,6 +5,7 @@ import {createPostgresCheckoutLedger} from '../src/totustpv/postgres-journal.js'
 import {createCheckoutService} from '../src/totustpv/checkout-service.js';
 import {createNativeRequestService} from '../src/totustpv/server/native-request-service.js';
 import {createStockReceiptService} from '../src/totustpv/server/stock-receipt-service.js';
+import {productIntakeDraft,productIntakeBase,productIntakePlan} from '../src/totustpv/product-intake-contract.js';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope={actorId:id(5),connectionId:id(1),connectionRevision:1,storeId:id(2),shopId:1,
@@ -65,6 +66,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116205052_totustpv_catalogue_layout.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117021112_totustpv_workstation_access.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117031559_totustpv_customer_display.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117052454_totustpv_product_intake.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -488,6 +490,60 @@ try {
  await db.exec('reset role;set role service_role');
  await denied(()=>db.query('update private.totus_tpv_access_changes set reply=reply'),/permission denied/);
  await denied(()=>db.query('delete from private.totus_tpv_access_changes'),/permission denied/);
+ await db.exec('reset role');
+ // Product workflows retain their own source and confirmed steps. The common
+ // product writer is tested separately; this block tests actual SQL guards.
+ await asAdmin(`update private.totus_tpv_assignments set can_sell=true,can_open=true,can_reconcile=true,active=true
+  where actor_id='${id(5)}' and connection_id='${qaConnection}';`);
+ const productScope={...qaScope,sessionId:id(601)},productReadScope={...productScope};delete productReadScope.sessionId;
+ await journal('open',id(601),{openingCents:0},productScope);
+ const intake=async(action,request,data={},selected=productScope)=>(await db.query('select public.totus_tpv_product_intake($1,$2,$3::jsonb,$4::jsonb) result',
+  [action,request,JSON.stringify(selected),JSON.stringify(data)])).rows[0].result;
+ const productDraft=productIntakeDraft({name:'Artículo ficticio',reference:'LAB-PRODUCT-001',categoryId:'2',price:'12.50',cost:'6',quantity:4});
+ const intakeData={manifestHash:'b'.repeat(64),payload:productDraft,basePayload:productIntakeBase(productDraft,['1']),baseFingerprint:'a'.repeat(64),plan:productIntakePlan(productDraft)};
+ let product=await intake('create',id(610),intakeData);check(product.status,'ready');check(product.currentStep,0);check(product.steps.map(row=>row.status),['pending','pending','pending']);
+ check((await intake('create',id(610),intakeData)).version,1);
+ await denied(()=>intake('create',id(610),{...intakeData,payload:{...productDraft,price:'1.000000'}}),/ALREADY_BOUND/);
+ await denied(()=>intake('create',id(611),{...intakeData,plan:[{kind:'finish',key:'finish',label:'Fin'}]}),/INVALID/);
+ await denied(()=>intake('create',id(611),{...intakeData,actorId:id(9)}),/INVALID/);
+ await denied(()=>intake('get',id(610),{}, {...productReadScope,shopId:2}),/ASSIGNMENT|INVALID/);
+ for(const role of ['anon','authenticated']){await db.exec('set role '+role);
+  await denied(()=>intake('get',id(610)),/permission denied/);await denied(()=>db.query('select * from private.totus_tpv_product_intakes'),/permission denied/);}
+ await db.exec('reset role;set role service_role');
+ const startedProduct=await intake('start',id(610),{token:id(612)});check(startedProduct.status,'processing');
+ check((await intake('start',id(610),{token:id(613)})).busy,true);
+ check((await intake('verified',id(610),{token:id(613),stepKey:'base',recordId:'101'})).superseded,true);
+ await denied(()=>intake('verified',id(610),{token:id(612),stepKey:'finish',recordId:'101'}),/STEP_CHANGED/);
+ product=await intake('verified',id(610),{token:id(612),stepKey:'base',recordId:'101'});check(product.currentStep,1);check(product.steps[0].recordId,'101');
+ check((await intake('failed',id(610),{token:id(612),stepKey:'base',code:'TPV_PRODUCT_STEP_UNCERTAIN'})).superseded,true);
+ check((await intake('create',id(610),intakeData)).steps[0].status,'verified');
+ await denied(()=>intake('cancel',id(610)),/RECONCILIATION_REQUIRED/);
+ await cash('close',id(614),{countedCents:0,note:'Caja cerrada con alta de producto pendiente'},productScope);
+ check((await intake('get',id(610),{},productReadScope)).currentStep,1);
+ await denied(()=>intake('start',id(610),{token:id(615)}),/CASH_SESSION_MISMATCH/);
+ productScope.sessionId=id(616);await journal('open',id(616),{openingCents:0},productScope);
+ product=await intake('start',id(610),{token:id(617)});check(product.currentStep,1);
+ await asAdmin(`update private.totus_tpv_product_intakes set lease_until=clock_timestamp()-interval '1 second' where id='${id(610)}';`);
+ check((await intake('start',id(610),{token:id(618)})).leaseToken,id(618));
+ check((await intake('verified',id(610),{token:id(617),stepKey:'stock-main',recordId:'301'})).superseded,true);
+ await denied(()=>intake('failed',id(610),{token:id(618),stepKey:'stock-main'}),/RESULT_INVALID/);
+ product=await intake('failed',id(610),{token:id(618),stepKey:'stock-main',code:'TPV_PRODUCT_STEP_UNCERTAIN'});check(product.status,'attention');check(product.currentStep,1);
+ await intake('start',id(610),{token:id(619)});
+ product=await intake('verified',id(610),{token:id(619),stepKey:'stock-main',recordId:'301'});check(product.currentStep,2);
+ await intake('start',id(610),{token:id(620)});
+ product=await intake('verified',id(610),{token:id(620),stepKey:'finish',recordId:'101'});check(product.status,'completed');check(product.steps.every(step=>step.status==='verified'),true);
+ check((await intake('start',id(610),{token:id(621)})).version,product.version);
+ await denied(()=>intake('cancel',id(610)),/RECONCILIATION_REQUIRED/);
+ await intake('create',id(630),intakeData);const cancelledProduct=await intake('cancel',id(630));check(cancelledProduct.status,'cancelled');
+ check((await intake('cancel',id(630))).version,cancelledProduct.version);check((await intake('start',id(630),{token:id(631)})).status,'cancelled');
+ for(let n=700;n<800;n++)await intake('create',id(n),intakeData);
+ const unfinishedProducts=await intake('list',null,{},productReadScope);check(unfinishedProducts.length,100);check(unfinishedProducts.every(row=>row.status==='ready'),true,'Pending work is never hidden behind completed history');
+ await denied(()=>intake('create',id(800),intakeData),/ACTIVE_LIMIT/);check((await intake('create',id(700),intakeData)).status,'ready');
+ await intake('cancel',id(700));check((await intake('create',id(800),intakeData)).status,'ready');
+ await asAdmin(`create or replace function private.totus_module_can(email text,module text,action text) returns boolean language sql stable
+  as $$select exists(select 1 from public.profiles p where p.email=$1 and p.active and p.role='admin') and not($2='productos' and $3='create')$$;`);
+ await denied(()=>intake('start',id(800),{token:id(801)}),/PRODUCT_FORBIDDEN/);check((await intake('get',id(800),{},productReadScope)).status,'ready');
+ await denied(()=>db.query('delete from private.totus_tpv_product_intakes'),/permission denied/);
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
 } finally {await db.close();}

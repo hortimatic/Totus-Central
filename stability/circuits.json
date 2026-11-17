@@ -443,7 +443,10 @@
         "tests/totustpv-http-client-qa.mjs",
         "tests/totustpv-central-adapter-qa.mjs",
         "tests/totustpv-refund-intent-qa.mjs",
-        "tests/totustpv-printed-documents-qa.mjs"
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/totustpv-product-intake-contract-qa.mjs",
+        "tests/totustpv-product-intake-service-qa.mjs",
+        "supabase/migrations/20261117052454_totustpv_product_intake.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -479,7 +482,9 @@
         "tests/totustpv-workstation-rights-browser-qa.mjs",
         "tests/totustpv-workstation-access-browser-qa.mjs",
         "tests/totustpv-customer-display-qa.mjs",
-        "tests/totustpv-customer-display-browser-qa.mjs"
+        "tests/totustpv-customer-display-browser-qa.mjs",
+        "tests/totustpv-product-intake-contract-qa.mjs",
+        "tests/totustpv-product-intake-service-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
