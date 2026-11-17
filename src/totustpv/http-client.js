@@ -1,4 +1,6 @@
 const messages={
+ TPV_NATIVE_REMOTE_CATALOGUE_VARIANT_GROUP_INVALID:'Ese atributo ya no está disponible en este artículo. Vuelve a productos y selecciona de nuevo la variante.',
+ TPV_NATIVE_REMOTE_CATALOGUE_VARIANT_ATTRIBUTES_LIMIT:'Este artículo tiene demasiados atributos para mostrarlos de forma segura. Pide al responsable que revise sus combinaciones.',
  TPV_NATIVE_REMOTE_CATALOGUE_FILTER_CATEGORY_INVALID:'Una categoría oculta ya no está disponible en esta tienda. Revisa las categorías en Configuración y guarda de nuevo.',
  TPV_CATALOGUE_INTENT_BOUND:'Esta solicitud pertenece a otra categoría. Consulta las categorías guardadas.',
  TPV_CATALOGUE_INTENT_LIMIT:'Hay cien categorías pendientes. Revisa las anteriores antes de preparar otra.',

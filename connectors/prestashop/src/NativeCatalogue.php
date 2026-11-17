@@ -36,6 +36,8 @@ final class NativeCatalogue
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
+        $sortGroupId=self::integer((string)($query['sort_group_id']??'0'),0,2147483647);
+        Protocol::ensure($productId>0||$sortGroupId===0,'CATALOGUE_VARIANT_GROUP_INVALID');$variantGroups=[];
         $sort=$query['sort_field']??'name';$direction=$query['sort_direction']??'asc';
         Protocol::ensure(is_string($sort)&&in_array($sort,['name','reference','stock','id','cost','manufacturer','supplier','price'],true)&&
             in_array($direction,['asc','desc'],true),'CATALOGUE_SORT_INVALID');
@@ -123,11 +125,15 @@ final class NativeCatalogue
             }
             if($productId>0){
                 Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');$parent=$products[0];
+                $groups=$db->prepare('SELECT DISTINCT ag.id_attribute_group,COALESCE(NULLIF(agl.public_name,\'\'),agl.name) name,ag.position FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? JOIN `'._DB_PREFIX_.'product_attribute_combination` pac ON pac.id_product_attribute=pa.id_product_attribute JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_group_lang` agl ON agl.id_attribute_group=ag.id_attribute_group AND agl.id_lang=? WHERE pa.id_product=? ORDER BY ag.position,ag.id_attribute_group LIMIT 65');
+                $groups->execute([$shop,$language,$productId]);$nativeGroups=$groups->fetchAll(\PDO::FETCH_ASSOC);Protocol::ensure(count($nativeGroups)<=64,'CATALOGUE_VARIANT_ATTRIBUTES_LIMIT');
+                $variantGroups=array_map(static fn($row)=>['id'=>(int)$row['id_attribute_group'],'name'=>(string)$row['name']],$nativeGroups);
+                Protocol::ensure($sortGroupId===0||in_array($sortGroupId,array_column($variantGroups,'id'),true),'CATALOGUE_VARIANT_GROUP_INVALID');
                 $variantStock=self::stockSql('pa.id_product','pa.id_product_attribute',$shop);$variantAvailability=$hideUnavailable?' AND '.$variantStock.'>0':'';
                 $count=$db->prepare('SELECT COUNT(*) FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=?'.$variantAvailability);
                 $count->execute([$shop,$productId]);$total=(int)$count->fetchColumn();
                 if($sort==='price')Protocol::ensure($total<=200000,'CATALOGUE_INDEX_LIMIT');
-                $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute),\'\')';
+                $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute'.($sortGroupId>0?' AND a.id_attribute_group='.$sortGroupId:'').'),\'\')';
                 $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute','price'=>'pa.id_product_attribute',
                     'cost'=>'pa.id_product_attribute','manufacturer'=>'pa.id_product_attribute','supplier'=>'pa.id_product_attribute'];
                 $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pa.isbn,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
@@ -140,7 +146,7 @@ final class NativeCatalogue
                     $pricePage=self::pricePage(array_keys($byId),static function($key)use($productId,$byId,$context,$address,$customerId){
                         return self::previewPrice($productId,(int)$byId[$key]['id_product_attribute'],$context,(int)$address->id,$customerId);
                     },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields,$catalogueFilters);
-                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters];
+                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId];
                     $priceValues=$pricePage['prices'];$variants=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
                 }
                 $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
@@ -155,7 +161,7 @@ final class NativeCatalogue
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,
+                'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,
                 ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
     }

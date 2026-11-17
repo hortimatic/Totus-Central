@@ -471,7 +471,8 @@
         "src/totustpv/catalogue-preferences.js",
         "tests/totustpv-catalogue-preferences-qa.mjs",
         "supabase/migrations/20261117111400_totustpv_catalogue_filters.sql",
-        "tests/native-lab/catalogue-filter-"
+        "tests/native-lab/catalogue-filter-",
+        "tests/totustpv-variant-selector-browser-qa.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -518,7 +519,8 @@
         "tests/totustpv-category-service-qa.mjs",
         "tests/totustpv-price-display-qa.mjs",
         "tests/totustpv-search-preferences-qa.mjs",
-        "tests/totustpv-catalogue-preferences-qa.mjs"
+        "tests/totustpv-catalogue-preferences-qa.mjs",
+        "tests/totustpv-variant-selector-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

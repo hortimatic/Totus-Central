@@ -180,3 +180,7 @@ La preparación enlaza con el registro existente de Central, en otra pestaña y 
 ### 17/11/2026 · atributos nativos de variantes
 
 Las combinaciones explican grupo y valor (por ejemplo, Color: Rojo), en tarjetas y tabla, con proyección pública limitada y respaldo del nombre compuesto anterior. Aprueban 46 recorridos afectados y laboratorio nativo con navegador, conservación del ticket y móvil/escritorio. Selección por atributo y orden inicial siguen pendientes; no se cierra un requisito amplio por este avance. Sin nueva migración ni publicación. Detalle: TOTUSTPV_VARIANTES_20261117.md. Las cuatro comprobaciones de GitHub del bloque d464df92 han finalizado correctamente.
+
+### 17/11/2026, 13:40 CET · ventana de selección de variantes
+
+El producto abre un diálogo con tabla común en escritorio y tarjetas legibles en móvil, grupos nativos para ordenar, existencias, precio y paginación. Elegir añade al ticket y cierra; Escape cancela sin perder la venta. Se restaura el orden del catálogo. El servidor ordena antes de paginar: 23 combinaciones nativas verificadas en páginas de 20 y tres, dos grupos y rechazo del grupo de otro producto. Aprueban 46 recorridos de regresión y uno específico adicional, más ocho controles de estabilidad. La prueba específica cubre consulta fallida sin filas falsas, agotado bloqueado y conservación del ticket. Orden inicial configurable sigue pendiente. Sin nueva migración ni publicación. Detalle: TOTUSTPV_VARIANTES_20261117.md.

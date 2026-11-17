@@ -170,3 +170,10 @@ test('catalogue visibility allows bounded category IDs only, without changing ge
  for(const catalogueFilters of [{hideUnavailable:1},{excludedCategories:[0]},{excludedCategories:['2']},{excludedCategories:[2,2]},{allowOutOfStock:true},{extraDetails:true},{excludedCategories:[2147483648]}])await assert.rejects(f.transport.readNativeCatalogue({catalogueFilters}),/CATALOGUE_QUERY_INVALID/);
  await assert.rejects(f.transport.read('products',{excluded_categories:'2'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
 });
+test('variant-group ordering is scoped to catalogue combinations and never forwarded to generic resources',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeCatalogue({productId:12,variantGroupId:3});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('sort_group_id'),'3');assert.equal(url.searchParams.get('product_id'),'12');
+ for(const variantGroupId of [-1,'3',1.5,null,2147483648])await assert.rejects(f.transport.readNativeCatalogue({productId:12,variantGroupId}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.readNativeCatalogue({variantGroupId:3}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{sort_group_id:'3'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});

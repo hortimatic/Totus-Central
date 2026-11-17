@@ -104,3 +104,7 @@ Quedan pendientes crédito/anticipos/cobros posteriores, presupuestos/reservas, 
 ## Crear o gestionar cajas desde la preparación del puesto
 
 El administrador puede abrir Crear y gestionar cajas. Se abre Administración → Negocio y cajas en otra pestaña, conservando la preparación del TPV. Crea o edita allí la caja y guarda. Regresa al TPV y pulsa Actualizar tiendas y cajas. Revisa la selección y asigna el puesto a su operador; crear una caja no le concede acceso automáticamente. Si la conexión ha cambiado, cancela la preparación y vuelve a entrar. Esta ampliación sigue en rama, pendiente de publicación.
+
+## Elegir una variante en una venta
+
+Pulsa el artículo. La ventana muestra cada combinación con sus atributos, existencias y precio. Elige un atributo para ordenar, como Color, o cambia a orden por existencias o precio. Usa Anterior y Siguiente para recorrer todas las combinaciones. En móvil se abre con tarjetas; Vista permite cambiar a Tabla y usar las columnas comunes. Pulsa una combinación con unidades para añadirla: la ventana se cierra y conserva el resto del ticket. Volver a productos o Escape cancela la selección. Ordenar las variantes no cambia el orden guardado del catálogo. Esta ampliación sigue en rama, pendiente de activación remota.

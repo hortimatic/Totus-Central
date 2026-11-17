@@ -36,6 +36,7 @@ jobs:
       - run: node tests/totustpv-product-intake-browser-qa.mjs
       - run: node tests/totustpv-cash-counting-browser-qa.mjs
       - run: node tests/totustpv-catalogue-table-browser-qa.mjs
+      - run: node tests/totustpv-variant-selector-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs
       - run: node tests/totustpv-receipt-delivery-browser-qa.mjs
       - run: node tests/totustpv-printed-documents-qa.mjs

@@ -15,6 +15,11 @@ test('variant metadata exposes only bounded attribute identities and public labe
  assert.deepEqual(catalogueForActor({items:[{variant_attributes:[attribute]}]},false).items[0].variant_attributes,[{id:2,groupId:1,name:'Rojo',groupName:'Color'}]);
  for(const value of [null,{},Array(65).fill(attribute),[{...attribute,id:0}],[{...attribute,name:'x'.repeat(129)}]])assert.throws(()=>catalogueForActor({items:[{variant_attributes:value}]},false),/TPV_CATALOGUE_INVALID/);
 });
+test('variant group names cannot expose other native fields or an unbounded metadata list',()=>{
+ const result=catalogueForActor({items:[],variant_groups:[{id:3,name:'Color',secret:'not public'}]},false);
+ assert.deepEqual(result.variant_groups,[{id:3,name:'Color'}]);
+ for(const variant_groups of [null,{},Array(65).fill({id:1,name:'Color'}),[{id:0,name:'Color'}]])assert.throws(()=>catalogueForActor({items:[],variant_groups},false),/TPV_CATALOGUE_INVALID/);
+});
 function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows,nativeDocument,noSession=false}={}){
  const calls=[],nativeRequests=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};

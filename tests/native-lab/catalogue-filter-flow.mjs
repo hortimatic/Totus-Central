@@ -8,6 +8,17 @@ export async function exerciseNativeCatalogueFilters({call,fixture,nativeWriteCo
  const variants=await call({productId:sample.ids.variants,catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});
  assert.equal(variants.total_count,1);assert.equal(variants.items.length,1);assert.equal(variants.items[0].attribute_id,fixture.variant.variants[1].attributeId);assert.ok(variants.items[0].stock>0);
  assert.ok(variants.items[0].variant_attributes.length>0);assert.ok(variants.items[0].variant_attributes.every(row=>Number.isSafeInteger(row.id)&&Number.isSafeInteger(row.groupId)&&row.name&&row.groupName));
+ assert.ok(variants.variant_groups.length>0);const group=variants.variant_groups[0];
+ const groupAsc=await call({productId:sample.ids.variants,variantGroupId:group.id,sortField:'name',sortDirection:'asc'});
+ const groupDesc=await call({productId:sample.ids.variants,variantGroupId:group.id,sortField:'name',sortDirection:'desc'});
+ assert.equal(groupAsc.variant_group_id,group.id);assert.equal(groupAsc.total_count,2);
+ assert.deepEqual(groupDesc.items.map(row=>row.attribute_id),groupAsc.items.map(row=>row.attribute_id).reverse());
+ await assert.rejects(()=>call({productId:sample.ids.variants,variantGroupId:2147483647}),/CATALOGUE_VARIANT_GROUP_INVALID/);
+ await assert.rejects(()=>call({variantGroupId:group.id}),/CATALOGUE_QUERY_INVALID/);
+ const paged=sample.variantPage,pages=[];
+ for(const page of [0,1]){const result=await call({productId:paged.productId,variantGroupId:paged.groupId,sortField:'name',sortDirection:'asc',page});assert.equal(result.total_count,23);assert.equal(result.items.length,page===0?20:3);assert.equal(result.has_more,page===0);pages.push(...result.items.map(row=>row.attribute_id));}
+ assert.deepEqual(pages,[...paged.ids].reverse(),'Group ordering precedes pagination across the complete native result');
+ await assert.rejects(()=>call({productId:sample.ids.variants,variantGroupId:paged.groupId}),/CATALOGUE_VARIANT_GROUP_INVALID/);
  const unavailable=await call({search:fixture.variant.variants[0].reference,catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});assert.equal(unavailable.total_count,0);
  for(const excluded of [sample.parentId,sample.childId]){const result=await call({...base,catalogueFilters:{hideUnavailable:false,excludedCategories:[excluded]}});assert.equal(result.total_count,0);assert.equal(result.items.length,0);}
  const price=await call({...base,sortField:'price',catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});assert.equal(price.total_count,2);assert.deepEqual(price.catalogue_filters,{hideUnavailable:true,excludedCategories:[]});

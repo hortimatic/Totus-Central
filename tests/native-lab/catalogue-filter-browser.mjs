@@ -37,11 +37,19 @@ export async function exerciseNativeCatalogueFilterBrowser({handle,actor,fixture
   for(const width of [1440,390]){await page.setViewportSize({width,height:950});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await page.screenshot({path:`artifacts/totustpv-catalogue-filters/native-${width}.png`,fullPage:true});}
   const parent=page.locator(`[data-tpv-add^="${sample.ids.variants}:"]`);assert.equal(await parent.isEnabled(),true);assert.match(await parent.innerText(),/Existencias por variante/);assert.doesNotMatch(await parent.innerText(),/0 disponibles/);await parent.click();
   await page.getByRole('button',{name:'Volver a productos',exact:true}).waitFor();
-  const variant=page.locator(`[data-tpv-add="${sample.ids.variants}:${fixture.variant.variants[1].attributeId}"]`);await variant.waitFor();assert.equal(await page.locator('.tpv-product').count(),1);
-  assert.match(await variant.locator('.tpv-variant-details').innerText(),/: /);
+  const dialog=page.locator('.tpv-variant-dialog');await dialog.waitFor();assert.equal(await dialog.evaluate(el=>el.matches(':modal')),true);
+  await page.waitForFunction(()=>document.querySelector('[data-tpv-variant-group]')&&!document.querySelector('[data-tpv-variant-group]').disabled);
+  await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(await page.locator('.tpv-ticket-line').count(),1);
+  await parent.click();await dialog.waitFor();
+  assert.equal(await dialog.locator('[data-tpv-view]').inputValue(),'grid','The initial phone selector uses readable cards');
+  await dialog.locator('[data-tpv-view]').selectOption('table');
+  const group=dialog.locator('[data-tpv-variant-group]');await group.locator('option').nth(1).waitFor({state:'attached'});const groupId=await group.locator('option').nth(1).getAttribute('value');
+  await group.selectOption(groupId);await page.waitForFunction(id=>document.querySelector('[data-tpv-variant-group]')?.value===id&&!document.querySelector('[data-tpv-variant-group]')?.disabled,groupId);
+  const variant=dialog.locator(`[data-tpv-add="${sample.ids.variants}:${fixture.variant.variants[1].attributeId}"]`);await variant.waitFor();assert.equal(await dialog.locator('tbody tr').count(),1);
+  assert.match(await variant.locator('xpath=ancestor::tr').locator('.tpv-variant-details').innerText(),/: /);
   await mkdir('artifacts/totustpv-variants',{recursive:true});
-  for(const width of [1440,390]){await page.setViewportSize({width,height:950});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await page.screenshot({path:`artifacts/totustpv-variants/attributes-${width}.png`,fullPage:true});}
-  await variant.click();
+  for(const width of [1440,390]){await page.setViewportSize({width,height:950});await dialog.locator('[data-tpv-view]').selectOption(width===390?'grid':'table');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await page.screenshot({path:`artifacts/totustpv-variants/attributes-${width}.png`,fullPage:true});}
+  await variant.click();await dialog.waitFor({state:'hidden'});
   await page.getByRole('button',{name:'Ver ticket',exact:true}).click();assert.equal(await page.locator('.tpv-ticket-line').count(),2,'The original ticket and selected available variant survive visibility changes');
   assert.equal(nativeWriteCount(),before);assert.deepEqual(errors,[]);
   console.log('PASS native catalogue filter browser: real SQL preferences, hidden initial category validation, exclusions/descendants, stock receipt retains all products, sale re-read, zero-parent available variant, brand/supplier details, preserved ticket and desktop/mobile. No native writes.');

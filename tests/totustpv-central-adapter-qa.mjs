@@ -7,6 +7,16 @@ test('native variant attributes retain their groups and labels without importing
  assert.deepEqual(catalogueVariantAttributes(undefined),[]);
  for(const value of [null,{},[row,row],[{...row,id:0}],[{...row,name:''}],[{...row,groupId:'2'}],Array(65).fill(row)])assert.throws(()=>catalogueVariantAttributes(value),/atributos/);
 });
+test('a selected variant group requires native confirmation and bounded metadata',async()=>{
+ let response={items:[],currency:'EUR',payable_cart_quote:false,variant_group_id:3,variant_groups:[{id:3,name:'Color',secret:'omit'}]};
+ const station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};
+ const adapter=createCentralTpvAdapter({actorId:'operator',invoke:async body=>body.action==='context'?{actorId:'operator',workstations:[station]}:response,storage:{getItem:()=>null,setItem:()=>{}},uuid:()=>crypto.randomUUID()});
+ await adapter.context();await adapter.selectWorkstation({storeId:'store',drawerId:'drawer'});
+ assert.deepEqual((await adapter.searchProducts({productId:12,variantGroupId:3})).variantGroups,[{id:3,name:'Color'}]);
+ response={...response,variant_group_id:4};await assert.rejects(adapter.searchProducts({productId:12,variantGroupId:3}),/atributo de ordenación/);
+ response={...response,variant_group_id:3,variant_groups:[{id:3,name:'Color'},{id:3,name:'Duplicate'}]};await assert.rejects(adapter.searchProducts({productId:12,variantGroupId:3}),/grupos/);
+ await assert.rejects(adapter.searchProducts({variantGroupId:3}),/atributo/);
+});
 function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
   shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,canSell:true,canReconcile:true,session:null};

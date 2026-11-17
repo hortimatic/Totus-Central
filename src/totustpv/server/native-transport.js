@@ -86,6 +86,7 @@ export function createTpvNativeTransport(connection, scope, {
       const catalogueQuery=['totus_tpv_catalogue','totus_tpv_customers'].includes(resource)&&method==='GET'&&
         (key==='search'||key==='sort_field'&&['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(value)||key==='sort_direction'&&['asc','desc'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='search_fields'&&typeof value==='string'&&/^(reference|ean13|upc|isbn|name)(,(reference|ean13|upc|isbn|name)){0,4}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length||
+         resource==='totus_tpv_catalogue'&&key==='sort_group_id'&&/^(0|[1-9][0-9]{0,9})$/.test(value)||
          resource==='totus_tpv_catalogue'&&key==='hide_unavailable'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
          ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
@@ -163,14 +164,14 @@ export function createTpvNativeTransport(connection, scope, {
       return call('totus_tpv_returns','GET',{sale_operation_id:saleOperationId,actor_id:scope.actorId},undefined,false,true);
     },
     async readNativeCategories(){extensionScope();return call('totus_tpv_catalogue','GET',{categories_only:'1'},undefined,false,true);},
-    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters}={}){
+    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0}={}){
       let fields,filters;try{fields=catalogueSearchFields(searchFields);filters=normalizeCatalogueFilters(catalogueFilters);}catch{throw Error('TPV_CATALOGUE_QUERY_INVALID');}
       extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
-        Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&
+        Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&Number.isSafeInteger(variantGroupId)&&variantGroupId>=0&&variantGroupId<=2147483647&&(productId>0||variantGroupId===0)&&
         (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647&&
         ['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(sortField)&&['asc','desc'].includes(sortDirection),'TPV_CATALOGUE_QUERY_INVALID');
       return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
-        sort_field:sortField,sort_direction:sortDirection,search_fields:fields.join(','),hide_unavailable:filters.hideUnavailable?'1':'0',excluded_categories:filters.excludedCategories.join(','),...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
+        sort_field:sortField,sort_direction:sortDirection,sort_group_id:String(variantGroupId),search_fields:fields.join(','),hide_unavailable:filters.hideUnavailable?'1':'0',excluded_categories:filters.excludedCategories.join(','),...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
     },
     async quoteOwnedCart({operationId,cartId}) {
       const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
