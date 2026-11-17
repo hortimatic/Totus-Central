@@ -16,6 +16,19 @@ Se accede dentro de Totus Central, en **TotusTPV** (`/tpv`), con la cuenta habit
 
 Una asignación nueva no desactiva medios de cobro previamente configurados para otros operadores. La retirada de un medio requiere una futura operación de configuración explícita; no se simula quitando una casilla de alta.
 
+## Crear un artículo desde el mostrador
+
+Ampliación comprobada en laboratorio, pendiente de activación remota.
+
+1. Con una caja abierta y permiso de creación de Productos, abre **Más acciones → Nuevo producto**. El ticket actual se conserva.
+2. Escribe nombre, referencia, precio y categoría. Puedes añadir coste, código EAN, marca, proveedor y unidades. Elige **Solo en el TPV** o **TPV y tienda online**.
+3. Si introduces el PVP con impuestos, se convierte a precio base usando el impuesto simple comprobado. La estimación indica España; el ticket nativo confirma el impuesto aplicable a la dirección del cliente. No se supone un IVA fijo.
+4. Añade imágenes si las necesitas: elige un archivo o **Hacer foto**. Usa un fondo liso o una imagen sin fondo para prepararla correctamente. Para tallas, colores u opciones, pulsa **Añadir combinación** e indica las unidades de cada una. El precio vacío de una combinación hereda el del artículo.
+5. Pulsa **Guardar ficha para revisar**. Esto guarda una revisión y todavía no crea el artículo en la tienda. Comprueba su nombre, referencia y pasos, y pulsa **Confirmar y crear producto**.
+6. Espera a **Alta terminada**. Cierra la ventana, busca el artículo y añádelo al ticket.
+
+Si se interrumpe el guardado de la revisión, pulsa **Comprobar envío** manteniendo la misma ficha. Si ya comenzó el alta, utiliza **Comprobar y continuar alta**; los pasos verificados se conservan. Para encontrarla después de volver a entrar, abre **Más acciones → Altas de productos**. La consulta funciona también sin caja abierta; continuar requiere una sesión y permisos vigentes. No prepares otra alta para sustituir una que tenga resultado incierto.
+
 En **Accesos a las cajas → Cambiar acceso**, el responsable puede cambiar venta/consulta, gestión de efectivo y activación por separado. Retirar el acceso conserva el historial y no cierra la caja. Si otra persona cambió el acceso mientras se editaba, actualiza y revisa su configuración antes de guardar de nuevo. Si se pierde la respuesta, reintenta los mismos cambios o actualiza para comprobar el resultado. Cambiar tu propio acceso te devuelve a la entrada para recuperarlo con los permisos actuales.
 
 ## Vender

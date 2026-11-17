@@ -7,9 +7,12 @@ import {randomUUID} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {createCentralTpvHandler} from '../../supabase/functions/totus-tpv/handler.js';
 import {exerciseCentralBrowser} from './central-browser-flow.mjs';
+import {loadProductJournal} from './product-journal.mjs';
+import {exerciseProductIntake} from './product-intake-flow.mjs';
+import {exerciseNativeProductBrowser} from './product-intake-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete'}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
-  connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null;const paths=[];
+  connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
  try{
   await db.exec(`create schema private;create schema auth;create role anon;create role authenticated;create role service_role;
    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -34,9 +37,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   for(const file of ['20261115182617_totustpv_durable_checkout.sql','20261116110935_totustpv_cash_sessions.sql',
    '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql',
    '20261116175354_totustpv_failed_sale_review.sql','20261116180903_totustpv_workspace_preferences.sql',
-   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql'])
+   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql','20261117052454_totustpv_product_intake.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
+  if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
    [actor,connection,store,drawer,'qa-shop',JSON.stringify(profile),JSON.stringify({sell:true,open:true,reconcile:true})]);
@@ -47,8 +51,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_refund_journal:['p_action','p_id','p_scope','p_data'],totus_directory_operation:['p_action','p_request_id','p_data'],
    totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data'],
    totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data'],
+   totus_tpv_product_intake:['p_action','p_id','p_scope','p_data'],
+   totus_prestashop_product_create_journal:['p_action','p_request_id','p_data'],
+   totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
    totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
+   if(name==='totus_products_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}],websites:[{key:'qa-shop',connection_id:connection,origin:'https://preproduccion.hortimatic.com',status:'active',name:'QA local'}]}};}
+   if(name==='totus_tpv_product_intake'&&args.p_action==='verified'&&args.p_data.stepKey===dropProductAck){dropProductAck=null;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
    if(name==='totus_directory_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}]}};}
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:fixture.key}};
@@ -66,7 +75,8 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   };
   await preferences({connectionId:connection,shopId:1,id:drawer},{customerDisplay:{enabled:true,showPrices:true,showCustomer:true,color:'#1773c9',fontSize:23},receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
-  const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
+  const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret',
+   ...(focus==='products'?{TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:'1',TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED:'1'}:{})}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,
    String(error.message).replaceAll(fixture.key,'[synthetic key]').replaceAll(Buffer.from(fixture.key+':').toString('base64'),'[synthetic auth]')),
    resolve:async()=>['93.184.216.34'],request:async(url,init)=>{
@@ -81,6 +91,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     const xml=await read.text();return ['passwd','secure_key','last_passwd_gen'].map(field=>xml.match(new RegExp('<'+field+'\\b[^>]*>([^]*?)</'+field+'>'))?.[1]||'');};
    const protectedBefore=customerPatch?await protectedFields():null;
    const response=await fetch(local,{...init,signal:AbortSignal.timeout(30000)});
+   if(dropProductReply&&init.method==='POST'&&target.pathname==='/api/products'&&response.ok){dropProductReply=false;await response.body.cancel();throw Error('Synthetic lost native product response');}
    if(customerPatch&&response.ok){const after=await protectedFields();assert.ok(protectedBefore[1].length>0,'Fixture must have an existing customer security key');
     assert.ok(JSON.stringify(protectedBefore)===JSON.stringify(after),'Customer edit must preserve authentication fields; values never printed or stored');}
    if(!response.ok&&/\/customers(?:\/[0-9]+)?$|\/addresses(?:\/[0-9]+)?$/.test(target.pathname)){
@@ -103,6 +114,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='products'){
+   const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');
+    const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};
+   const productResult=await exerciseProductIntake({call:(action,values,id)=>call({action,selection,operationId:id,...values}),db,scope:selection,fixture:fixture.productSetup,paths,nativeRead,
+    loseBaseReply:()=>{dropProductReply=true;},loseStageAck:key=>{dropProductAck=key;}});
+   await exerciseNativeProductBrowser({handle,actor,fixture});return productResult;
+  }
   const saleId=randomUUID(),prepared=await call({action:'prepare',selection,operationId:saleId,
    lines:[{productId:fixture.productId,attributeId:0,qty:1}]});
   assert.equal(prepared.status,'ready');assert.equal(prepared.expected.totalCents,801);

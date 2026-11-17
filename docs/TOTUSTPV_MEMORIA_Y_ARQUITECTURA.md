@@ -10,6 +10,10 @@ No existe todavía un módulo comercial completo. Ya se han verificado desde la 
 
 ### Estado de construcción del 17/11/2026
 
+La ampliación posterior de alta de artículos incorpora `product-intake.js`, su contrato, el coordinador del servidor y una adaptación de los escritores oficiales existentes de Productos. El diario privado `20261117052454_totustpv_product_intake.sql` conserva preparación y progreso, sin sustituir el maestro nativo. El handler comprueba Productos y la web registrada antes de cargar la conexión; todas las peticiones Webservice quedan ligadas al `id_shop` observado. Las imágenes y las escrituras internas no se proyectan al navegador. El manifiesto incorpora las dependencias compartidas completas sin retirar las existentes.
+
+El 17/11/2026 se verificó el alta mediante Webservice y PostgreSQL reales aislados, incluyendo imagen, combinaciones, costes, existencias y dos interrupciones. El formulario conectado también creó y recuperó un artículo, conservando el ticket. La regresión de la ampliación tiene 92 recorridos aprobados y la suite SQL 390 aserciones. El informe de límites y mantenimiento específico está en `TOTUSTPV_ALTA_PRODUCTOS_20261117.md`; la activación remota y la cobertura completa de TPV-06 siguen pendientes.
+
 El puesto está en `src/totustpv/workspace.js`; el adaptador autenticado en `central-adapter.js`; el controlador de servidor en `supabase/functions/totus-tpv/handler.js`. La práctica utiliza un adaptador separado con datos ficticios. Las operaciones persistentes se coordinan mediante el diario SQL y los servicios nativos de `src/totustpv/server/`. El conector propio vive en `connectors/prestashop/`; no modifica el núcleo de PrestaShop ni módulos de terceros.
 
 La configuración visual y del justificante usa preferencias de cuenta/caja. El acceso administrativo combina `configuration-reader.js`, `workstation-access.js`, el controlador autenticado y la migración `20261117021112_totustpv_workstation_access.sql`. Esta separa venta, consulta y gestión de efectivo, conserva historial y añade revisión concurrente y registro privado de cambios. La migración de accesos y la anterior de catálogo siguen pendientes de aplicación remota.
@@ -195,7 +199,7 @@ No se retira POSTPV de una tienda operativa como parte de redactar este document
 
 ## 10. Pendientes explícitos y criterio de finalización
 
-Pendientes: interfaz real dentro de Central, persistencia y autorización efectivas, adaptación de API, causa del estado incompleto, coordinación de cobros, stock concurrente, documentos, devoluciones, hardware y alta autónoma. El modelo actual tampoco implementa venta fraccionada por peso, fidelización, almacenes avanzados ni certificaciones fiscales.
+Pendientes vigentes: activación coordinada y aceptación de la interfaz ampliada, cobertura de las configuraciones todavía abiertas, creación de categorías, traspasos, presupuestos, crédito, vales, restantes variantes de cobro/devolución y documentación final privada. La incidencia QA inicial sin pedido ya tiene cierre auditado. La venta, documentos, devoluciones, stock y autorización cuentan con pruebas de alcance concreto; esas pruebas no certifican todos los recorridos concurrentes ni hardware. Siguen pendientes el contraste de impresora/cajón/lector, venta por peso, fidelización, almacenes avanzados y certificaciones fiscales aplicables.
 
 Una función se considera terminada cuando tiene recorrido de usuario, permisos de servidor, efectos remotos comprobados, recuperación de fallos, historial y evidencia de prueba. «Botón visible», «respuesta HTTP correcta» y «prueba simulada pasada» no equivalen a función comercial completa.
 

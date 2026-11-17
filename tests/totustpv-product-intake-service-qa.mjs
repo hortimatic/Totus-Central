@@ -32,7 +32,8 @@ function fixture(){
   commitBase:async requestId=>{assert.equal(requestId,id);calls.push('base');const result={ok:true,verified:true,persisted:true,record_id:'99'};native.set('base',result);
    if(loseBase){loseBase=false;throw Error('reply lost');}return result;},
   prepareStage:async(parent,product,stage)=>{assert.equal(parent,id);assert.equal(product,'99');calls.push('prepare:'+stage.kind);
-   return native.get(stage.step_key)||{ok:true,can_commit:true,fingerprint:fp};},
+   assert.equal(native.has(stage.step_key),false,'Recovery must precede fresh preparation');return {ok:true,can_commit:true,fingerprint:fp};},
+  recoverStage:async(parent,product,stage)=>native.get(stage.step_key)||null,
   commitStage:async(parent,product,stage)=>{calls.push('write:'+stage.kind);const result={ok:true,verified:true,persisted:true,record_id:stage.kind==='finish'?'99':'100'};native.set(stage.step_key,result);return result;},
   attribute:async key=>({id:key,id_attribute_group:'1'}),list:async()=>({rows:[{id:'1',iso_code:'EUR'}]})};
  return {service:createProductIntakeService({rpc,products,scope,uuid:()=>token}),products,calls,native,get row(){return row;},

@@ -59,7 +59,10 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--variants-only')){
+ if(process.argv.includes('--products-only')){
+  const productSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/product-intake-setup.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,productSetup},profile:configured.result,base,focus:'products'});
+ }else if(process.argv.includes('--variants-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const parent=await api('totus_tpv_catalogue?search='+encodeURIComponent(variant.reference));assert.equal(parent.status,200);
   assert.equal(parent.result.items.length,1);assert.equal(parent.result.items[0].choose_variant,true);assert.equal(parent.result.items[0].stock,0);

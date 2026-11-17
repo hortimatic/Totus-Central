@@ -14,7 +14,7 @@ export function productIntakeView(row){
   steps:row.steps.map(({key,kind,label,status})=>({key,kind,label,status})),
   ...(row.busy?{busy:true}:{}),...(row.superseded?{superseded:true}:{})};
 }
-export function createProductIntakeService({rpc,products,scope,uuid=()=>crypto.randomUUID()}){
+export function createProductIntakeService({rpc,products,scope,uuid=()=>crypto.randomUUID(),onStepError=()=>{}}){
  const journal=async(action,id,data={})=>{
   need(id===null||requestId(id),'TPV_PRODUCT_REQUEST_INVALID');
   const response=await rpc('totus_tpv_product_intake',{p_action:action,p_id:id,p_scope:scope,p_data:data});
@@ -72,16 +72,19 @@ export function createProductIntakeService({rpc,products,scope,uuid=()=>crypto.r
      const productId=row.steps.find(item=>item.key==='base'&&item.status==='verified')?.recordId;
      need(nativeId(productId),'TPV_PRODUCT_RESULT_INVALID');
      const draft=productIntakeDraft(row.payload),input=productIntakeStage(draft,step,row.steps,step.kind==='supplier_price'?await currency():undefined);
-     const prepared=await products.prepareStage(id,productId,input);
-     // The common writer reconciles its existing journal before another POST.
-     if(prepared?.verified===true)result=prepared;
+     const recovered=await products.recoverStage(id,productId,input);
+     // Reconcile BEFORE preparation: a successfully created combination can
+     // legitimately make a fresh preparation fail its duplicate check.
+     if(recovered)result=recovered;
      else{
+      const prepared=await products.prepareStage(id,productId,input);
       need(prepared?.ok===true&&prepared.can_commit===true&&/^[a-f0-9]{64}$/.test(prepared.fingerprint||''),'TPV_PRODUCT_WRITE_UNAVAILABLE');
       result=await products.commitStage(id,productId,input,prepared.fingerprint);
      }
     }
     need(result?.ok===true&&result.verified===true&&result.persisted===true&&nativeId(result.record_id),'TPV_PRODUCT_RESULT_INVALID');
-   }catch{
+   }catch(error){
+    try{onStepError(error);}catch{}
     // Even a lost reply may conceal a committed native write. Keep the same
     // root and step; recovery uses the official journal, never a fresh command.
     return productIntakeView(await journal('failed',id,{token,stepKey:step.key,code:'TPV_PRODUCT_STEP_UNCERTAIN'}));

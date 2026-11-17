@@ -4,7 +4,7 @@ import {createCentralTpvAdapter,orderLookupInput} from '../src/totustpv/central-
 function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
   shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,canSell:true,canReconcile:true,session:null};
- let dispatches=0,movementLost=true;
+ let dispatches=0,movementLost=true,productReplyLost=true,productMissing=false;const productDrafts=new Map();
  const invoke=async body=>{requests.push(structuredClone(body));switch(body.action){
   case 'context':return {actorId:actor,workstations:[station]};
   case 'open':return {id:body.operationId,status:'open'};
@@ -15,13 +15,15 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   case 'orders':return [{id:'sale-fixture',status:'confirmed',orderId:42,totalCents:150}];
   case 'cash-movement':if(movementLost)throw Error('Lost reply');return {expectedCashCents:9900,payments:{cash:801,card:200}};
   case 'customer-write':return {verified:true,persisted:true,record_id:'7'};
+  case 'product-intake-prepare':{const row={id:body.operationId,status:'ready',name:body.payload.name};productDrafts.set(row.id,row);if(productReplyLost){productReplyLost=false;throw Error('Lost product preparation reply');}return row;}
+  case 'product-intake-get':{if(productMissing||!productDrafts.has(body.operationId)){const error=Error('Not found');error.code='TPV_PRODUCT_NOT_FOUND';throw error;}return productDrafts.get(body.operationId);}
   case 'returnable':return {orderId:42,remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
    returned_quantity:0,remaining_quantity:2,allocated_cents:801,refunded_cents:0}]};
   case 'prepare-refund':return {id:body.operationId,status:'ready',totalCents:401};
   default:throw Error('Unexpected action '+body.action);
  }};
  const create=()=>createCentralTpvAdapter({actorId:actor,invoke,storage,uuid:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`});
- return {create,requests,values,station,dispatches:()=>dispatches,settle:()=>movementLost=false};
+ return {create,requests,values,station,dispatches:()=>dispatches,settle:()=>movementLost=false,missingProduct:()=>{productMissing=true;}};
 }
 test('the real adapter projects explicit workstation rights and rejects missing or malformed permission flags',async()=>{
  const f=fixture();f.station.canSell=false;f.station.canOpen=false;const context=await f.create().context();
@@ -74,4 +76,21 @@ test('order lookup distinguishes ordinary IDs from namespaced scanned references
  await assert.rejects(adapter.orders({orderId:42,reference:'ABCDEFGHI'}),/número o por referencia/);
  await assert.rejects(adapter.orders({reference:'[unsafe]'}),/válida/);
  assert.equal(f.dispatches(),0);
+});
+test('a lost product preparation is recovered across a new adapter without keeping image bytes or needing open cash',async()=>{
+ const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});
+ const payload={name:'Private product draft',images:[{base64:'private-image-data'}]};
+ await assert.rejects(adapter.prepareProductIntake(payload),/Lost product/);const id=f.requests.at(-1).operationId;
+ await assert.rejects(adapter.prepareProductIntake({...payload,name:'Other draft'}),/solicitud pendiente/);
+ assert.equal([...f.values.values()].some(value=>value.includes('Private product')||value.includes('private-image')),false);
+ const reopened=f.create();await reopened.context();await reopened.selectWorkstation({storeId:'store',drawerId:'drawer'});
+ assert.equal((await reopened.recoverProductPreparation()).id,id);assert.equal(await reopened.recoverProductPreparation(),null);
+ assert.equal(f.requests.filter(row=>row.action==='product-intake-prepare').length,1);
+ assert.equal(f.requests.filter(row=>row.action==='product-intake-get').at(-1).selection.sessionId,undefined);
+});
+test('an unobserved preparation can release its local pointer because it never creates a native product',async()=>{
+ const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});
+ await assert.rejects(adapter.prepareProductIntake({name:'First'}),/Lost product/);f.missingProduct();
+ assert.equal(await adapter.recoverProductPreparation(),null);await adapter.prepareProductIntake({name:'Corrected'});
+ assert.equal(f.requests.filter(row=>row.action==='product-intake-prepare').length,2);
 });

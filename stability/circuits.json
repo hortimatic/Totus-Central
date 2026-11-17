@@ -446,7 +446,12 @@
         "tests/totustpv-printed-documents-qa.mjs",
         "tests/totustpv-product-intake-contract-qa.mjs",
         "tests/totustpv-product-intake-service-qa.mjs",
-        "supabase/migrations/20261117052454_totustpv_product_intake.sql"
+        "supabase/migrations/20261117052454_totustpv_product_intake.sql",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-product-intake-browser-qa.mjs",
+        "tests/native-lab/product-",
+        "tests/native-lab/central-edge-flow.mjs",
+        "tests/totustpv-native-http-qa.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -484,7 +489,9 @@
         "tests/totustpv-customer-display-qa.mjs",
         "tests/totustpv-customer-display-browser-qa.mjs",
         "tests/totustpv-product-intake-contract-qa.mjs",
-        "tests/totustpv-product-intake-service-qa.mjs"
+        "tests/totustpv-product-intake-service-qa.mjs",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-product-intake-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

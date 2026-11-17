@@ -1,8 +1,12 @@
 # Estado de implementación de TotusTPV
 
-## Estado vigente · 17/11/2026, 04:40 CET
+## Estado vigente · 17/11/2026, 10:31 CET
 
-La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las migraciones de catálogo/preferencias, accesos y pantalla de cliente siguen pendientes de aplicación remota.
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las cuatro migraciones de catálogo/preferencias, accesos, pantalla de cliente y alta de productos siguen pendientes de aplicación remota.
+
+El alta de productos ya está integrada en el formulario y servicio autenticado de la rama. La prueba nativa aislada atraviesa navegador, adaptador, handler, PostgreSQL y PrestaShop 8.2.8: crea un artículo, lo relee en el catálogo y lo añade al ticket preexistente. Otro recorrido verifica imagen, dos combinaciones, precios exactos, costes de proveedor, existencias y recuperación de respuestas perdidas sin duplicar escrituras. Incluye edición de PVP con impuesto simple comprobado, imágenes preparadas y consulta de altas sin caja abierta. Quedan pendientes la creación de categorías desde el TPV, límites de recuperación de imagen y aceptación remota. Detalle: `TOTUSTPV_ALTA_PRODUCTOS_20261117.md`.
+
+La suite SQL supera 390 aserciones. Los 92 recorridos afectados desde la base local 2a44ef36 han aprobado; se han repetido las pruebas de frontera tras reforzar el límite HTTP multibyte y el recorrido nativo después de incorporar el PVP. Las cuatro comprobaciones de GitHub de 1c7d6546 constan aprobadas. Estos resultados son de laboratorio y rama, no una publicación del TPV completo.
 
 El laboratorio con PrestaShop 8.2.8/PHP 8.2/MariaDB ha verificado catálogo contextual completo, caducidad de ofertas, pedidos, pagos, factura, devoluciones y abonos, stock, recepción por albarán, recuperación sin duplicados, cierre y escritorio/móvil. La ampliación del justificante incluye cliente opcional, logo, formatos, numeración de líneas, precio unitario histórico e impuesto, operador de la venta, web autorizada y código Code128 que permite localizar el pedido original. Se han comprobado 327 aserciones SQL, 86 recorridos de regresión durante la ampliación y papel simulado de 58 mm; los detalles y las limitaciones de cada prueba constan en TOTUSTPV_VERIFICACION_NATIVA_20261117.md. Ninguna de estas pruebas certifica la impresora, cajón o lector físicos.
 

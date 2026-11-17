@@ -12,6 +12,14 @@ export function productIntakePrice(value){
  requireValue(micros<=999999999999999n,'El precio supera el intervalo admitido.');return micros;
 }
 export function productIntakeDecimal(micros){const negative=micros<0n,value=negative?-micros:micros;return (negative?'-':'')+String(value/1000000n)+'.'+String(value%1000000n).padStart(6,'0');}
+// Editing aid for a verified simple tax rate, never the native checkout total.
+// Round only once, to PrestaShop's six decimal places, with integer arithmetic.
+export function productIntakeTaxPrice(value,rate,{toNet=false}={}){
+ const amount=productIntakePrice(value),tax=productIntakePrice(rate),base=100000000n;
+ requireValue(tax<=100000000n,'El impuesto debe estar entre 0 y 100 %.');
+ const numerator=toNet?amount*base:amount*(base+tax),denominator=toNet?base+tax:base;
+ const result=productIntakeDecimal((numerator+denominator/2n)/denominator);productIntakePrice(result);return result;
+}
 const price=value=>productIntakeDecimal(productIntakePrice(value));
 function reference(value,label){const result=text(value,64,label,{empty:false});requireValue(/^[a-z0-9][a-z0-9._-]{2,63}$/i.test(result),'Usa una referencia de 3 a 64 letras, números, puntos, guiones o guiones bajos.');return result;}
 function quantity(value){requireValue(Number.isSafeInteger(value)&&value>=0&&value<=1000000000,'Indica unidades enteras entre 0 y 1.000.000.000.');return value;}

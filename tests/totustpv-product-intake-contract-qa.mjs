@@ -1,11 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productIntakeDraft,productIntakePrice,productIntakeDecimal,productIntakeBase,productIntakePlan,productIntakeStage} from '../src/totustpv/product-intake-contract.js';
+import {productIntakeDraft,productIntakePrice,productIntakeDecimal,productIntakeBase,productIntakePlan,productIntakeStage,productIntakeTaxPrice} from '../src/totustpv/product-intake-contract.js';
 import {validateProductCreateRequest} from '../src/productos-write-contract.js';
 import {validateProductStage} from '../src/productos-stages-contract.js';
 const id='00000000-0000-4000-8000-000000000001';
 const base=()=>({name:'Artículo de prueba',reference:'PRUEBA-001',price:'12,50',cost:'6.123456',categoryId:'2',quantity:4});
 const context={id,call_id:id,revision:1,store:'hortimatic-2'};
+test('gross/net editing preserves six decimals, a supplied real rate and a single rounding',()=>{
+ assert.equal(productIntakeTaxPrice('10.000001','21'),'12.100001');
+ assert.equal(productIntakeTaxPrice('15,13','21',{toNet:true}),'12.504132');
+ assert.equal(productIntakeTaxPrice('10','7.5'),'10.750000');
+ assert.equal(productIntakeTaxPrice('10.750000','7.5',{toNet:true}),'10.000000');
+ assert.equal(productIntakeTaxPrice('0','0'),'0.000000');
+ for(const rate of ['-1','101','NaN'])assert.throws(()=>productIntakeTaxPrice('10',rate));
+ assert.throws(()=>productIntakeTaxPrice('999999999','100'));
+});
 test('quick product prices keep exact six-decimal arithmetic and reject excessive or negative inputs',()=>{
  assert.equal(productIntakePrice('0012,500001'),12500001n);assert.equal(productIntakeDecimal(-12500001n),'-12.500001');
  for(const input of ['-1','1e3','NaN','1.0000001','1000000000',12.5])assert.throws(()=>productIntakePrice(input));

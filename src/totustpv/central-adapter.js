@@ -199,6 +199,23 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async advanceStockReceipt(id){return call('stock-receipt-step',{},id);},
   async getStockReceipt(id){return call('stock-receipt-get',{},id);},
   async cancelStockReceipt(id){return call('stock-receipt-cancel',{},id);},
+  async productProfile(){return call('product-profile');},
+  async productMetadata(resource,page=0,recordId){return call('product-metadata',{resource,page,...(recordId?{recordId}:{})});},
+  async productIntakes(){return call('product-intakes');},
+  async recoverProductPreparation(){const pending=saved()['product-intake'];if(!pending)return null;
+   let prior;try{prior=JSON.parse(pending.scope);}catch{throw Error('Revisa el registro de solicitudes de esta cuenta.');}
+   if(JSON.stringify(prior.slice(0,3))!==JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId]))return null;
+   try{const result=await call('product-intake-get',{},pending.id);forget('product-intake',pending.id);return result;}
+   catch(error){if(error.code!=='TPV_PRODUCT_NOT_FOUND')throw error;
+    // Preparation never writes a native product. A late response can only save
+    // another reviewable draft, which the saved-work list will retain.
+    forget('product-intake',pending.id);return null;}},
+  async prepareProductIntake(payload){const id=await operation('product-intake',payload);
+   try{const result=await call('product-intake-prepare',{payload},id);forget('product-intake',id);return result;}
+   catch(error){if(['TPV_PRODUCT_ATTRIBUTE_GROUP_REPEATED','TPV_PRODUCT_METADATA_INVALID','TPV_PRODUCT_CURRENCY_INVALID','TPV_PRODUCT_WRITE_UNAVAILABLE'].includes(error.code))forget('product-intake',id);throw error;}},
+  async getProductIntake(id){const result=await call('product-intake-get',{},id);forget('product-intake',id);return result;},
+  async advanceProductIntake(id){return call('product-intake-step',{},id);},
+  async cancelProductIntake(id){return call('product-intake-cancel',{},id);},
   async closeSession({countedCents,note=''}){const id=await operation('close',{countedCents,note}),result=await call('close',{countedCents,note},id);
    need(result.status==='closed','No se ha confirmado el cierre.');forget('close',id);session=null;activeDraft=null;customer=null;return summary(result);}
  });

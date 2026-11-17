@@ -1,6 +1,6 @@
 import {readPrestashopPage,readPrestashopProductItem} from '../../../supabase/functions/totus-connections/prestashop.js';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../../supabase/functions/totus-connections/prestashop-create.js';
-import {runPrestashopProductStage} from '../../../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {runPrestashopProductStage,validateProductStage} from '../../../supabase/functions/totus-connections/prestashop-product-stage.js';
 import {TOTUS_QA_POLICY} from './deployment-qa-policy.js';
 const need=(ok,code)=>{if(!ok)throw Error(code);};
 const resources=new Set(['categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','product_options','product_option_values','languages','currencies']);
@@ -11,7 +11,7 @@ export function scopedProductRequest({connection,scope,request=fetch}){
  need(scope?.environment==='qa'&&scope.connectionId===TOTUS_QA_POLICY.connectionId&&connection?.id===scope.connectionId&&
   connection.revision===scope.connectionRevision&&Number.isSafeInteger(scope.shopId)&&scope.shopId>0,'TPV_PRODUCT_SCOPE_INVALID');
  const base=new URL(connection.endpoint);
- need(base.origin===TOTUS_QA_POLICY.origin&&base.pathname.replace(/\/$/,'')==='/api'&&!base.search&&!base.hash,'TPV_PRODUCT_SCOPE_INVALID');
+ need(base.origin===TOTUS_QA_POLICY.origin&&base.pathname.replace(/\/$/,'')==='/api'&&!base.username&&!base.password&&!base.search&&!base.hash,'TPV_PRODUCT_SCOPE_INVALID');
  return async(url,init={})=>{
   const target=new URL(url);need(target.origin===base.origin&&!target.username&&!target.password&&!target.hash&&
    (target.pathname==='/api'||target.pathname.startsWith('/api/')),'TPV_PRODUCT_SCOPE_INVALID');
@@ -56,8 +56,9 @@ export function createOfficialProductWriter({connection,scope,websiteKey,website
  };
  return Object.freeze({
   profile:()=>readPrestashopProductCreateProfile(bound,{...context(),action:'prestashop_product_create_profile'},options),
-  list:(resource,page=0)=>{need(resources.has(resource)&&Number.isSafeInteger(page)&&page>=0&&page<=1000,'TPV_PRODUCT_METADATA_INVALID');
-   return readPrestashopPage(bound,{...context(),action:'prestashop_read',resource,page,page_size:100,sort:'oldest'},options);},
+  list:(resource,page=0,recordId)=>{need(resources.has(resource)&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
+    (resource==='taxes'?page===0&&typeof recordId==='string'&&/^[1-9][0-9]{0,14}$/.test(recordId):recordId===undefined),'TPV_PRODUCT_METADATA_INVALID');
+   return readPrestashopPage(bound,{...context(),action:'prestashop_read',resource,page,page_size:100,sort:'oldest',...(recordId?{record_id:recordId}:{})},options);},
   attribute:async id=>{need(/^[1-9][0-9]{0,14}$/.test(String(id)),'TPV_PRODUCT_METADATA_INVALID');
    const response=await readPrestashopProductItem(bound,{...context(),action:'prestashop_item_read',resource:'product_option_values',record_id:String(id)},options);
    need(String(response.item?.id)===String(id),'TPV_PRODUCT_METADATA_INVALID');return response.item;},
@@ -66,6 +67,14 @@ export function createOfficialProductWriter({connection,scope,websiteKey,website
   commitBase:(id,payload,fingerprint)=>runPrestashopProductCreate(bound,{...payload,...context(),action:'prestashop_product_create_commit',request_id:id,
    expected_fingerprint:fingerprint,confirmed:true},{...options,journal:baseJournal}),
   prepareStage:(parentId,productId,input)=>stage(false,parentId,productId,input),
+  recoverStage:async(parentId,productId,input)=>{
+   const op=validateProductStage({...input,...context(),action:'prestashop_product_step_prepare',parent_request_id:parentId,product_id:String(productId)});
+   if(!await stageJournal(parentId,productId).lookup(op))return null;
+   // A prior claim enters the common writer's readback branch before its
+   // fingerprint check. With no prior claim, this sentinel cannot authorize a
+   // new write; a fresh prepare/commit remains necessary.
+   return stage(true,parentId,productId,input,'0'.repeat(64));
+  },
   commitStage:(parentId,productId,input,fingerprint)=>stage(true,parentId,productId,input,fingerprint)
  });
 }
