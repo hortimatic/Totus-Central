@@ -12,6 +12,7 @@ import {nativeCents,nativeMicros} from '../src/totustpv/server/native-adapter.js
 import {verifyRemoteSale} from '../src/totustpv/model.js';
 import {exerciseCentralEdge} from './native-lab/central-edge-flow.mjs';
 import {exerciseNativeCatalogue} from './native-lab/catalogue-order-flow.mjs';
+import {exerciseCommercialQuote} from './native-lab/commercial-quote-flow.mjs';
 const project=process.cwd(),native=path.resolve('artifacts/native-lab/shop');
 const params=await fs.readFile(path.join(native,'app/config/parameters.php'),'utf8');
 assert.match(params,/'database_name'\s*=>\s*'totus_tpv_lab'/);assert.match(params,/'database_host'\s*=>\s*'127.0.0.1'/);
@@ -59,7 +60,9 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
+ if(process.argv.includes('--commercial-quote-only')){
+  await exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const linePriceSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/line-price-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture:{...fixture,linePriceSetup},profile:configured.result,base,simulateCataloguePriceChange:(id,price)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/price-history-change.php',String(id),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),focus:process.argv.includes('--line-name-only')?'line-name':process.argv.includes('--sale-note-only')?'sale-note':'line-price'});

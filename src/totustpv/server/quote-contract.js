@@ -16,6 +16,7 @@ export async function nativeQuoteFingerprint(quote){
  const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 export async function expectedFromNativeQuote({scope,ownedCart,profile,response,stockRecords,now=Date.now()}) {
+ need(response?.quote?.commercial_only===undefined||response.quote.commercial_only===false,'TPV_COMMERCIAL_QUOTE_NOT_PAYABLE');
  scope=structuredClone(scope);ownedCart=structuredClone(ownedCart);profile=structuredClone(profile);
  response=structuredClone(response);stockRecords=structuredClone(stockRecords);
  need(Number.isFinite(now)&&ownedCart?.id&&positive(ownedCart.cartId)&&ownedCart.actorId===scope?.actorId&&

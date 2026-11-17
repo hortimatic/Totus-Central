@@ -11,6 +11,7 @@ $db->exec('CREATE TABLE effects(operation_id TEXT,installation_id TEXT,api_accou
 $command=['installation_id'=>'installation-fixture','api_account_id'=>17,'shop_id'=>1,'actor_id'=>'actor-fixture'];
 $receipt=['verified'=>true,'native_reference'=>701,'cart_id'=>701,'session_id'=>'session-fixture','drawer_id'=>'drawer-fixture','allow_out_of_stock'=>true];
 $db->exec("INSERT INTO carts VALUES ('operation-fixture',701,'installation-fixture',17,1,'actor-fixture','session-fixture','drawer-fixture',501)");
+$db->exec('ALTER TABLE carts ADD COLUMN commercial_only INTEGER NOT NULL DEFAULT 0');
 $insert=$db->prepare("INSERT INTO journal VALUES ('operation-fixture','installation-fixture',17,1,'actor-fixture','cart.prepare','fingerprint-fixture','pending',?)");$insert->execute([json_encode($receipt)]);
 $owner=new NativeOwnedCarts($db,'carts','journal',['currency_id'=>1,'language_id'=>1,'carrier_id'=>5],'effects');$checks=0;
 $check=static function($value)use(&$checks){if(!$value)throw new RuntimeException('Cart owner assertion '.($checks+1));$checks++;};
@@ -41,4 +42,9 @@ $db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)
 $check($owner->owner(701,$command)['line_names']===$receipt['line_names']);
 foreach(['verified'=>false,'cart_id'=>702,'session_id'=>'other-session','drawer_id'=>'other-drawer'] as $key=>$value){$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode([...$receipt,$key=>$value])]);$check(!isset($owner->owner(701,$command)['line_names']));}
 $db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);$db->exec("UPDATE effects SET fingerprint='foreign'");$check(!isset($owner->owner(701,$command)['line_names']));
+$db->exec("UPDATE effects SET fingerprint='fingerprint-fixture'");$receipt['commercial_only']=true;$db->exec('UPDATE carts SET commercial_only=1');$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);
+$check($owner->owner(701,$command)['commercial_only']===true);
+$db->exec("UPDATE effects SET fingerprint='foreign'");$check($owner->owner(701,$command)['commercial_only']===true); // Lost/foreign acknowledgement cannot make it saleable.
+$db->exec("UPDATE effects SET fingerprint='fingerprint-fixture'");$receipt['commercial_only']=false;$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);
+try{$owner->owner(701,$command);throw new RuntimeException('Expected mode mismatch');}catch(InvalidArgumentException $error){$check(str_contains($error->getMessage(),'CART_COMMERCIAL_OWNERSHIP_MISMATCH'));}
 echo "PASS native cart ownership: {$checks} SQLite assertions; committed scoped effects survive lost journal acknowledgement, foreign or altered receipts fail closed. No native order created.\n";

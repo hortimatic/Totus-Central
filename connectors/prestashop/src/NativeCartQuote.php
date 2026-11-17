@@ -9,6 +9,7 @@ namespace TotusCentralConnector;
 final class NativeCartQuote
 {
     public static function supportsLineNames(): bool{return true;}
+    public static function supportsCommercialQuotes(): bool{return true;}
     private $ownerLookup;
     private $contextManager;
     private $cartLoader;
@@ -78,13 +79,13 @@ final class NativeCartQuote
                 Protocol::ensure((int)($product['id_product'] ?? 0)>0 &&
                     (int)($product['cart_quantity'] ?? 0)>0,'CART_LINE_INVALID');
                 $key=(int)$product['id_product'].':'.(int)($product['id_product_attribute']??0);$catalogueName=null;
-                if(isset($names[$key])&&isset($product['name'])&&is_string($product['name'])){$candidate=$product['name'].((isset($product['attributes'])&&$product['attributes']!=null)?' ('.$product['attributes'].')':'');if(preg_match('//u',$candidate)===1&&preg_match_all('/./us',$candidate)<=512&&!preg_match('/[\x00-\x1f\x7f]/u',$candidate))$catalogueName=$candidate;}
+                if((isset($names[$key])||($owner['commercial_only']??false)===true)&&isset($product['name'])&&is_string($product['name'])){$candidate=$product['name'].((isset($product['attributes'])&&$product['attributes']!=null)?' ('.$product['attributes'].')':'');if(preg_match('//u',$candidate)===1&&preg_match_all('/./us',$candidate)<=512&&!preg_match('/[\x00-\x1f\x7f]/u',$candidate))$catalogueName=$candidate;}
                 $lines[]=[
                     'product_id'=>(int)$product['id_product'],
                     'attribute_id'=>(int)($product['id_product_attribute'] ?? 0),
                     'quantity'=>(int)$product['cart_quantity'],
                     ...($catalogueName===null?[]:['catalogue_name'=>$catalogueName]),...(isset($names[$key])?['display_name'=>$names[$key]]:[]),
-                    'allow_out_of_stock'=>($owner['allow_out_of_stock']??false)===true,
+                    'allow_out_of_stock'=>($owner['commercial_only']??false)===true||($owner['allow_out_of_stock']??false)===true,
                     'unit_tax_incl'=>self::decimal($product['price_wt'] ?? null),
                     'unit_tax_excl'=>self::decimal($product['price_with_reduction_without_tax'] ?? null),
                     'line_tax_incl'=>self::decimal($product['total_wt'] ?? null),
@@ -108,6 +109,7 @@ final class NativeCartQuote
                 'round_mode'=>(int)\Configuration::get('PS_PRICE_ROUND_MODE'),
                 'round_type'=>(int)\Configuration::get('PS_ROUND_TYPE'),
             ];
+            if(($owner['commercial_only']??false)===true)$quote['commercial_only']=true;
             if(isset($owner['sale_note']))$quote['sale_note_hash']=hash('sha256',NativeSaleNote::normalize($owner['sale_note']));
             $payable=\Tools::ps_round((float)$totalIncl,2,$quote['round_mode']);
             $decimal=number_format($payable,2,'.','');

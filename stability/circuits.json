@@ -508,7 +508,10 @@
         "src/totustpv/receipt-series.js",
         "supabase/migrations/20261117181754_totustpv_receipt_numbering.sql",
         "tests/totustpv-receipt-series-qa.mjs",
-        "tests/totustpv-receipt-series-browser-qa.mjs"
+        "tests/totustpv-receipt-series-browser-qa.mjs",
+        "src/totustpv/server/commercial-quote-contract.js",
+        "tests/totustpv-commercial-quote-qa.mjs",
+        "tests/native-lab/commercial-"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -571,7 +574,8 @@
         "tests/totustpv-line-name-qa.mjs",
         "tests/totustpv-line-name-browser-qa.mjs",
         "tests/totustpv-receipt-series-qa.mjs",
-        "tests/totustpv-receipt-series-browser-qa.mjs"
+        "tests/totustpv-receipt-series-browser-qa.mjs",
+        "tests/totustpv-commercial-quote-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

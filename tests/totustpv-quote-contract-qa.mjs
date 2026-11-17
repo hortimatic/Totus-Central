@@ -15,6 +15,9 @@ const quote={cart_id:701,shop_id:1,customer_id:501,invoice_address_id:601,delive
 const stockRecords=[{id:801,productId:101,attributeId:7,shopId:1,shopGroupId:0,dependsOnStock:false,quantity:5}];
 async function run(patch={}){return expectedFromNativeQuote({scope,ownedCart,profile,stockRecords,now:100000,
  response:{verified:true,native_reference:701,quoted_at:99900,quote,quote_fingerprint:await nativeQuoteFingerprint(quote)},...patch});}
+test('commercial quotations can never become a financial checkout quote',async()=>{
+ for(const commercial_only of [true,'true',1])await assert.rejects(run({response:{quote:{...quote,commercial_only}}}),/TPV_COMMERCIAL_QUOTE_NOT_PAYABLE/);
+});
 test('native quote keeps exact unit prices, authoritative rounded line totals and bounded expiry',async()=>{
  const result=await run();assert.equal(result.expected.totalCents,801);
  assert.equal(result.expected.lines[0].unitTaxInclMicros,8012100);assert.equal(result.expected.lines[0].lineTaxInclCents,801);

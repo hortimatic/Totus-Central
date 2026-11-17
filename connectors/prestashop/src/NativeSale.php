@@ -8,6 +8,7 @@ namespace TotusCentralConnector;
 final class NativeSale
 {
     public static function supportsLineNames(): bool{return true;}
+    public static function supportsCommercialQuotes(): bool{return true;}
     private $quoteReader;
     private $ownerReader;
     private $module;
@@ -42,12 +43,13 @@ final class NativeSale
             count($payload['payments'])>=1 && count($payload['payments'])<=4,'SALE_INTENT_INVALID');
         $owner=($this->ownerReader)($payload['cart_id'],$command);
         Protocol::ensure(is_array($owner) && ($owner['verified']??false)===true,'CART_OWNERSHIP_REQUIRED');
+        Protocol::ensure(($owner['commercial_only']??false)!==true,'SALE_COMMERCIAL_QUOTE_FORBIDDEN');
         $saved=($this->quoteReader)($payload['quote_operation_id'],$command);
         Protocol::ensure(is_array($saved) && ($saved['verified']??false)===true &&
             ($saved['quote']['cart_id']??null)===$payload['cart_id'] &&
             ($saved['quote']['shop_id']??null)===$command['shop_id'] &&
             hash_equals($saved['quote_fingerprint']??'',$payload['quote_fingerprint']), 'SALE_QUOTE_MISMATCH');
-        $quote=$saved['quote'];if(!empty($owner['line_names'])||array_filter($quote['lines'],static fn($line)=>array_key_exists('display_name',$line)))NativeOrderLineNames::assertQuote($owner['line_names']??[],$quote['lines']);$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
+        $quote=$saved['quote'];Protocol::ensure(($quote['commercial_only']??false)!==true,'SALE_COMMERCIAL_QUOTE_FORBIDDEN');if(!empty($owner['line_names'])||array_filter($quote['lines'],static fn($line)=>array_key_exists('display_name',$line)))NativeOrderLineNames::assertQuote($owner['line_names']??[],$quote['lines']);$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
         foreach ($payload['payments'] as $payment) {
             Protocol::ensure(is_array($payment) &&
                 array_diff(array_keys($payment),['method','amount_cents','received_cents'])===[] &&

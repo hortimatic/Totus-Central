@@ -54,4 +54,5 @@ rejects(fn()=> $handler->execute([...$command,'payload'=>['cart_id'=>701,'overri
 $denied=new NativeCartQuote(fn()=> null,$context,fn()=> $cart);rejects(fn()=> $denied->execute($command),'OWNERSHIP_REQUIRED');
 check($handler->reconcile($command,[])===null);
 $allowedHandler=new NativeCartQuote(fn()=> [...$owner,'allow_out_of_stock'=>true],$context,fn()=> $cart);$allowed=$allowedHandler->execute($command);check($allowed['quote']['lines'][0]['allow_out_of_stock']===true);check($allowed['quote_fingerprint']!==$result['quote_fingerprint']);
+$commercialHandler=new NativeCartQuote(fn()=> [...$owner,'commercial_only'=>true],$context,fn()=> $cart);$commercial=$commercialHandler->execute($command);check($commercial['quote']['commercial_only']===true);check($commercial['quote']['lines'][0]['allow_out_of_stock']===true);check($commercial['quote_fingerprint']!==$result['quote_fingerprint']);check(StockAvailable::$calls===[]);
 echo "PASS native quote boundary: {$checks} assertions using fixture native classes. Not a native order or installed endpoint.\n";

@@ -44,6 +44,7 @@ class Totuscentralconnector extends PaymentModule
             TotusCentralConnector\NativeSetup::mysqlSchema(_DB_PREFIX_.'totus_tpv_settings'),
             TotusCentralConnector\NativeCatalogueIndex::mysqlSchema(_DB_PREFIX_.'totus_tpv_catalogue_index'),
         ] as $sql)if(!Db::getInstance()->execute(str_replace('CREATE TABLE ','CREATE TABLE IF NOT EXISTS ',$sql)))return false;
+        TotusCentralConnector\NativeOwnedCarts::ensureCommercialStorage(Db::getInstance()->getLink(),_DB_PREFIX_.'totus_tpv_carts');
         if(!Configuration::get('TOTUS_TPV_INSTALLATION_ID')){
             $hex=bin2hex(random_bytes(16));$id=substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-8'.substr($hex,17,3).'-'.substr($hex,20,12);
             if(!Configuration::updateValue('TOTUS_TPV_INSTALLATION_ID',$id))return false;

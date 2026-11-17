@@ -1,4 +1,5 @@
 const messages={
+ TPV_COMMERCIAL_QUOTE_NOT_PAYABLE:'Los presupuestos deben convertirse en una venta antes de cobrar.',
  TPV_LINE_NAME_INVALID:'Escribe un nombre de hasta 255 caracteres, sin saltos de línea ni símbolos < > = { }.',
  TPV_LINE_NAME_FORBIDDEN:'Activa el cambio de nombres y comprueba tu permiso para editar ventas, o restaura el nombre del catálogo.',
  TPV_NATIVE_LINE_NAME_UNAVAILABLE:'La tienda aún no permite cambiar el nombre en el ticket. Pide al responsable que revise la preparación del puesto.',

@@ -15,6 +15,8 @@ final class NativeCatalogue
     {return class_exists(NativeOrderLineNames::class)&&method_exists(NativeOwnedCarts::class,'supportsLineNames')&&method_exists(NativeCartQuote::class,'supportsLineNames')&&method_exists(NativeSale::class,'supportsLineNames')&&NativeOwnedCarts::supportsLineNames()&&NativeCartQuote::supportsLineNames()&&NativeSale::supportsLineNames()&&NativeOrderLineNames::supports($shop);}
     private static function counterPriceOverride(): bool
     {return method_exists(NativeLineAdjustments::class,'supportsUnitPriceOverride')&&NativeLineAdjustments::supportsUnitPriceOverride();}
+    private static function counterCommercialQuotes(): bool
+    {return method_exists(NativeOwnedCarts::class,'supportsCommercialQuotes')&&NativeOwnedCarts::supportsCommercialQuotes()&&self::counterStockOverride();}
     private static function integer($value,int $min,int $max): int
     {Protocol::ensure(is_string($value)&&preg_match('/^(0|[1-9][0-9]*)$/D',$value)===1&&
         (float)$value>=$min&&(float)$value<=$max,'CATALOGUE_QUERY_INVALID');return (int)$value;}
@@ -126,7 +128,7 @@ final class NativeCatalogue
             if($sort!=='price'||$productId>0)$sql.=' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
             if($policyOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-stock-policy','product_id'=>$productId,'shop_id'=>$shop,'allow_out_of_stock'=>self::counterStockOverride()];}
-            if($capabilitiesOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-capabilities','product_id'=>$productId,'shop_id'=>$shop,'unit_price_override'=>self::counterPriceOverride(),'private_sale_note'=>class_exists(NativeSaleNote::class),'temporary_line_names'=>self::counterLineNames($shop)];}
+            if($capabilitiesOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-capabilities','product_id'=>$productId,'shop_id'=>$shop,'unit_price_override'=>self::counterPriceOverride(),'private_sale_note'=>class_exists(NativeSaleNote::class),'commercial_quotes'=>self::counterCommercialQuotes(),'temporary_line_names'=>self::counterLineNames($shop)];}
             if($sort==='price'&&$productId===0){
                 $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
                 $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields,$hideUnavailable){
