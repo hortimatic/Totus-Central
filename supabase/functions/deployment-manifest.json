@@ -211,7 +211,8 @@
         "supabase/functions/totus-tpv/index.ts",
         "src/category-create-contract.js",
         "src/totustpv/server/catalogue-intake-service.js",
-        "src/totustpv/search-preferences.js"
+        "src/totustpv/search-preferences.js",
+        "src/totustpv/catalogue-preferences.js"
       ]
     }
   ]

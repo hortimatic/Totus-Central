@@ -72,6 +72,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117105231_totustpv_search_preferences.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117111400_totustpv_catalogue_filters.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -374,6 +375,12 @@ try {
  for(const fields of [[],['isbn','isbn'],['title'],[null],null,'isbn'])await denied(()=>prefs(qaScope,{search:{fields}}),/INVALID/);
  for(const numericKeyboard of ['true',null,4])await denied(()=>prefs(qaScope,{search:{numericKeyboard}}),/INVALID/);
  await denied(()=>prefs(qaScope,{search:{actorId:id(9)}}),/INVALID/);
+ check((await prefs()).catalogue,{hideUnavailable:false,excludedCategories:[],extraDetails:false});
+ check((await prefs(qaScope,{catalogue:{hideUnavailable:true,excludedCategories:[2,3],extraDetails:true}})).catalogue,{hideUnavailable:true,excludedCategories:[2,3],extraDetails:true});
+ check((await prefs(qaScope,{catalogue:{excludedCategories:[]}})).catalogue.hideUnavailable,true);
+ for(const excludedCategories of [[0],[-1],['2'],[2.1],[2147483648],[2,2],null,'2',Array.from({length:101},(_,n)=>n+1)])await denied(()=>prefs(qaScope,{catalogue:{excludedCategories}}),/INVALID/);
+ for(const hideUnavailable of ['true',4,null])await denied(()=>prefs(qaScope,{catalogue:{hideUnavailable}}),/INVALID/);
+ await denied(()=>prefs(qaScope,{catalogue:{extraDetails:'true'}}),/INVALID/);await denied(()=>prefs(qaScope,{catalogue:{includeDisabled:true}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:{canChangeTax:true}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:null}),/INVALID/);
  check((await prefs(qaScope,{receipt:{title:'Mi justificante',footer:'Gracias\nHasta pronto',fontSize:14,fontFamily:'monospace',showReferences:false}})).receipt.fontSize,14);

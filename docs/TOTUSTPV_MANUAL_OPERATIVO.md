@@ -41,6 +41,10 @@ En **Más acciones → Configuración → Precios de las tarjetas**, elige **Con
 
 En **Más acciones → Configuración → Buscar artículos**, marca referencia, EAN, UPC, ISBN o nombre/atributos y guarda. Debe quedar un criterio. Puedes activar el teclado numérico para móvil. Los cambios conservan el ticket y actualizan la búsqueda de toda la tienda. Enter añade una unidad solo ante un identificador activado, exacto y único; ante dudas se elige el artículo o su variante.
 
+## Ocultar artículos en el mostrador
+
+En **Configuración → Visibilidad del catálogo de venta**, elige si ocultar agotados y categorías con sus subcategorías. Puedes mostrar marca, proveedor y códigos. Guarda; el ticket se conserva. Los padres con variantes indican **Existencias por variante**. La entrada de stock no aplica estas exclusiones para permitir reposición; al volver a Venta se recuperan sus filtros.
+
 ## Contar el efectivo
 
 Ampliación comprobada en laboratorio, pendiente de activación remota.

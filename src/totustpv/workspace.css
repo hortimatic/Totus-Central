@@ -110,3 +110,4 @@
 .tpv-access-panel form{display:grid;gap:1rem;max-width:48rem}
 .tpv-access-panel label{display:grid;gap:.4rem}
 .tpv-access-panel .tpv-check{display:flex;align-items:flex-start;gap:.6rem}
+.tpv-product .tpv-product-details{overflow-wrap:anywhere}

@@ -162,3 +162,11 @@ test('catalogue criteria remain explicit and cannot add arbitrary query fields o
  for(const searchFields of [[],['isbn','isbn'],['name) OR 1=1'],['id_shop'],null,'isbn'])await assert.rejects(f.transport.readNativeCatalogue({searchFields}),/CATALOGUE_QUERY_INVALID/);
  await assert.rejects(f.transport.read('products',{search_fields:'isbn'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
 });
+test('catalogue visibility allows bounded category IDs only, without changing generic query limits',async()=>{
+ const f=fixture({extension:true}),ids=Array.from({length:100},(_,n)=>2147483500+n);
+ await f.transport.readNativeCatalogue({catalogueFilters:{hideUnavailable:true,excludedCategories:ids}});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('hide_unavailable'),'1');assert.equal(url.searchParams.get('excluded_categories'),ids.join(','));
+ assert.equal(url.searchParams.get('excluded_categories').length,1099);
+ for(const catalogueFilters of [{hideUnavailable:1},{excludedCategories:[0]},{excludedCategories:['2']},{excludedCategories:[2,2]},{allowOutOfStock:true},{extraDetails:true},{excludedCategories:[2147483648]}])await assert.rejects(f.transport.readNativeCatalogue({catalogueFilters}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{excluded_categories:'2'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});

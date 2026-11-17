@@ -218,3 +218,7 @@ El catálogo nativo aporta céntimos sin IVA con su redondeo, además del PVP ex
 ### Criterios del buscador · 17/11/2026, 12:10 CET
 
 La preferencia por cuenta/caja atraviesa formulario, adaptador, handler y transporte hasta la consulta nativa parametrizada. El índice contextual de PVP incluye los criterios. La identificación exacta de combinaciones y el escaneo respetan solo los identificadores activados; ISBN se proyecta de forma explícita. La octava migración conserva preferencias y derechos existentes. Pruebas: 474 aserciones SQL, 47 recorridos afectados y navegador/nativo aislados aprobados. Detalle: `TOTUSTPV_BUSCADOR_20261117.md`.
+
+### Visibilidad del catálogo · 17/11/2026, 12:46 CET
+
+El filtro por categorías y existencias se aplica en la consulta nativa antes del recuento y la página. La disponibilidad de variantes no se deduce de la suma general; se comprueban las filas nativas correspondientes. El índice contextual de PVP incluye los filtros. La novena migración guarda preferencias privadas, no políticas financieras. Se conserva reposición sin filtros de venta y se relee al regresar. Pruebas: 491 aserciones SQL, 48 recorridos y repeticiones específicas de navegador/nativo/contratos aprobadas. Detalle: `TOTUSTPV_VISIBILIDAD_CATALOGO_20261117.md`.

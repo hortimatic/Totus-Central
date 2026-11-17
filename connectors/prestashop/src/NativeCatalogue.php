@@ -17,11 +17,22 @@ final class NativeCatalogue
         Protocol::ensure(count($fields)>=1&&count($fields)<=5&&count(array_unique($fields))===count($fields)&&!array_diff($fields,$allowed),'CATALOGUE_SEARCH_FIELDS_INVALID');
         return array_values(array_intersect($allowed,$fields));
     }
+    private static function catalogueFilters(array $query): array
+    {
+        $hide=self::integer($query['hide_unavailable']??'0',0,1)===1;$value=$query['excluded_categories']??'';
+        Protocol::ensure(is_string($value)&&strlen($value)<=1099,'CATALOGUE_FILTER_INVALID');$ids=$value===''?[]:explode(',',$value);
+        Protocol::ensure(count($ids)<=100&&count(array_unique($ids))===count($ids),'CATALOGUE_FILTER_INVALID');
+        $ids=array_map(static fn($id)=>self::integer($id,1,2147483647),$ids);sort($ids,SORT_NUMERIC);
+        return ['hideUnavailable'=>$hide,'excludedCategories'=>$ids];
+    }
+    private static function stockSql(string $product,string $attribute,int $shop): string
+    {return 'COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product='.$product.' AND sa.id_product_attribute='.$attribute.\StockAvailable::addSqlShopRestriction(null,$shop,'sa').'),0)';}
     public static function read(array $query,array $profile): array
     {
         $categoriesOnly=self::integer((string)($query['categories_only']??'0'),0,1);
         if($categoriesOnly===1)return self::categories($profile);
         $searchFields=self::searchFields($query);
+        $catalogueFilters=self::catalogueFilters($query);$hideUnavailable=$catalogueFilters['hideUnavailable'];
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
@@ -54,6 +65,17 @@ final class NativeCatalogue
                 LEFT JOIN `'._DB_PREFIX_.'manufacturer` m ON m.id_manufacturer=p.id_manufacturer
                 LEFT JOIN `'._DB_PREFIX_.'supplier` supplier ON supplier.id_supplier=p.id_supplier
                 WHERE ps.active=1 AND ps.available_for_order=1 AND ps.advanced_stock_management=0 AND p.is_virtual=0 AND p.cache_is_pack=0';
+            if($hideUnavailable){
+                $variantsExist='EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute_shop` vas WHERE vas.id_product=p.id_product AND vas.id_shop='.$shop.')';
+                $sql.=' AND (EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop='.$shop.' WHERE pa.id_product=p.id_product AND '.self::stockSql('pa.id_product','pa.id_product_attribute',$shop).'>0) OR (NOT '.$variantsExist.' AND '.self::stockSql('p.id_product','0',$shop).'>0))';
+            }
+            if($catalogueFilters['excludedCategories']){
+                $ids=$catalogueFilters['excludedCategories'];$categories=$db->prepare('SELECT c.nleft,c.nright FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? WHERE c.active=1 AND c.id_category IN ('.implode(',',array_fill(0,count($ids),'?')).')');
+                $categories->execute(array_merge([$shop],$ids));$bounds=$categories->fetchAll(\PDO::FETCH_ASSOC);
+                Protocol::ensure(count($bounds)===count($ids),'CATALOGUE_FILTER_CATEGORY_INVALID');$ranges=[];$parameters[]=$shop;
+                foreach($bounds as $range){$ranges[]='(tree.nleft>=? AND tree.nright<=?)';array_push($parameters,(int)$range['nleft'],(int)$range['nright']);}
+                $sql.=' AND NOT EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'category_product` cp JOIN `'._DB_PREFIX_.'category` tree ON tree.id_category=cp.id_category JOIN `'._DB_PREFIX_.'category_shop` ts ON ts.id_category=tree.id_category AND ts.id_shop=? WHERE cp.id_product=p.id_product AND ('.implode(' OR ',$ranges).'))';
+            }
             if($categoryId>0){
                 $category=$db->prepare('SELECT c.nleft,c.nright FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? WHERE c.id_category=? AND c.active=1');
                 $category->execute([$shop,$categoryId]);$bounds=$category->fetch(\PDO::FETCH_ASSOC);
@@ -68,7 +90,7 @@ final class NativeCatalogue
                 foreach($searchFields as $field){$terms[]=($field==='name'?'pl.name':'p.'.$field)." LIKE ? ESCAPE '!'";$parameters[]=$needle;
                     if($field!=='name')$variantTerms[]='pa.'.$field." LIKE ? ESCAPE '!'";}
                 if($variantTerms){$terms[]='EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas
-                    ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=p.id_product AND ('.implode(' OR ',$variantTerms).'))';
+                    ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=p.id_product'.($hideUnavailable?' AND '.self::stockSql('pa.id_product','pa.id_product_attribute',$shop).'>0':'').' AND ('.implode(' OR ',$variantTerms).'))';
                     $parameters[]=$shop;foreach($variantTerms as $_)$parameters[]=$needle;}
                 if(in_array('name',$searchFields,true)){
                     $terms[]="EXISTS(SELECT 1 FROM `"._DB_PREFIX_."product_attribute` pa JOIN `"._DB_PREFIX_."product_attribute_shop` pas
@@ -92,33 +114,33 @@ final class NativeCatalogue
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
             if($sort==='price'&&$productId===0){
                 $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
-                $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields){
-                    [$attribute]=self::selection($byId[$key],$search,$shop,$searchFields);
+                $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields,$hideUnavailable){
+                    [$attribute]=self::selection($byId[$key],$search,$shop,$searchFields,$hideUnavailable);
                     return self::previewPrice((int)$byId[$key]['id_product'],$attribute,$context,(int)$address->id,$customerId);
-                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction,$searchFields);
-                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields];
+                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction,$searchFields,$catalogueFilters);
+                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters];
                 $priceValues=$pricePage['prices'];$products=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
             }
             if($productId>0){
                 Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');$parent=$products[0];
-                $count=$db->prepare('SELECT COUNT(*) FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=?');
+                $variantStock=self::stockSql('pa.id_product','pa.id_product_attribute',$shop);$variantAvailability=$hideUnavailable?' AND '.$variantStock.'>0':'';
+                $count=$db->prepare('SELECT COUNT(*) FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=?'.$variantAvailability);
                 $count->execute([$shop,$productId]);$total=(int)$count->fetchColumn();
                 if($sort==='price')Protocol::ensure($total<=200000,'CATALOGUE_INDEX_LIMIT');
-                $variantStock='COALESCE((SELECT SUM(sa.quantity) FROM `'._DB_PREFIX_.'stock_available` sa WHERE sa.id_product=pa.id_product AND sa.id_product_attribute=pa.id_product_attribute'.$stockRestriction.'),0)';
                 $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute),\'\')';
                 $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute','price'=>'pa.id_product_attribute',
                     'cost'=>'pa.id_product_attribute','manufacturer'=>'pa.id_product_attribute','supplier'=>'pa.id_product_attribute'];
                 $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pa.isbn,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
                     JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                    WHERE pa.id_product=? ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).
+                    WHERE pa.id_product=?'.$variantAvailability.' ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).
                     ($sort==='price'?'':' LIMIT '.($size+1).' OFFSET '.($page*$size)));
                 $s->execute([$shop,$productId]);$variants=$s->fetchAll(\PDO::FETCH_ASSOC);
                 if($sort==='price'){
                     $byId=[];foreach($variants as $variant)$byId[$productId.':'.$variant['id_product_attribute']]=$variant;ksort($byId,SORT_NATURAL);
                     $pricePage=self::pricePage(array_keys($byId),static function($key)use($productId,$byId,$context,$address,$customerId){
                         return self::previewPrice($productId,(int)$byId[$key]['id_product_attribute'],$context,(int)$address->id,$customerId);
-                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields);
-                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields];
+                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields,$catalogueFilters);
+                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters];
                     $priceValues=$pricePage['prices'];$variants=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
                 }
                 $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
@@ -127,27 +149,29 @@ final class NativeCatalogue
             }else{
                 $more=$pricePage?$pricePage['has_more']:count($products)>$size;
                 foreach(array_slice($products,0,$size) as $product){
-                    [$attribute,$choose,$variant]=self::selection($product,$search,$shop,$searchFields);
+                    [$attribute,$choose,$variant]=self::selection($product,$search,$shop,$searchFields,$hideUnavailable);
                     $item=self::item($product,$attribute,$choose,$variant,$profile,$context,(int)$address->id,$customerId);
                     if($pricePage)$item['preview_cents']=$priceValues[$product['id_product'].':0'];$rows[]=$item;
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,
+                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,
                 ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
     }
-    private static function selection(array $product,string $search,int $shop,array $searchFields): array
+    private static function selection(array $product,string $search,int $shop,array $searchFields,bool $hideUnavailable): array
     {
         $db=\Db::getInstance()->getLink();$attribute=(int)$product['cache_default_attribute'];
         if($attribute===0){$s=$db->prepare('SELECT MIN(id_product_attribute) FROM `'._DB_PREFIX_.'product_attribute_shop` WHERE id_product=? AND id_shop=?');
             $s->execute([(int)$product['id_product'],$shop]);$attribute=(int)$s->fetchColumn();}
+        if($hideUnavailable&&$attribute>0){$s=$db->prepare('SELECT pa.id_product_attribute FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=? AND '.self::stockSql('pa.id_product','pa.id_product_attribute',$shop).'>0 ORDER BY (pa.id_product_attribute=?) DESC,pa.id_product_attribute LIMIT 1');
+            $s->execute([$shop,(int)$product['id_product'],$attribute]);$available=$s->fetchColumn();if($available)$attribute=(int)$available;}
         $choose=$attribute>0;$variant=null;
         $identifiers=array_values(array_filter($searchFields,static fn($field)=>$field!=='name'));
         if($choose&&$search!==''&&$identifiers){
             $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pa.isbn FROM `'._DB_PREFIX_.'product_attribute` pa
                 JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                WHERE pa.id_product=? AND ('.implode(' OR ',array_map(static fn($field)=>'pa.'.$field.'=?',$identifiers)).') LIMIT 2');
+                WHERE pa.id_product=?'.($hideUnavailable?' AND '.self::stockSql('pa.id_product','pa.id_product_attribute',$shop).'>0':'').' AND ('.implode(' OR ',array_map(static fn($field)=>'pa.'.$field.'=?',$identifiers)).') LIMIT 2');
             $s->execute(array_merge([$shop,(int)$product['id_product']],array_fill(0,count($identifiers),$search)));$exact=$s->fetchAll(\PDO::FETCH_ASSOC);
             if(count($exact)===1){$variant=$exact[0];$attribute=(int)$variant['id_product_attribute'];$choose=false;}
         }
@@ -158,7 +182,7 @@ final class NativeCatalogue
         $specific=null;$incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
         Protocol::ensure(is_numeric($incl)&&$incl>=0,'CATALOGUE_PRICE_INVALID');return (int)round(100*\Tools::ps_round((float)$incl,2));
     }
-    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction,array $searchFields): array
+    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction,array $searchFields,array $catalogueFilters): array
     {
         $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$minute=date('Y-m-d H:i:00');$boundary=null;$db=\Db::getInstance()->getLink();
         foreach(['specific_price','specific_price_rule'] as $table){
@@ -178,7 +202,7 @@ final class NativeCatalogue
             'conversion'=>(string)$context->currency->conversion_rate,'customer'=>(int)$customer->id,'groups'=>$groups,
             'address'=>(int)$address->id,'country'=>(int)$address->id_country,'state'=>(int)$address->id_state,
             'postcode'=>(string)$address->postcode,'vat'=>(string)$address->vat_number,'settings'=>$settings,
-            'search'=>$search,'search_fields'=>$searchFields,'category'=>$category,'product'=>$product];
+            'search'=>$search,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'category'=>$category,'product'=>$product];
         $storage=NativeRuntime::connection();$index=new NativeCatalogueIndex($storage,_DB_PREFIX_.'totus_tpv_catalogue_index');
         $result=$index->page($identity,$ids,$reader,$page*$size,$size,$direction,$validUntil,$now);
         // Only disposable, expired presentation indexes are pruned. Native
@@ -195,11 +219,11 @@ final class NativeCatalogue
     }
     private static function categories(array $profile): array
     {
-        $s=\Db::getInstance()->getLink()->prepare('SELECT c.id_category,cl.name,c.id_parent,COALESCE(parent.name,\'\') parent_name FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? JOIN `'._DB_PREFIX_.'category_lang` cl ON cl.id_category=c.id_category AND cl.id_shop=? AND cl.id_lang=? LEFT JOIN `'._DB_PREFIX_.'category_lang` parent ON parent.id_category=c.id_parent AND parent.id_shop=cl.id_shop AND parent.id_lang=cl.id_lang WHERE c.active=1 AND c.id_category>1 ORDER BY cl.name,c.id_category LIMIT 2001');
+        $s=\Db::getInstance()->getLink()->prepare('SELECT c.id_category,cl.name,c.id_parent,c.nleft,c.nright,COALESCE(parent.name,\'\') parent_name FROM `'._DB_PREFIX_.'category` c JOIN `'._DB_PREFIX_.'category_shop` cs ON cs.id_category=c.id_category AND cs.id_shop=? JOIN `'._DB_PREFIX_.'category_lang` cl ON cl.id_category=c.id_category AND cl.id_shop=? AND cl.id_lang=? LEFT JOIN `'._DB_PREFIX_.'category_lang` parent ON parent.id_category=c.id_parent AND parent.id_shop=cl.id_shop AND parent.id_lang=cl.id_lang WHERE c.active=1 AND c.id_category>1 ORDER BY cl.name,c.id_category LIMIT 2001');
         $s->execute([(int)$profile['shop_id'],(int)$profile['shop_id'],(int)$profile['language_id']]);$rows=$s->fetchAll(\PDO::FETCH_ASSOC);
         Protocol::ensure(count($rows)<=2000,'CATEGORY_METADATA_LIMIT');
         return ['categories'=>array_map(static fn($r)=>['id'=>(int)$r['id_category'],'name'=>(string)$r['name'],
-            'parentId'=>(int)$r['id_parent'],'parentName'=>$r['id_parent']>2?(string)$r['parent_name']:''],$rows),'has_more'=>false];
+            'parentId'=>(int)$r['id_parent'],'treeLeft'=>(int)$r['nleft'],'treeRight'=>(int)$r['nright'],'parentName'=>$r['id_parent']>2?(string)$r['parent_name']:''],$rows),'has_more'=>false];
     }
     private static function item(array $product,int $attribute,bool $choose,?array $variant,array $profile,$context,int $address,int $customer): array
     {

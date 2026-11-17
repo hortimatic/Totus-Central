@@ -3,6 +3,7 @@
  * Request IDs survive response loss; financial commands are never auto-retried.
  */
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
+import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
 const clone=value=>structuredClone(value);
 const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?
@@ -72,12 +73,13 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
   async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
    need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);forget('submitted-sale',operationId);prepared.delete(operationId);return receipt(result);},
-  async searchProducts({search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields}={}){const fields=catalogueSearchFields(searchFields),data=await call('catalogue',{search,page,productId,categoryId,sortField,sortDirection,searchFields:fields,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+  async searchProducts({search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters}={}){const fields=catalogueSearchFields(searchFields),filters=normalizeCatalogueFilters(catalogueFilters),data=await call('catalogue',{search,page,productId,categoryId,sortField,sortDirection,searchFields:fields,catalogueFilters:filters,...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+   need(data.catalogue_filters?JSON.stringify(data.catalogue_filters)===JSON.stringify(filters):!filters.hideUnavailable&&!filters.excludedCategories.length,'La conexión aún no ha confirmado la visibilidad del catálogo. Pide al responsable que complete su preparación.');
    need(data.search_fields?JSON.stringify(data.search_fields)===JSON.stringify(fields):JSON.stringify(fields)===JSON.stringify(DEFAULT_SEARCH_FIELDS),'La conexión aún no ha confirmado estos criterios. Pide al responsable que complete la preparación del puesto.');
    need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
    if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
-   const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
+   const items=data.items.map(row=>({id:row.id,name:row.name+(!row.choose_variant&&row.variant_name?' · '+row.variant_name:''),reference:row.reference,
     stock:row.stock,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
