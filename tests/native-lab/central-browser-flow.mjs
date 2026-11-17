@@ -4,11 +4,24 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {startLocalServer} from '../local-static-server.mjs';
-export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete'}){
+export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete',preferences}){
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
  try{for(const width of focus==='customers'?[1440]:[1440,390]){
   const page=await browser.newPage({viewport:{width,height:950}});const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
+  // The browser must not contact a remote shop even for a public logo/photo.
+  // Keep the production origin in the response, but deliver native fixture
+  // assets from the guarded local image server.
+  await page.route('**/*',async route=>{const url=new URL(route.request().url());
+   if(url.origin==='http://127.0.0.1:4173')return route.continue();
+   if(url.origin==='https://preproduccion.hortimatic.com'&&url.pathname.startsWith('/img/')){
+    const response=await fetch('http://127.0.0.1:8772'+url.pathname,{redirect:'error',signal:AbortSignal.timeout(10000)});
+    return route.fulfill({status:response.status,contentType:response.headers.get('content-type')||'application/octet-stream',body:Buffer.from(await response.arrayBuffer())});
+   }
+   return route.abort('blockedbyclient');
+  });
+  await page.route('**/__tpv_preferences',async route=>{const {drawer,value}=JSON.parse(route.request().postData());
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(await preferences(drawer,value))});});
   await page.route('**/__tpv_fixture',async route=>{
    const request=route.request(),action=JSON.parse(request.postData()).action,started=Date.now();
    if(action==='document')console.log('Native browser document request started');
@@ -24,6 +37,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
    const {createCentralTpvAdapter}=await import('/src/totustpv/central-adapter.js');
    document.body.innerHTML='<main id="root" class="totus-tpv"></main>';
    window.fixtureWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true,full_name:'Cajero del laboratorio'}),can:()=>true,canCustomer:()=>true,
+    workspacePreferences:async(drawer,value)=>{const response=await fetch('/__tpv_preferences',{method:'POST',body:JSON.stringify({drawer,value})});return response.json();},
     confirm:async()=>true,createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,
      invoke:async body=>{const response=await fetch('/__tpv_fixture',{method:'POST',body:JSON.stringify(body)}),data=await response.json();
       if(!response.ok||data.error)throw Error(data.error||'Fixture request failed');return data;}})});
@@ -105,6 +119,10 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByRole('button',{name:'Ticket',exact:true}).click();
   await page.getByRole('heading',{name:'Justificante de compra',exact:true}).waitFor();
   assert.match(await page.locator('.tpv-document').innerText(),width===390?/7,01/:/8,01/);
+  await page.waitForFunction(()=>{const logo=document.querySelector('.tpv-receipt-logo');return logo?.complete&&logo.naturalWidth>0;});
+  if(width===1440){assert.match(await page.locator('.tpv-receipt-customer').innerText(),/QA Central Laboratorio/);
+   assert.match(await page.locator('.tpv-receipt-customer').innerText(),/600000000/);}
+  else assert.equal(await page.locator('.tpv-receipt-customer').count(),0,'Anonymous counter identity stays omitted even when the saved customer option is enabled');
   await page.getByRole('button',{name:'Cerrar documento',exact:true}).click();
   await page.locator('.tpv-receipt summary').click();
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Factura PDF',exact:true}).click();

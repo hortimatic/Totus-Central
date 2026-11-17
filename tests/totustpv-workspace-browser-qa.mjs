@@ -94,18 +94,19 @@ try{
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),2);
  await page.getByText('Más acciones',{exact:true}).click();
  await page.getByRole('button',{name:'Configuración',exact:true}).click();
- for(const key of ['showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany'])await page.locator(`[name=receipt-${key}]`).check();
+ for(const key of ['showAfterSale','printAfterSale','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany'])await page.locator(`[name=receipt-${key}]`).check();
  assert.match(await page.locator('.tpv-receipt-preview').innerText(),/Cliente de ejemplo[\s\S]*cliente@ejemplo.invalid[\s\S]*Destinatario de ejemplo/);
  await page.locator('[name=viewMode]').selectOption('list');await page.locator('[name=initialCategoryId]').selectOption('1');
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>settingsFixture.saved.get('a')),{viewMode:'list',initialCategoryId:1,
   display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false},
-  receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});
+  receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});
  await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);
  assert.equal(await page.evaluate(()=>settingsFixture.workspace.hasDraft()),false,'Presentation filters are not an edited sale');
  await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
  assert.equal(await page.locator('[name=receipt-showCustomer]').isChecked(),true,'Customer presentation preference survives reopening');
+ assert.equal(await page.locator('[name=receipt-printAfterSale]').isChecked(),true,'Automatic print preference survives reopening');
  await page.evaluate(()=>{settingsFixture.open=false;settingsFixture.workspace.mount(document.querySelector('#tpv'));});
  await page.locator('[data-tpv-drawer]').waitFor();await page.locator('[data-tpv-drawer]').selectOption('b');
  await page.waitForFunction(()=>settingsFixture.reads.at(-1)==='b');

@@ -37,8 +37,8 @@ export async function downloadNativePdf(document){
  const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),link=globalThis.document.createElement('a');
  link.href=url;link.download=document.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-export function printReceipt(document,options){
- printTpvMarkup(receiptHtml(document,options),'TotusTPV · pedido '+document.order_id);
+export function printReceipt(document,options,delivery){
+ printTpvMarkup(receiptHtml(document,options),'TotusTPV · pedido '+document.order_id,delivery);
 }
 export const TOTUS_PRINTER_PROFILE=Object.freeze({model:'Bisofice VTR-T58W',paperMm:58,printableMm:48,marginMm:5});
 export function fitTpvPrintPage(document){
@@ -49,12 +49,14 @@ export function fitTpvPrintPage(document){
 export function prepareTpvPrintHtml(html,title){
  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:auto;margin:5mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#111;margin:0;width:48mm;overflow-wrap:anywhere}h3,p{margin:6px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;font-size:10px}th,td{text-align:left;padding:5px 2px;border-bottom:1px solid #ddd}th:first-child{width:50%}th:nth-child(2){width:15%;white-space:nowrap}th:last-child,td:last-child{text-align:right;white-space:nowrap}small{display:block;font-size:9px}dl>div{display:flex;justify-content:space-between;gap:5px;padding:3px 0}dt{min-width:0}dd{margin:0;text-align:right;white-space:nowrap}.tpv-document th:last-child{font-size:.85em;white-space:nowrap}.tpv-document table{font-size:.91em}.tpv-document small{font-size:.82em}.inline-actions{display:none}</style></head><body>${html}</body></html>`;
 }
-export function printTpvMarkup(html,title){
+export function printTpvMarkup(html,title,{current=()=>true}={}){
  const frame=globalThis.document.createElement('iframe');
  frame.title='Impresión de TotusTPV';frame.setAttribute('sandbox','allow-same-origin allow-modals');
  frame.style.cssText='position:fixed;width:1px;height:1px;right:0;bottom:0;border:0;opacity:0';
- frame.onload=async()=>{await frame.contentDocument.fonts?.ready;if(!frame.isConnected)return;
-  fitTpvPrintPage(frame.contentDocument);frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});frame.contentWindow.print();};
+ frame.onload=async()=>{try{if(!current()){frame.remove();return;}await frame.contentDocument.fonts?.ready;
+  if(!frame.isConnected||!current()){frame.remove();return;}
+  fitTpvPrintPage(frame.contentDocument);frame.contentWindow.addEventListener('afterprint',()=>frame.remove(),{once:true});frame.contentWindow.print();
+ }catch{frame.remove();}};
  frame.srcdoc=prepareTpvPrintHtml(html,title);
  globalThis.document.body.append(frame);setTimeout(()=>frame.remove(),60000);
 }

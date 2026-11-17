@@ -46,7 +46,8 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],
    totus_tpv_refund_journal:['p_action','p_id','p_scope','p_data'],totus_directory_operation:['p_action','p_request_id','p_data'],
    totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data'],
-   totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data']};
+   totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data'],
+   totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
    if(name==='totus_directory_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}]}};}
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
@@ -58,6 +59,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     return {data:(await db.query(`select public.${name}(${keys.map((_,i)=>'$'+(i+1)).join(',')}) result`,values)).rows[0].result};
    }catch(error){if(name==='totus_directory_operation')console.log('Local directory SQL diagnostic:',error.message);return {error:{message:error.message}};}
   }});
+  const preferences=async(drawer,value)=>{
+   const response=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_workspace_preferences',{
+    p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
+   assert.equal(response.error,undefined,response.error?.message);return response.data;
+  };
+  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+   showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,
    String(error.message).replaceAll(fixture.key,'[synthetic key]').replaceAll(Buffer.from(fixture.key+':').toString('base64'),'[synthetic auth]')),
@@ -86,7 +94,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    return response;
   }});
   if(['customers','browser'].includes(focus)){
-   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus});
+   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences});
    if(focus==='customers')assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,0);
    return {focus,remoteShopTouched:false};
   }
@@ -140,7 +148,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,1);
   // The growing disposable catalogue is deliberately paginated; locate the
   // fixture by exact reference, never assume its alphabetical page.
-  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant});
+  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,preferences});
   console.log('PASS local complete handler → SQL journal → native HTTP → order/payment/invoice/stock proof → physical cash → close; lost-response recovery never posts again. Auth and endpoint delivery are fixtures; no deployment or remote shop.');
   return {orderId:sold.orderId,saleId,nativePosts};
  }finally{await db.close();}

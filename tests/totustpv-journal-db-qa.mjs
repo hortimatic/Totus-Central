@@ -349,6 +349,11 @@ try {
  check((await prefs()).receipt.showOrderReference,false);
  await denied(()=>prefs(qaScope,{receipt:{numberLines:1}}),/INVALID/);
  check((await prefs()).receipt.showCustomer,false);
+ for(const option of ['showAfterSale','printAfterSale']){
+  check((await prefs()).receipt[option],false);
+  check((await prefs(qaScope,{receipt:{[option]:true}})).receipt[option],true);
+  await denied(()=>prefs(qaScope,{receipt:{[option]:'true'}}),/INVALID/);
+ }
  for(const option of ['showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany']){
   check((await prefs(qaScope,{receipt:{[option]:true}})).receipt[option],true);
   await denied(()=>prefs(qaScope,{receipt:{[option]:'true'}}),/INVALID/);

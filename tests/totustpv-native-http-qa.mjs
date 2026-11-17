@@ -24,6 +24,7 @@ execFileSync(php,['-c',ini,'tests/native-lab/http-install.php'],{encoding:'utf8'
 execFileSync(php,['-c',ini,'tests/native-lab/cart-quote.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const setup=execFileSync(php,['-c',ini,'tests/native-lab/http-setup.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const fixture=JSON.parse(setup.trim().split(/\r?\n/).at(-1));
+execFileSync(php,['-c',ini,'tests/native-lab/document-logo.php'],{encoding:'utf8',env,maxBuffer:1024*1024});
 process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/api-permissions.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}));
 const base='http://127.0.0.1:8771/api/';let stderr='';
 const assets=createServer(async(req,res)=>{try{

@@ -20,7 +20,7 @@ export function cashReportHtml(report){
   <h4>Movimientos de efectivo</h4>${(report.movements||[]).map(row=>`<p><strong>${row.kind==='cash-in'?'Entrada':'Retirada'} · ${money(row.amountCents)}</strong><br>${esc(row.reason)}<small>${esc(date(row.recordedAt))}</small></p>`).join('')||'<p>Sin movimientos de efectivo.</p>'}
   ${report.movementCount>(report.movements?.length||0)?'<p>Se muestran los últimos 200 movimientos. El resumen incluye todos.</p>':''}</article>`;
 }
-export function createCashReportsPanel({adapter}){
+export function createCashReportsPanel({adapter,capturePrintContext=()=>()=>true}){
  let visible=false,rows=[],report=null;
  const reset=()=>{visible=false;rows=[];report=null;};
  async function select(id){const data=await adapter().cashReports({sessionId:id});if(data.length!==1)throw Error('No se encuentra este informe en el establecimiento seleccionado.');report=data[0];}
@@ -31,6 +31,6 @@ export function createCashReportsPanel({adapter}){
    ${report?cashReportHtml(report)+'<div class="inline-actions"><button type="button" class="btn secondary" data-tpv-report-action="print">Imprimir informe</button></div>':''}</section>`;},
   async change(target){if(!target.hasAttribute('data-tpv-report-id'))return false;await select(target.value);return true;},
   click(target){if(!target.dataset.tpvReportAction)return false;
-   if(target.dataset.tpvReportAction==='close')reset();else if(target.dataset.tpvReportAction==='print'&&report)printTpvMarkup(cashReportHtml(report),'TotusTPV · informe de caja');return true;}
+   if(target.dataset.tpvReportAction==='close')reset();else if(target.dataset.tpvReportAction==='print'&&report)printTpvMarkup(cashReportHtml(report),'TotusTPV · informe de caja',{current:capturePrintContext()});return true;}
  };
 }
