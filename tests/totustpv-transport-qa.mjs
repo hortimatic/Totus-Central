@@ -183,3 +183,9 @@ test('native stock-policy preflight uses the existing read-only catalogue bounda
  for(const value of [0,-1,1.5,'12',2147483648])await assert.rejects(f.transport.readNativeStockPolicy(value),/CATALOGUE_QUERY_INVALID/);
  await assert.rejects(f.transport.read('products',{stock_policy_only:'1'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
 });
+test('unit price capability preflight is a scoped read and cannot extend generic product queries',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeProductCapabilities(12);const url=new URL(f.requests[0].url);
+ assert.equal(url.pathname,'/api/totus_tpv_catalogue');assert.equal(url.searchParams.get('product_capabilities_only'),'1');assert.equal(url.searchParams.get('product_id'),'12');assert.equal(f.requests[0].init.method,'GET');
+ for(const id of [0,-1,'12',1.5,2147483648])await assert.rejects(f.transport.readNativeProductCapabilities(id),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{product_capabilities_only:'1'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});

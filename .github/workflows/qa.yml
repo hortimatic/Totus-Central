@@ -21,6 +21,9 @@ jobs:
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-stock-policy-qa.mjs
       - run: node --test tests/totustpv-quantity-picker-qa.mjs
+      - run: node --test tests/totustpv-line-options-qa.mjs tests/totustpv-line-price-edge-qa.mjs
+      - run: node --test tests/totustpv-parking-options-qa.mjs
+      - run: node tests/totustpv-parking-expiry-db-qa.mjs
       - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs
       - run: node --test tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs tests/totustpv-customer-display-qa.mjs
@@ -40,6 +43,8 @@ jobs:
       - run: node tests/totustpv-catalogue-table-browser-qa.mjs
       - run: node tests/totustpv-variant-selector-browser-qa.mjs
       - run: node tests/totustpv-quantity-picker-browser-qa.mjs
+      - run: node tests/totustpv-line-price-browser-qa.mjs
+      - run: node tests/totustpv-parking-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs
       - run: node tests/totustpv-receipt-delivery-browser-qa.mjs
       - run: node tests/totustpv-printed-documents-qa.mjs

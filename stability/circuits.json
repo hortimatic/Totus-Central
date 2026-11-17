@@ -480,7 +480,16 @@
         "supabase/migrations/20261117125500_totustpv_stock_policy.sql",
         "tests/totustpv-quantity-picker-qa.mjs",
         "tests/totustpv-quantity-picker-browser-qa.mjs",
-        "supabase/migrations/20261117143621_totustpv_quantity_picker.sql"
+        "supabase/migrations/20261117143621_totustpv_quantity_picker.sql",
+        "tests/totustpv-line-options-qa.mjs",
+        "tests/totustpv-line-price-edge-qa.mjs",
+        "tests/totustpv-line-price-browser-qa.mjs",
+        "tests/native-lab/line-price-",
+        "supabase/migrations/20261117145654_totustpv_line_price_options.sql",
+        "supabase/migrations/20261117152204_totustpv_parking_expiry.sql",
+        "tests/totustpv-parking-options-qa.mjs",
+        "tests/totustpv-parking-expiry-db-qa.mjs",
+        "tests/totustpv-parking-browser-qa.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -531,7 +540,13 @@
         "tests/totustpv-variant-selector-browser-qa.mjs",
         "tests/totustpv-stock-policy-qa.mjs",
         "tests/totustpv-quantity-picker-qa.mjs",
-        "tests/totustpv-quantity-picker-browser-qa.mjs"
+        "tests/totustpv-quantity-picker-browser-qa.mjs",
+        "tests/totustpv-line-options-qa.mjs",
+        "tests/totustpv-line-price-edge-qa.mjs",
+        "tests/totustpv-line-price-browser-qa.mjs",
+        "tests/totustpv-parking-options-qa.mjs",
+        "tests/totustpv-parking-expiry-db-qa.mjs",
+        "tests/totustpv-parking-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -541,7 +556,8 @@
         "server-only PostgreSQL journal commits order confirmation and payment events atomically",
         "one active physical drawer session and one remote cart dispatch across workers",
         "insufficient stock requires explicit server-loaded workstation policy and sealed native cart permission without changing webshop stock policy; default refusal and attributed stock readback remain mandatory",
-        "optional required quantity selection preserves the ticket on cancellation; product minima, remaining stock, scoped preferences and account disposal remain enforced"
+        "optional required quantity selection preserves the ticket on cancellation; product minima, remaining stock, scoped preferences and account disposal remain enforced",
+        "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative"
       ]
     },
     {

@@ -1,4 +1,11 @@
 const messages={
+ TPV_PARKING_DISABLED:'El aparcado está desactivado para tu cuenta y esta caja. Los tickets anteriores siguen disponibles en Tickets aparcados.',
+ TPV_PARKING_FORBIDDEN:'Necesitas permiso de venta en esta caja para cambiar el aparcado y su caducidad.',
+ TPV_DRAFT_EXPIRED:'Este ticket ha caducado y no puede recuperarse para cobrar. Se conserva para consulta y archivo. Si ya enviaste un cobro, consulta su resultado antes de crear otra venta.',
+ TPV_PRICE_CHANGE_FORBIDDEN:'Necesitas activar el cambio de precio en Configuración y tener permiso para editar ventas. Revisa el ticket antes de volver a calcular.',
+ TPV_NATIVE_PRICE_CHANGE_UNAVAILABLE:'La tienda aún no permite cambiar el precio de este artículo desde el mostrador. Pide al responsable que complete su preparación.',
+ TPV_NATIVE_LINE_PRICE_MISMATCH:'El precio nativo no coincide con el precio elegido. Revisa el artículo antes de cobrar.',
+ TPV_LINE_ADJUSTMENT_INVALID:'Revisa el precio o descuento del artículo. Utiliza un importe positivo y como máximo dos decimales.',
  TPV_NATIVE_STOCK_POLICY_UNAVAILABLE:'La tienda aún no ha confirmado la regla de venta sin existencias. Pide al responsable que complete la preparación del puesto.',
  TPV_STOCK_POLICY_STALE:'La regla de venta sin existencias ha cambiado. Revisa el ticket y vuelve a calcular antes de confirmar.',
  TPV_STOCK_POLICY_FORBIDDEN:'Tu acceso permite consultar la configuración; necesitas permiso de venta para cambiar esta regla de existencias.',

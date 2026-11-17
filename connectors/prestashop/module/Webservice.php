@@ -40,7 +40,7 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
                     'configured'=>isset($profile['carrier_id'],$profile['preparing_state_id'],$profile['paid_state_id'],$profile['counter_customer_id'],$profile['counter_address_id']),
                     'commands'=>['setup.qa','cart.prepare','cart.quote','sale.commit','return.commit','stock.receive']];
             } elseif($resource==='totus_tpv_catalogue' && $method==='GET'){
-                $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','page_size','product_id','customer_id','address_id','category_id','categories_only','sort_field','sort_direction','search_fields','hide_unavailable','excluded_categories','sort_group_id','stock_policy_only']));
+                $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','page_size','product_id','customer_id','address_id','category_id','categories_only','sort_field','sort_direction','search_fields','hide_unavailable','excluded_categories','sort_group_id','stock_policy_only','product_capabilities_only']));
                 $result=TotusCentralConnector\NativeCatalogue::read($query,$profile);
             } elseif($resource==='totus_tpv_customers' && $method==='GET'){
                 $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','customer_id']));

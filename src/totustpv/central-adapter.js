@@ -2,6 +2,7 @@
  * credentials, native commands or privileged client can enter this module.
  * Request IDs survive response loss; financial commands are never auto-retried.
  */
+import {parkingExpiry} from './parking-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
@@ -56,7 +57,10 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   }
   need(activeDraft.status==='claimed'&&activeDraft.mine&&activeDraft.sessionId===session.id,'El borrador ha cambiado. Consulta de nuevo los tickets aparcados.');
  }
- async function call(action,values={},id){return invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});}
+ async function call(action,values={},id){const result=await invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});
+  const draft=value=>({...value,...parkingExpiry(value)});
+  if(action==='drafts'){need(Array.isArray(result),'No se han podido consultar los tickets aparcados.');return result.map(draft);}
+  return ['get-draft','park','claim-draft','release-draft','archive-draft'].includes(action)?draft(result):result;}
  const receipt=(row,extra={})=>({id:row.operationId||row.id,status:row.status,orderId:row.orderId,
   reference:row.orderId?'Pedido #'+row.orderId:'Operación '+(row.operationId||row.id),totalCents:row.totalCents??prepared.get(row.operationId||row.id)?.totalCents??0,...extra});
  const summary=row=>({...row,salesCents:Object.values(row.payments||{}).reduce((n,v)=>n+v,0),cashCents:row.payments?.cash||0,
@@ -91,7 +95,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(!row.choose_variant&&row.variant_name?' · '+row.variant_name:''),reference:row.reference,
-    stock:row.stock,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
+    stock:row.stock,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     variantAttributes:row.choose_variant?[]:catalogueVariantAttributes(row.variant_attributes),barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{variantGroups:{value:variantGroups.map(row=>({id:row.id,name:row.name}))},variantGroupId:{value:variantGroupId},hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
   async quote({lines,adjustment,coupon}){
