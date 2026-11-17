@@ -1,6 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCentralTpvAdapter,orderLookupInput,catalogueVariantAttributes} from '../src/totustpv/central-adapter.js';
+test('expired parked preparation releases only the unsubmitted binding before a new explicit calculation',async()=>{
+ const values=new Map(),requests=[],station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};let draft,expire=true;
+ const adapter=createCentralTpvAdapter({actorId:'operator',storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:async body=>{
+  requests.push(structuredClone(body));if(body.action==='context')return {actorId:'operator',workstations:[station]};
+  if(body.action==='open'){draft={id:'draft',version:1,status:'claimed',mine:true,sessionId:body.operationId,payload:{lines:[{productId:12,attributeId:0,qty:1,label:'Artículo'}]}};return {id:body.operationId,status:'open'};}
+  if(['get-draft','claim-draft'].includes(body.action))return structuredClone(draft);
+  if(body.action==='release-draft'){assert.equal(body.version,draft.version);draft={...draft,status:'claimed',version:draft.version+1};return structuredClone(draft);}
+  assert.equal(body.action,'prepare');assert.equal(body.draftVersion,draft.version);draft={...draft,status:'checkout',version:draft.version+1};
+  if(expire){expire=false;throw Error('TPV_NATIVE_QUOTE_EXPIRED');}
+  return {id:body.operationId,status:'ready',expected:{totalCents:801,draftVersion:draft.version},scope:{currency:'EUR'},quoteExpiresAt:Date.now()+120000};
+ }});
+ await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});await adapter.claimDraft({draftId:'draft'});
+ const ticket={lines:[{productId:'12:0',qty:1}]};await assert.rejects(adapter.quote(ticket),/caducado/);assert.equal(draft.status,'claimed');
+ assert.equal(requests.filter(row=>row.action==='prepare').length,1);await adapter.quote(ticket);const attempts=requests.filter(row=>row.action==='prepare');assert.notEqual(attempts[0].operationId,attempts[1].operationId);assert.equal(attempts[1].draftVersion,3);
+});
+test('expired preparation gets a new identity only on the next explicit calculation; uncertain replies keep their identity',async()=>{
+ const values=new Map(),attempts=[],station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};let outcome='expired';
+ const adapter=createCentralTpvAdapter({actorId:'operator',storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:async body=>{
+  if(body.action==='context')return {actorId:'operator',workstations:[station]};
+  if(body.action==='open')return {id:body.operationId,status:'open'};
+  assert.equal(body.action,'prepare');attempts.push(body.operationId);
+  if(outcome==='expired'){const error=Error('Friendly message');error.code='TPV_NATIVE_QUOTE_EXPIRED';throw error;}
+  if(outcome==='uncertain')throw Error('Lost reply');
+  return {id:body.operationId,status:'ready',expected:{totalCents:801},scope:{currency:'EUR'},quoteExpiresAt:Date.now()+120000};
+ }});
+ await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const ticket={lines:[{productId:'12:0',qty:1}]};
+ await assert.rejects(adapter.quote(ticket),/caducado/);assert.equal(attempts.length,1,'Never retry automatically');
+ outcome='uncertain';await assert.rejects(adapter.quote(ticket),/Lost reply/);assert.notEqual(attempts[1],attempts[0]);
+ await assert.rejects(adapter.quote(ticket),/Lost reply/);assert.equal(attempts[2],attempts[1]);
+ outcome='ready';const ready=await adapter.quote(ticket);assert.equal(ready.id,attempts[1]);assert.equal(attempts.length,4);
+});
 test('native variant attributes retain their groups and labels without importing extra native data',()=>{
  const row={id:3,groupId:2,name:'Rojo',groupName:'Color',private:'discarded'};
  assert.deepEqual(catalogueVariantAttributes([row]),[{id:3,groupId:2,name:'Rojo',groupName:'Color'}]);

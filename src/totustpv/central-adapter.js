@@ -103,7 +103,15 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async quote({lines,adjustment,coupon,note}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
    const intent={...cartIntent(lines,adjustment,coupon,false,note),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
-   const id=await operation('prepare',intent),record=await call('prepare',intent,id);
+   const id=await operation('prepare',intent);let record;
+   try{record=await call('prepare',intent,id);}catch(error){
+    if(['TPV_NATIVE_QUOTE_EXPIRED','TPV_QUOTE_EXPIRED'].includes(error?.code||error?.message)){
+     await releaseDraft();
+     forget('prepare',id);
+     throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');
+    }
+    throw error;
+   }
    need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
    if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
    if(activeDraft)activeDraft={...activeDraft,version:record.expected.draftVersion,status:'checkout',checkoutId:id};
