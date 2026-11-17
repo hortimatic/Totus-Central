@@ -13,6 +13,10 @@ const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'0000000
  openingCents:10000,expectedCashCents:9900,countedCents:9900,differenceCents:0,orderCount:1,refundCount:1,payments:{bizum:801},refunds:{bizum:801},
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
+const itemPrices={...document,total_cents:1601,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,fontFamily:'monospace',fontSize:16};
+assert.doesNotMatch(receiptHtml(itemPrices),/Precio unitario|Impuesto de línea/,'Item price details are opt-in');
+assert.match(receiptHtml(itemPrices,priceOptions),/8,006/,'Unit prices preserve the native six-decimal precision');
+assert.doesNotMatch(receiptHtml({...itemPrices,kind:'gift'},priceOptions),/Precio unitario|Impuesto de línea|€/,'Gift documents never expose the optional item amounts');
 try{const page=await browser.newPage({viewport:{width:220,height:900}});await mkdir('artifacts/native-lab',{recursive:true});
  await page.route('https://native-fixture.invalid/img/logo.png',async route=>route.fulfill({contentType:'image/png',body:await readFile('assets/branding/hortimatic.png')}));
  const withLogo={...document,merchant_logo_origin:'https://native-fixture.invalid',merchant:{...document.merchant,logo_path:'/img/logo.png'}};
@@ -24,7 +28,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
- for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],
+ for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],['receipt-item-prices',receiptHtml(itemPrices,priceOptions)],
   ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false,showOrderReference:false,numberLines:true})],
   ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})],
   ['receipt-customer',receiptHtml({...document,customer},customerOptions)],['gift-customer',receiptHtml({...document,customer,kind:'gift'},customerOptions)]]){

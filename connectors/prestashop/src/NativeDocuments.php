@@ -81,6 +81,8 @@ final class NativeDocuments
         $lines=[];foreach($order->getOrderDetailList() as $line)$lines[]=['name'=>(string)$line['product_name'],
             'reference'=>(string)$line['product_reference'],'quantity'=>(int)$line['product_quantity'],
             ...($kind==='gift'?[]:['line_cents'=>(int)round(100*(float)$line['total_price_tax_incl']),
+                'unit_tax_incl_micros'=>(int)round(1000000*(float)$line['unit_price_tax_incl']),
+                'tax_cents'=>(int)round(100*(float)$line['total_price_tax_incl'])-(int)round(100*(float)$line['total_price_tax_excl']),
                 'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl'])])];
         return ['kind'=>$kind,'order_id'=>(int)$order->id,'reference'=>(string)$order->reference,'created_at'=>(string)$order->date_add,
             'reference_barcode'=>self::referenceBarcode((string)$order->reference),

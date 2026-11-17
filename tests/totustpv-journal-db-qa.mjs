@@ -343,6 +343,11 @@ try {
  check((await prefs()).receipt.showReferences,false);
  check((await prefs()).receipt.showLogo,true);
  check((await prefs()).receipt.showBarcode,false);
+ for(const key of ['showUnitPrice','showLineTax']){
+  check((await prefs()).receipt[key],false);
+  check((await prefs(qaScope,{receipt:{[key]:true}})).receipt[key],true);
+  await denied(()=>prefs(qaScope,{receipt:{[key]:'true'}}),/INVALID/);
+ }
  check((await prefs(qaScope,{receipt:{showBarcode:true}})).receipt.showBarcode,true);
  await denied(()=>prefs(qaScope,{receipt:{showBarcode:'true'}}),/INVALID/);
  check((await prefs(qaScope,{receipt:{showLogo:false}})).receipt.showLogo,false);

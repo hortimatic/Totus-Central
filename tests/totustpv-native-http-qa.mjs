@@ -133,7 +133,10 @@ try{
   assert.equal(document.status,200,JSON.stringify(document.result));assert.equal(document.result.order_id,results[0].orderId);
   assert.equal(document.result.existing_document,true);
   if(['invoice','delivery'].includes(kind))assert.equal(Buffer.from(document.result.base64,'base64').subarray(0,5).toString(),'%PDF-');
-  else{assert.equal(document.result.lines.length,1);if(kind==='gift'){assert.equal(document.result.total_cents,undefined);assert.equal(document.result.lines[0].line_cents,undefined);}else assert.equal(document.result.total_cents,801);}
+  else{assert.equal(document.result.lines.length,1);const line=document.result.lines[0];
+   if(kind==='gift'){for(const field of ['line_cents','unit_tax_incl_micros','tax_cents','tax_excl_cents'])assert.equal(line[field],undefined);assert.equal(document.result.total_cents,undefined);}
+   else{assert.equal(document.result.total_cents,801);assert.ok(Number.isSafeInteger(line.unit_tax_incl_micros)&&line.unit_tax_incl_micros>0);
+    assert.equal(line.tax_cents,line.line_cents-line.tax_excl_cents);}}
  }
  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/return-rollback.php',results[0].saleId],{encoding:'utf8',env,maxBuffer:1024*1024}));
  for(let i=0;i<results.length;i++){

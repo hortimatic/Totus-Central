@@ -64,7 +64,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
    assert.equal(response.error,undefined,response.error?.message);return response.data;
   };
-  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,

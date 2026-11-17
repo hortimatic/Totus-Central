@@ -1,6 +1,9 @@
 import {receiptOptions,receiptLogoUrl,receiptBarcodeUrl} from './receipt-options.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
+const unitMoney=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:6}).format(value/1000000);
+function linePriceDetails(line,o,gift){if(gift)return '';
+ return `${o.showUnitPrice&&Number.isSafeInteger(line.unit_tax_incl_micros)?`<small>Precio unitario: ${unitMoney(line.unit_tax_incl_micros)}</small>`:''}${o.showLineTax&&Number.isSafeInteger(line.tax_cents)?`<small>Impuesto de línea: ${money(line.tax_cents)}</small>`:''}`;}
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
 function customerHtml(customer,o){if(!o.showCustomer||!customer?.invoice)return '';
  const address=a=>[a.address1,a.address2,[a.postcode,a.city].filter(Boolean).join(' '),a.country].filter(Boolean).map(esc).join(' · '),invoice=customer.invoice;
@@ -23,7 +26,7 @@ export function receiptHtml(document,options,{preview=false}={}){
   <p>${[...(o.showAddress?[merchant.address,merchant.address2,merchant.postcode,merchant.city]:[]),merchant.registration,o.showPhone?merchant.phone:''].filter(Boolean).map(esc).join(' · ')}</p>
   <small>${preview?'Vista previa · datos de ejemplo':'Preproducción · documento de pruebas'}</small></header><p>${preview?('Ejemplo de ticket'+(o.showOrderReference?' · REF-EJEMPLO':'')):`Pedido #${esc(document.order_id)}${o.showOrderReference?` · ${esc(document.reference)}`:''}`}${o.showDate?`<br>${esc(date)}`:''}</p>
   ${gift?'':customerHtml(document.customer,o)}
-  <table><thead><tr><th>Artículo</th><th>Ud.</th>${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${document.lines.map((line,index)=>`<tr><td>${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}</td><td>${esc(line.quantity)}</td>${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>`).join('')}</tbody></table>
+  <table><thead><tr><th>Artículo</th><th>Ud.</th>${gift?'':'<th>Importe</th>'}</tr></thead><tbody>${document.lines.map((line,index)=>`<tr><td>${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}${linePriceDetails(line,o,gift)}</td><td>${esc(line.quantity)}</td>${gift?'':`<td>${money(line.line_cents)}</td>`}</tr>`).join('')}</tbody></table>
   ${gift?'':`<dl>${o.showDiscounts&&document.discount_cents?`<div><dt>Descuentos de ticket</dt><dd>−${money(document.discount_cents)}</dd></div>`:''}<div><dt>Total</dt><dd><strong>${money(document.total_cents)}</strong></dd></div>
    ${o.showPayments?Object.entries(document.payments).map(([method,cents])=>`<div><dt>${esc(paymentLabel(method))}</dt><dd>${money(cents)}</dd></div>`).join(''):''}</dl>${preview?'':'<small>La factura nativa está disponible en Documentos de este pedido.</small>'}`}
   ${o.footer?`<p class="tpv-receipt-footer" style="white-space:pre-wrap">${esc(o.footer)}</p>`:''}

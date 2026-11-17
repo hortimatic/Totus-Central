@@ -123,6 +123,8 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByRole('button',{name:'Ticket',exact:true}).click();
   await page.getByRole('heading',{name:'Justificante de compra',exact:true}).waitFor();
   assert.match(await page.locator('.tpv-document').innerText(),width===390?/7,01/:/8,01/);
+  assert.match(await page.locator('.tpv-document tbody').innerText(),/Precio unitario: [0-9]+,[0-9]+/);
+  assert.match(await page.locator('.tpv-document tbody').innerText(),/Impuesto de línea: [0-9]+,[0-9]{2}/);
   await page.waitForFunction(()=>{const logo=document.querySelector('.tpv-receipt-logo');return logo?.complete&&logo.naturalWidth>0;});
   await page.waitForFunction(()=>{const barcode=document.querySelector('.tpv-reference-barcode');return barcode?.complete&&barcode.naturalWidth>0;});
   const barcodeImage=await page.locator('.tpv-reference-barcode').getAttribute('src');
