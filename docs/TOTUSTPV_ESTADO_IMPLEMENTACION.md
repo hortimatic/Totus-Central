@@ -1,8 +1,8 @@
 # Estado de implementación de TotusTPV
 
-## Estado vigente · 17/11/2026, 12:46 CET
+## Estado vigente · 17/11/2026, 13:44 CET
 
-La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las nueve migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías, precios con/sin IVA, buscador y visibilidad siguen pendientes de aplicación remota.
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las diez migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías, precios con/sin IVA, buscador y visibilidad siguen pendientes de aplicación remota.
 
 La selección de billetes y monedas y el contador de efectivo ya se integran en apertura, cobro y arqueo. Se ha comprobado su persistencia privada y un cierre de 108,01 € después de una venta nativa de 8,01 €, con respuesta perdida y recuperación del mismo identificador. Los campos de movimientos conservan un ancho utilizable en móvil. La suite SQL supera 408 aserciones y los 43 recorridos afectados de esta ampliación han aprobado. CFG-03-05 pasa a implementación aislada pendiente de aceptación remota; el inventario conserva 108 opciones todavía abiertas y 41 implementadas de forma aislada. Detalle: `TOTUSTPV_ARQUEO_MONEDAS_20261117.md`.
 
@@ -181,6 +181,10 @@ La preparación enlaza con el registro existente de Central, en otra pestaña y 
 
 Las combinaciones explican grupo y valor (por ejemplo, Color: Rojo), en tarjetas y tabla, con proyección pública limitada y respaldo del nombre compuesto anterior. Aprueban 46 recorridos afectados y laboratorio nativo con navegador, conservación del ticket y móvil/escritorio. Selección por atributo y orden inicial siguen pendientes; no se cierra un requisito amplio por este avance. Sin nueva migración ni publicación. Detalle: TOTUSTPV_VARIANTES_20261117.md. Las cuatro comprobaciones de GitHub del bloque d464df92 han finalizado correctamente.
 
-### 17/11/2026, 13:40 CET · ventana de selección de variantes
+### 17/11/2026, 13:37 CET · ventana de selección de variantes
 
 El producto abre un diálogo con tabla común en escritorio y tarjetas legibles en móvil, grupos nativos para ordenar, existencias, precio y paginación. Elegir añade al ticket y cierra; Escape cancela sin perder la venta. Se restaura el orden del catálogo. El servidor ordena antes de paginar: 23 combinaciones nativas verificadas en páginas de 20 y tres, dos grupos y rechazo del grupo de otro producto. Aprueban 46 recorridos de regresión y uno específico adicional, más ocho controles de estabilidad. La prueba específica cubre consulta fallida sin filas falsas, agotado bloqueado y conservación del ticket. Orden inicial configurable sigue pendiente. Sin nueva migración ni publicación. Detalle: TOTUSTPV_VARIANTES_20261117.md.
+
+### 17/11/2026, 13:44 CET · orden inicial de variantes
+
+Configuración guarda el orden inicial por cuenta y caja: atributos, existencias, precio o referencia en ambos sentidos. Se verifica guardado y relectura en SQL y apertura nativa con la preferencia guardada. La suite SQL alcanza 508 aserciones y aprueban 49 recorridos afectados. CFG-09-08 pasa a implementación aislada: 52 opciones implementadas de forma aislada y 97 abiertas. La migración 20261117123814 eleva a diez las pendientes remotas; no se ha publicado ni aplicado ninguna durante este bloque. Detalle en TOTUSTPV_VARIANTES_20261117.md.

@@ -472,7 +472,8 @@
         "tests/totustpv-catalogue-preferences-qa.mjs",
         "supabase/migrations/20261117111400_totustpv_catalogue_filters.sql",
         "tests/native-lab/catalogue-filter-",
-        "tests/totustpv-variant-selector-browser-qa.mjs"
+        "tests/totustpv-variant-selector-browser-qa.mjs",
+        "supabase/migrations/20261117123814_totustpv_variant_order.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",

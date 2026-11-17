@@ -108,3 +108,5 @@ El administrador puede abrir Crear y gestionar cajas. Se abre Administración �
 ## Elegir una variante en una venta
 
 Pulsa el artículo. La ventana muestra cada combinación con sus atributos, existencias y precio. Elige un atributo para ordenar, como Color, o cambia a orden por existencias o precio. Usa Anterior y Siguiente para recorrer todas las combinaciones. En móvil se abre con tarjetas; Vista permite cambiar a Tabla y usar las columnas comunes. Pulsa una combinación con unidades para añadirla: la ventana se cierra y conserva el resto del ticket. Volver a productos o Escape cancela la selección. Ordenar las variantes no cambia el orden guardado del catálogo. Esta ampliación sigue en rama, pendiente de activación remota.
+
+Para elegir cómo se abren siempre las combinaciones, entra en Configuración y busca Orden inicial de las variantes. Selecciona el orden y pulsa Guardar mostrador. Se conserva para tu cuenta en esa caja; el orden del catálogo permanece independiente. El selector permite cambiarlo sólo para la consulta actual sin volver a guardar.

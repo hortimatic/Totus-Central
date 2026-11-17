@@ -19,6 +19,7 @@ export async function exerciseNativeCatalogueFilterBrowser({handle,actor,fixture
   const available=page.locator(`[data-tpv-add="${sample.ids.available}:0"]`);await page.waitForFunction(()=>document.querySelectorAll('.tpv-product').length===4);await available.click();assert.equal(await page.locator('.tpv-product').count(),4);
   await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
   await page.locator('[name=hideUnavailable]').check();await page.locator('[name=extraDetails]').check();
+  await page.locator('[name=variantOrder]').selectOption('stock:desc');
   await page.locator('[name=excludedCategories]').selectOption(String(sample.parentId));await page.locator('[name=initialCategoryId]').selectOption(String(sample.childId));
   await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByRole('alert').filter({hasText:'categoría inicial está oculta'}).waitFor();
   await page.locator('[name=initialCategoryId]').selectOption('0');await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
@@ -29,6 +30,7 @@ export async function exerciseNativeCatalogueFilterBrowser({handle,actor,fixture
   await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByText('No hay artículos con esa búsqueda.',{exact:true}).waitFor();
   await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
   assert.equal(await page.locator('[name=hideUnavailable]').isChecked(),true);assert.deepEqual(await page.locator('[name=excludedCategories]').evaluate(el=>[...el.selectedOptions].map(row=>row.value)),[String(sample.parentId)]);
+  assert.equal(await page.locator('[name=variantOrder]').inputValue(),'stock:desc');
   await page.locator('[name=excludedCategories]').selectOption([]);await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Venta',exact:true}).click();await available.waitFor();assert.equal(await page.locator('.tpv-product').count(),2);
   assert.equal(await page.locator(`[data-tpv-add="${sample.ids.zero}:0"],[data-tpv-add="${sample.ids.negative}:0"]`).count(),0);
@@ -39,6 +41,7 @@ export async function exerciseNativeCatalogueFilterBrowser({handle,actor,fixture
   await page.getByRole('button',{name:'Volver a productos',exact:true}).waitFor();
   const dialog=page.locator('.tpv-variant-dialog');await dialog.waitFor();assert.equal(await dialog.evaluate(el=>el.matches(':modal')),true);
   await page.waitForFunction(()=>document.querySelector('[data-tpv-variant-group]')&&!document.querySelector('[data-tpv-variant-group]').disabled);
+  assert.equal(await dialog.locator('[data-tpv-variant-order]').inputValue(),'stock:desc','The native selector opens with the account/workstation order read back from SQL');
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});assert.equal(await page.locator('.tpv-ticket-line').count(),1);
   await parent.click();await dialog.waitFor();
   assert.equal(await dialog.locator('[data-tpv-view]').inputValue(),'grid','The initial phone selector uses readable cards');
