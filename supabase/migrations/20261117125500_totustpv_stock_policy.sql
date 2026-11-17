@@ -1,4 +1,4 @@
--- Explicit per-account/workstation stock policy; native article policy remains authoritative.
+-- Explicit per-account/workstation stock policy; native owned-cart permission remains authoritative.
 begin;
 alter table private.totus_tpv_workspace_preferences add column stock_policy jsonb not null default '{"allowOutOfStock":false}' check(jsonb_typeof(stock_policy)='object');
 create or replace function public.totus_tpv_workspace_preferences(p_connection uuid,p_shop bigint,p_drawer uuid,p_preferences jsonb default null)

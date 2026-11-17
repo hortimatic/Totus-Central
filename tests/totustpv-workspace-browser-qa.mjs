@@ -105,7 +105,7 @@ try{
   catalogue:{hideUnavailable:false,excludedCategories:[],extraDetails:false},
   stockPolicy:{allowOutOfStock:false},
   customerDisplay:{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23},
-  display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
+  display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,requireQuantity:false,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
   receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});
  await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);

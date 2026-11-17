@@ -20,6 +20,7 @@ jobs:
       - run: node --test tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs tests/totustpv-search-preferences-qa.mjs tests/totustpv-catalogue-preferences-qa.mjs
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-stock-policy-qa.mjs
+      - run: node --test tests/totustpv-quantity-picker-qa.mjs
       - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs
       - run: node --test tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs tests/totustpv-customer-display-qa.mjs
@@ -38,6 +39,7 @@ jobs:
       - run: node tests/totustpv-cash-counting-browser-qa.mjs
       - run: node tests/totustpv-catalogue-table-browser-qa.mjs
       - run: node tests/totustpv-variant-selector-browser-qa.mjs
+      - run: node tests/totustpv-quantity-picker-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs
       - run: node tests/totustpv-receipt-delivery-browser-qa.mjs
       - run: node tests/totustpv-printed-documents-qa.mjs

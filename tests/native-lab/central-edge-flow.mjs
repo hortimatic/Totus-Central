@@ -53,6 +53,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await db.exec(await readFile(new URL('../../supabase/migrations/20261117111400_totustpv_catalogue_filters.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261117123814_totustpv_variant_order.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117125500_totustpv_stock_policy.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261117143621_totustpv_quantity_picker.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',

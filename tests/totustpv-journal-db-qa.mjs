@@ -75,6 +75,11 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117111400_totustpv_catalogue_filters.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117123814_totustpv_variant_order.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117125500_totustpv_stock_policy.sql',import.meta.url),'utf8'));
+ await db.query('insert into private.totus_tpv_workspace_preferences(actor_id,connection_id,shop_id,drawer_id,display_options,stock_policy) values($1,$2,1,$3,$4::jsonb,$5::jsonb)',[id(9),id(1),id(33),JSON.stringify({showPrices:false,variantOrder:'price:desc'}),JSON.stringify({allowOutOfStock:true})]);
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117143621_totustpv_quantity_picker.sql',import.meta.url),'utf8'));
+ const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
+ check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
+ await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -372,6 +377,11 @@ try {
  for(const priceMode of ['gross','net'])check((await prefs(qaScope,{display:{priceMode}})).display.priceMode,priceMode);
  for(const priceMode of ['<script>',true,null,4,'none'])await denied(()=>prefs(qaScope,{display:{priceMode}}),/INVALID/);
  check((await prefs()).display.variantOrder,'name:asc');
+ check((await prefs()).display.requireQuantity,false);
+ check((await prefs(qaScope,{display:{requireQuantity:true}})).display.requireQuantity,true);
+ check((await prefs(qaScope,{viewMode:'table'})).display.requireQuantity,true);
+ for(const requireQuantity of ['true',1,null,[],{}])await denied(()=>prefs(qaScope,{display:{requireQuantity}}),/INVALID/);
+ check((await prefs(qaScope,{display:{requireQuantity:false}})).display.requireQuantity,false);
  for(const variantOrder of ['name:asc','name:desc','stock:asc','stock:desc','price:asc','price:desc','reference:asc','reference:desc'])check((await prefs(qaScope,{display:{variantOrder}})).display.variantOrder,variantOrder);
  check((await prefs(qaScope,{viewMode:'table'})).display.variantOrder,'reference:desc');
  for(const variantOrder of [null,true,3,{},'stock','cost:desc','name;drop:asc'])await denied(()=>prefs(qaScope,{display:{variantOrder}}),/INVALID/);
