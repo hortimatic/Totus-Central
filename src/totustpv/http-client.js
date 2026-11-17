@@ -1,4 +1,8 @@
 const messages={
+ TPV_SALE_NOTE_REQUIRED:'Añade una nota interna al ticket antes de cobrar. La configuración de esta caja la exige.',
+ TPV_SALE_NOTE_INVALID:'Revisa la nota interna: hasta 500 caracteres de texto, sin símbolos < ni > ni caracteres de control.',
+ TPV_NATIVE_SALE_NOTE_UNAVAILABLE:'La tienda aún no admite notas internas desde este puesto. Pide al responsable que complete su preparación.',
+ TPV_NATIVE_SALE_NOTE_MISMATCH:'No se ha confirmado la nota interna en la tienda. No vuelvas a enviar el cobro; consulta el resultado de esta operación.',
  TPV_PARKING_DISABLED:'El aparcado está desactivado para tu cuenta y esta caja. Los tickets anteriores siguen disponibles en Tickets aparcados.',
  TPV_PARKING_FORBIDDEN:'Necesitas permiso de venta en esta caja para cambiar el aparcado y su caducidad.',
  TPV_DRAFT_EXPIRED:'Este ticket ha caducado y no puede recuperarse para cobrar. Se conserva para consulta y archivo. Si ya enviaste un cobro, consulta su resultado antes de crear otra venta.',

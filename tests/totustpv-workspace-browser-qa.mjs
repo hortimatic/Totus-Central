@@ -103,7 +103,7 @@ try{
   cash:{denominations:[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1]},
   search:{fields:['reference','ean13','upc','name'],numericKeyboard:false},
   catalogue:{hideUnavailable:false,excludedCategories:[],extraDetails:false},
-  stockPolicy:{allowOutOfStock:false},lineOptions:{allowPriceChanges:false},parking:{enabled:true,ttlDays:0},
+  stockPolicy:{allowOutOfStock:false},lineOptions:{allowPriceChanges:false,requireSaleNote:false},parking:{enabled:true,ttlDays:0},
   customerDisplay:{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23},
   display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,requireQuantity:false,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
   receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});

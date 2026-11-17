@@ -104,6 +104,7 @@ final class NativeCartQuote
                 'round_mode'=>(int)\Configuration::get('PS_PRICE_ROUND_MODE'),
                 'round_type'=>(int)\Configuration::get('PS_ROUND_TYPE'),
             ];
+            if(isset($owner['sale_note']))$quote['sale_note_hash']=hash('sha256',NativeSaleNote::normalize($owner['sale_note']));
             $payable=\Tools::ps_round((float)$totalIncl,2,$quote['round_mode']);
             $decimal=number_format($payable,2,'.','');
             Protocol::ensure(preg_match('/^(0|[1-9][0-9]{0,8})\.[0-9]{2}$/D',$decimal)===1,'CART_TOTAL_INVALID');

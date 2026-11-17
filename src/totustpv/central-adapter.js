@@ -2,6 +2,7 @@
  * credentials, native commands or privileged client can enter this module.
  * Request IDs survive response loss; financial commands are never auto-retried.
  */
+import {saleNote} from './sale-note.js';
 import {parkingExpiry} from './parking-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
@@ -47,7 +48,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  function nativeLines(lines,labels=false){return lines.map(line=>{const pair=String(line.productId).split(':').map(Number);
   need(pair.length===2&&Number.isSafeInteger(pair[0])&&pair[0]>0&&Number.isSafeInteger(pair[1])&&pair[1]>=0,'Selecciona la variante del producto.');
   return {productId:pair[0],attributeId:pair[1],qty:line.qty,...(line.discount?{discount:line.discount}:{}),...(labels?{label:line.name||'Producto #'+pair[0]}:{})};});}
- const cartIntent=(lines,adjustment,coupon,labels=false)=>({lines:nativeLines(lines,labels),...(adjustment?{adjustment}:{}),...(coupon?{coupon}:{}),
+ const cartIntent=(lines,adjustment,coupon,labels=false,note)=>({lines:nativeLines(lines,labels),...(saleNote(note)?{note:saleNote(note)}:{}),...(adjustment?{adjustment}:{}),...(coupon?{coupon}:{}),
   ...(customer?{customerId:customer.id,invoiceAddressId:customer.addressId,deliveryAddressId:customer.addressId}:{})});
  async function releaseDraft(){if(!activeDraft)return;
   activeDraft=await call('get-draft',{draftId:activeDraft.id});
@@ -98,9 +99,9 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     stock:row.stock,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     variantAttributes:row.choose_variant?[]:catalogueVariantAttributes(row.variant_attributes),barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{variantGroups:{value:variantGroups.map(row=>({id:row.id,name:row.name}))},variantGroupId:{value:variantGroupId},hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
-  async quote({lines,adjustment,coupon}){
+  async quote({lines,adjustment,coupon,note}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
-   const intent={...cartIntent(lines,adjustment,coupon),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
+   const intent={...cartIntent(lines,adjustment,coupon,false,note),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
    const id=await operation('prepare',intent),record=await call('prepare',intent,id);
    need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
    if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
@@ -135,12 +136,12 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async drafts(){return call('drafts');},
   async archiveDraft({draftId,version}){const values={draftId,version},id=await operation('archive-draft',values),result=await call('archive-draft',values,id);
    need(result.status==='archived','No se ha confirmado el archivo del ticket.');forget('archive-draft',id);return result;},
-  async park({lines,adjustment,coupon,label}){
+  async park({lines,adjustment,coupon,note,label}){
    if(activeDraft){const current=await call('get-draft',{draftId:activeDraft.id});if(current.status==='parked'){
-    activeDraft=null;const same=canonical(current.payload)===canonical(cartIntent(lines,adjustment,coupon,true))&&current.label===label;
+    activeDraft=null;const same=canonical(current.payload)===canonical(cartIntent(lines,adjustment,coupon,true,note))&&current.label===label;
     if(same)return current;throw new Error('El ticket anterior ya está aparcado. Los cambios actuales siguen en pantalla; puedes aparcarlos como otro ticket.');
    }}
-   await releaseDraft();const values={version:activeDraft?.version||0,label,payload:cartIntent(lines,adjustment,coupon,true),
+   await releaseDraft();const values={version:activeDraft?.version||0,label,payload:cartIntent(lines,adjustment,coupon,true,note),
     ...(activeDraft?{draftId:activeDraft.id}:{})},id=await operation('park',values),result=await call('park',values,id);
    need(result.status==='parked','No se ha confirmado el ticket aparcado.');forget('park',id);activeDraft=null;return result;
   },
@@ -156,7 +157,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     need(client&&address,'Revisa el cliente y la dirección de este ticket antes de cobrar.');
     customer={id:p.customerId,addressId:p.invoiceAddressId};displayCustomer={...customer,name:[client.firstname,client.lastname].join(' '),addressLabel:address.alias};
    }
-   return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,
+   return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,note:saleNote(p.note),
     lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:line.label||'Producto #'+line.productId,
      qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
      ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};

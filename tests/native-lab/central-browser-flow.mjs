@@ -94,7 +94,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   if(width===390)await page.getByRole('button',{name:'Ver ticket',exact:true}).click();
   await page.locator('[data-tpv-line-kind]').waitFor();
   if(width===390){await page.locator('[data-tpv-line-kind]').selectOption('amount');await page.locator('[data-tpv-line-value]').fill('0,50');
-   await page.getByText('Descuentos, cupón y aparcado',{exact:true}).click();
+   await page.getByText('Opciones del ticket',{exact:true}).click();
    await page.locator('[name=discountKind]').selectOption('amount');await page.locator('[name=discountValue]').fill('0,50');
    await page.locator('[name=draftLabel]').fill('Ticket recuperado del navegador');
    await page.getByRole('button',{name:'Aparcar ticket',exact:true}).click();

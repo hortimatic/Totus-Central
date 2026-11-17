@@ -1,6 +1,7 @@
 <?php
 require __DIR__.'/../connectors/prestashop/src/Protocol.php';
 require __DIR__.'/../connectors/prestashop/src/NativeOwnedCarts.php';
+require __DIR__.'/../connectors/prestashop/src/NativeSaleNote.php';
 use TotusCentralConnector\NativeOwnedCarts;
 $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE carts(operation_id TEXT,cart_id INTEGER,installation_id TEXT,api_account_id INTEGER,shop_id INTEGER,actor_id TEXT,session_id TEXT,drawer_id TEXT,customer_id INTEGER)');
@@ -27,4 +28,11 @@ $check($owner->owner(701,$command)['allow_out_of_stock']===true);
 try{$owner->owner(701,[...$command,'actor_id'=>'foreign-actor']);throw new RuntimeException('Expected ownership refusal');}catch(InvalidArgumentException $error){$check(str_contains($error->getMessage(),'CART_OWNERSHIP_REQUIRED'));}
 $db->exec('DELETE FROM effects');$db->exec("UPDATE journal SET status='completed'");$check($owner->owner(701,$command)['allow_out_of_stock']===false);
 $legacy=new NativeOwnedCarts($db,'carts','journal',['currency_id'=>1,'language_id'=>1,'carrier_id'=>5]);$check($legacy->owner(701,$command)['allow_out_of_stock']===true);
+$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);
+$receipt['sale_note']='Nota privada del laboratorio';$db->exec("UPDATE journal SET status='uncertain'");
+$db->prepare("INSERT INTO effects VALUES ('operation-fixture','installation-fixture',17,1,'actor-fixture','cart.prepare','fingerprint-fixture',?)")->execute([json_encode($receipt)]);
+$check($owner->owner(701,$command)['sale_note']===$receipt['sale_note']);
+foreach(['verified'=>false,'cart_id'=>702,'session_id'=>'other-session','drawer_id'=>'other-drawer'] as $key=>$value){$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode([...$receipt,$key=>$value])]);$check(!isset($owner->owner(701,$command)['sale_note']));}
+$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);$db->exec("UPDATE effects SET fingerprint='foreign'");$check(!isset($owner->owner(701,$command)['sale_note']));
+
 echo "PASS native cart ownership: {$checks} SQLite assertions; committed scoped effects survive lost journal acknowledgement, foreign or altered receipts fail closed. No native order created.\n";

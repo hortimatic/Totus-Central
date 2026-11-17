@@ -29,7 +29,7 @@ try{for(const width of [1440,390])for(const scenario of ['confirmed','uncertain'
  },scenario);
  await page.locator('[data-tpv-add="1:0"]').click();
  if(width===390)await page.getByRole('button',{name:'Ver ticket',exact:true}).click();
- if(scenario==='uncertain'){await page.getByText('Descuentos, cupón y aparcado',{exact:true}).click();await page.locator('[name=draftLabel]').fill('Ticket pendiente de recuperar');}
+ if(scenario==='uncertain'){await page.getByText('Opciones del ticket',{exact:true}).click();await page.locator('[name=draftLabel]').fill('Ticket pendiente de recuperar');}
  await page.getByRole('button',{name:'Calcular y cobrar',exact:true}).click();
  await page.getByRole('button',{name:'Importe exacto',exact:true}).click();
  const catalogueBefore=await page.evaluate(()=>deliveryFixture.catalogueReads);

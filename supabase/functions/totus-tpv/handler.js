@@ -14,6 +14,7 @@ import {createProductIntakeService} from '../../../src/totustpv/server/product-i
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
 import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
+import {saleNote,saleNoteHash} from '../../../src/totustpv/sale-note.js';
 import {nativeMicros} from '../../../src/totustpv/server/native-adapter.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
@@ -89,7 +90,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     park:['action','selection','operationId','draftId','version','label','payload'],
     'claim-draft':['action','selection','operationId','draftId','version'],'release-draft':['action','selection','operationId','draftId','version'],
     'archive-draft':['action','selection','operationId','draftId','version'],
-    prepare:['action','selection','operationId','lines','customerId','invoiceAddressId','deliveryAddressId','adjustment','coupon','draftId','draftVersion'],
+    prepare:['action','selection','operationId','lines','customerId','invoiceAddressId','deliveryAddressId','adjustment','coupon','note','draftId','draftVersion'],
     submit:['action','selection','operationId','payments'],recover:['action','selection','operationId'],
     'cash-summary':['action','selection','operationId'],'cash-movement':['action','selection','operationId','kind','amountCents','reason'],
     'cash-reports':['action','selection','operationId','reportSessionId'],
@@ -360,7 +361,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const currentLineOptions=lineOptions(check(await rpc('totus_tpv_line_options',{p_scope:scope})));
     return {verified:true,nativeVersion:'8.2.8',connectionId:scope.connectionId,connectionRevision:scope.connectionRevision,
      allowOutOfStock:currentStockPolicy.allowOutOfStock,
-     allowPriceChanges:currentLineOptions.allowPriceChanges,
+     allowPriceChanges:currentLineOptions.allowPriceChanges,requireSaleNote:currentLineOptions.requireSaleNote,
      shopId:scope.shopId,currency:scope.currency,environment:'qa',quoteLifetimeMs:120000,paymentModule:'totuscentralconnector',
      nativePaymentLabels:p.payment_labels,paidStateIds:[p.paid_state_id],operatorPaymentPolicy:await policy()};}
    async function stockRecords(lines){
@@ -383,7 +384,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      Object.keys(line).every(key=>['productId','attributeId','qty','discount'].includes(key))&&positive(line.productId)&&
      Number.isSafeInteger(line.attributeId)&&line.attributeId>=0&&positive(line.qty)&&line.qty<=10000),'TPV_LINES_INVALID');
     for(const line of input.lines)if(Object.hasOwn(line,'discount'))lineAdjustment(line.discount);
-    const preparationProfile=await profile(),priceLines=input.lines.filter(line=>line.discount?.kind==='price');
+    const note=saleNote(input.note),preparationProfile=await profile(),priceLines=input.lines.filter(line=>line.discount?.kind==='price');
+    need(!preparationProfile.requireSaleNote||note!==undefined,'TPV_SALE_NOTE_REQUIRED');
+    if(note!==undefined){const productId=input.lines[0].productId,capabilities=await transport.readNativeProductCapabilities(productId);need(capabilities?.source==='native-product-capabilities'&&capabilities.product_id===productId&&capabilities.shop_id===scope.shopId&&capabilities.private_sale_note===true,'TPV_NATIVE_SALE_NOTE_UNAVAILABLE');}
     if(priceLines.length){need(preparationProfile.allowPriceChanges,'TPV_PRICE_CHANGE_FORBIDDEN');const ids=[...new Set(priceLines.map(line=>line.productId))];
      for(let i=0;i<ids.length;i+=4)await Promise.all(ids.slice(i,i+4).map(async productId=>{const capabilities=await transport.readNativeProductCapabilities(productId);need(capabilities?.source==='native-product-capabilities'&&capabilities.product_id===productId&&capabilities.shop_id===scope.shopId&&capabilities.unit_price_override===true,'TPV_NATIVE_PRICE_CHANGE_UNAVAILABLE');}));}
     {
@@ -400,22 +403,24 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      const original=check(await drafts('get',input.draftId,{},crypto.randomUUID()));
      const payload={lines:input.lines.map(line=>({...line,label:original.payload.lines.find(previous=>
       previous.productId===line.productId&&previous.attributeId===line.attributeId)?.label||'Producto #'+line.productId})),
-      customerId,invoiceAddressId,deliveryAddressId,...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})};
+      customerId,invoiceAddressId,deliveryAddressId,...(note?{note}:{}),...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})};
      draft=check(await drafts('bind',input.draftId,{version:input.draftVersion,payload,checkoutId:input.operationId}));
     }else need(input.draftVersion===undefined,'TPV_DRAFT_REQUEST_INVALID');
     const cart=needNative(await nativeRequests.execute({operationId:await nativeStepId(input.operationId,'cart'),command:'cart.prepare',payload:{
      session_id:scope.sessionId,drawer_id:scope.drawerId,customer_id:customerId,invoice_address_id:invoiceAddressId,...(preparationProfile.allowOutOfStock?{allow_out_of_stock:true}:{}),
-     delivery_address_id:deliveryAddressId,lines:input.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty,
+     delivery_address_id:deliveryAddressId,...(note?{sale_note:note}:{}),lines:input.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty,
       ...(line.discount?{discount:line.discount}:{})})),
      ...(input.adjustment?{adjustment:input.adjustment}:{}),...(input.coupon?{coupon:input.coupon}:{})}}));
     const quoteId=await nativeStepId(input.operationId,'quote');
     const quoted=needNative(await nativeRequests.execute({operationId:quoteId,command:'cart.quote',payload:{cart_id:cart.cart_id}}));
+    need((quoted.quote?.sale_note_hash??undefined)===await saleNoteHash(note),'TPV_NATIVE_SALE_NOTE_MISMATCH');
     for(const line of priceLines){const native=quoted.quote?.lines?.find(row=>row.product_id===line.productId&&row.attribute_id===line.attributeId);need(native,'TPV_NATIVE_LINE_PRICE_MISMATCH');const micros=nativeMicros(native.unit_tax_incl);need(Math.abs(micros-line.discount.value*10000)<=3&&Math.round(micros/10000)===line.discount.value,'TPV_NATIVE_LINE_PRICE_MISMATCH');}
     const p=row.nativeProfile,prepared=await expectedFromNativeQuote({scope,ownedCart:{...scope,id:cart.cart_id,cartId:cart.cart_id,
      customerId,invoiceAddressId,deliveryAddressId,currencyId:p.currency_id,languageId:p.language_id,carrierId:p.carrier_id},
      profile:preparationProfile,response:quoted,stockRecords:await stockRecords(quoted.quote.lines)});
     prepared.expected.nativeQuoteOperationId=quoteId;
     if(priceLines.length)prepared.expected.hasPriceOverride=true;
+    if(note)prepared.expected.hasSaleNote=true;
     if(draft){prepared.expected.draftId=draft.id;prepared.expected.draftVersion=draft.version;}
     return respond(await ledger.prepare({scope,operationId:input.operationId,...prepared}));
    }
@@ -426,6 +431,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      JSON.stringify(fresh.nativePaymentLabels)===JSON.stringify(record.expected.nativePaymentLabels),'TPV_PAYMENT_POLICY_STALE');
     const prior=record.expected;need((prior.allowOutOfStock===true)===(fresh.allowOutOfStock===true),'TPV_STOCK_POLICY_STALE');
     need(prior.hasPriceOverride!==true||fresh.allowPriceChanges,'TPV_PRICE_CHANGE_FORBIDDEN');
+    need(!fresh.requireSaleNote||prior.hasSaleNote===true,'TPV_SALE_NOTE_REQUIRED');
     await expectedFromNativeQuote({scope,ownedCart:{...scope,id:prior.cartId,cartId:prior.cartId,customerId:prior.customerId,
      invoiceAddressId:prior.invoiceAddressId,deliveryAddressId:prior.deliveryAddressId,currencyId:prior.currencyId,
      languageId:prior.languageId,carrierId:prior.carrierId},profile:fresh,response,stockRecords:await stockRecords(response.quote.lines)});

@@ -1,7 +1,7 @@
 <?php
 /** Totus Central native capability. No front-office payment option or POS UI. */
 if (!defined('_PS_VERSION_')) { exit; }
-foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogueIndex','NativeCatalogue','NativeDocuments','NativeSetup','NativeRuntime'] as $file)
+foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeSaleNote','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogueIndex','NativeCatalogue','NativeDocuments','NativeSetup','NativeRuntime'] as $file)
     require_once __DIR__.'/src/'.$file.'.php';
 class Totuscentralconnector extends PaymentModule
 {

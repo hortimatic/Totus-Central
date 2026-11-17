@@ -7,7 +7,7 @@ export async function exerciseNativeLinePrice({call,raw,selection,fixture,prefer
  const stock=async(id,attribute=0)=>{const data=await nativeRead(`stock_availables?filter[id_product]=[${id}]&filter[id_product_attribute]=[${attribute}]&filter[id_shop]=[1]`);assert.equal(data.stock_availables.length,1);return Number(data.stock_availables[0].quantity);};
  const pay=(id,total)=>({allocations:[{id:'cash-line-price',method:'cash',amountCents:total,receivedCents:total}],confirmation:{operationId:id,totalCents:total,currency:'EUR',accepted:true}});
  const initial=await source(items.normal.id),rows=await call({action:'catalogue',selection,operationId:randomUUID(),search:sample.prefix});assert.equal(rows.items.find(row=>row.product_id===items.normal.id).unit_price_override,true);
- assert.deepEqual((await preferences(drawer)).lineOptions,{allowPriceChanges:false});
+ assert.deepEqual((await preferences(drawer)).lineOptions,{allowPriceChanges:false,requireSaleNote:false});
  const id=randomUUID(),intent={action:'prepare',selection,operationId:id,lines:[{productId:items.normal.id,attributeId:0,qty:2,discount:{kind:'price',value:725}}]},before=posts();
  assert.equal((await raw(intent)).result.error,'TPV_PRICE_CHANGE_FORBIDDEN');assert.equal(posts(),before);
  assert.equal((await raw({...intent,lineOptions:{allowPriceChanges:true}})).result.error,'TPV_REQUEST_FIELD_FORBIDDEN');assert.equal(posts(),before);

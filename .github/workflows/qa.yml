@@ -21,7 +21,7 @@ jobs:
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-stock-policy-qa.mjs
       - run: node --test tests/totustpv-quantity-picker-qa.mjs
-      - run: node --test tests/totustpv-line-options-qa.mjs tests/totustpv-line-price-edge-qa.mjs
+      - run: node --test tests/totustpv-line-options-qa.mjs tests/totustpv-line-price-edge-qa.mjs tests/totustpv-sale-note-qa.mjs
       - run: node --test tests/totustpv-parking-options-qa.mjs
       - run: node tests/totustpv-parking-expiry-db-qa.mjs
       - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs

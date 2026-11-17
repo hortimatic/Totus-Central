@@ -43,9 +43,9 @@ final class NativeOwnedCarts
             'SELECT result_json FROM '.$this->journalTable.' WHERE request_id=:request AND command=\'cart.prepare\' AND status=\'completed\' AND installation_id=:installation AND api_account_id=:account AND shop_id=:shop AND actor_id=:actor':
             'SELECT e.result_json FROM '.$this->effectsTable.' e JOIN '.$this->journalTable.' j ON j.request_id=e.operation_id AND j.fingerprint=e.fingerprint AND j.command=e.command AND j.installation_id=e.installation_id AND j.api_account_id=e.api_account_id AND j.shop_id=e.shop_id AND j.actor_id=e.actor_id WHERE e.operation_id=:request AND e.command=\'cart.prepare\' AND e.installation_id=:installation AND e.api_account_id=:account AND e.shop_id=:shop AND e.actor_id=:actor';
         $policy=$this->db->prepare($sql);
-        $policy->execute(['request'=>$row['operation_id'],'installation'=>$row['installation_id'],'account'=>$row['api_account_id'],'shop'=>$row['shop_id'],'actor'=>$row['actor_id']]);$prepared=$policy->fetchColumn();$allow=false;
-        if(is_string($prepared)){$result=json_decode($prepared,true,32,JSON_THROW_ON_ERROR);$allow=($result['verified']??false)===true&&($result['cart_id']??null)===$cartId&&($result['session_id']??null)===$row['session_id']&&($result['drawer_id']??null)===$row['drawer_id']&&($result['allow_out_of_stock']??false)===true;}
-        return array_merge($row,['verified'=>true,'allow_out_of_stock'=>$allow]);
+        $policy->execute(['request'=>$row['operation_id'],'installation'=>$row['installation_id'],'account'=>$row['api_account_id'],'shop'=>$row['shop_id'],'actor'=>$row['actor_id']]);$prepared=$policy->fetchColumn();$allow=false;$note=null;
+        if(is_string($prepared)){$result=json_decode($prepared,true,32,JSON_THROW_ON_ERROR);$valid=($result['verified']??false)===true&&($result['cart_id']??null)===$cartId&&($result['session_id']??null)===$row['session_id']&&($result['drawer_id']??null)===$row['drawer_id'];$allow=$valid&&($result['allow_out_of_stock']??false)===true;if($valid&&array_key_exists('sale_note',$result))$note=NativeSaleNote::normalize($result['sale_note']);}
+        return array_merge($row,['verified'=>true,'allow_out_of_stock'=>$allow],$note===null?[]:['sale_note'=>$note]);
     }
     public function quote(string $operationId,array $command): array
     {
@@ -60,10 +60,11 @@ final class NativeOwnedCarts
     public function execute(array $command): array
     {
         $p=$command['payload']??[];
-        Protocol::ensure(($command['command']??null)==='cart.prepare' && count($p)>=6 && count($p)<=9 &&
-            array_diff(array_keys($p),['session_id','drawer_id','customer_id','invoice_address_id','delivery_address_id','lines','adjustment','coupon','allow_out_of_stock'])===[] &&
+        Protocol::ensure(($command['command']??null)==='cart.prepare' && count($p)>=6 && count($p)<=10 &&
+            array_diff(array_keys($p),['session_id','drawer_id','customer_id','invoice_address_id','delivery_address_id','lines','adjustment','coupon','allow_out_of_stock','sale_note'])===[] &&
             (!array_key_exists('allow_out_of_stock',$p)||is_bool($p['allow_out_of_stock'])) &&
             Protocol::uuid($p['session_id']??null) && Protocol::uuid($p['drawer_id']??null),'CART_PREPARE_INVALID');
+        $note=array_key_exists('sale_note',$p)?NativeSaleNote::normalize($p['sale_note']):null;Protocol::ensure(!array_key_exists('sale_note',$p)||is_string($p['sale_note'])&&$note!==null&&$note===$p['sale_note'],'SALE_NOTE_INVALID');
         foreach (['customer_id','invoice_address_id','delivery_address_id'] as $key)Protocol::ensure(is_int($p[$key]??null)&&$p[$key]>0,'CART_NATIVE_IDENTITY_INVALID');
         Protocol::ensure(is_array($p['lines']??null) && array_is_list($p['lines']) && count($p['lines'])>0 && count($p['lines'])<=200,'CART_LINES_INVALID');
         $customer=new \Customer($p['customer_id']);$invoice=new \Address($p['invoice_address_id']);$delivery=new \Address($p['delivery_address_id']);
@@ -108,7 +109,7 @@ final class NativeOwnedCarts
                 'account'=>$command['api_account_id'],'shop'=>$command['shop_id'],'actor'=>$command['actor_id'],
                 'session'=>$p['session_id'],'drawer'=>$p['drawer_id'],'customer'=>$p['customer_id'],'cart'=>(int)$cart->id]);
             return ['verified'=>true,'native_reference'=>(int)$cart->id,'cart_id'=>(int)$cart->id,
-                'session_id'=>$p['session_id'],'drawer_id'=>$p['drawer_id'],...(($p['allow_out_of_stock']??false)===true?['allow_out_of_stock'=>true]:[])];
+                'session_id'=>$p['session_id'],'drawer_id'=>$p['drawer_id'],...($note===null?[]:['sale_note'=>$note]),...(($p['allow_out_of_stock']??false)===true?['allow_out_of_stock'=>true]:[])];
         } finally {
             foreach (['shop','cart','customer','currency','language','country'] as $key)$context->$key=$previous[$key]??null;
             \Shop::setContext($previousType,$previousShop);
@@ -122,6 +123,6 @@ final class NativeOwnedCarts
         Protocol::ensure(\Validate::isLoadedObject($cart) && (int)$cart->id_customer===$owner['customer_id'],'CART_NATIVE_READBACK_FAILED');
         $payload=$command['payload']??[];
         Protocol::ensure(!array_key_exists('allow_out_of_stock',$payload)||is_bool($payload['allow_out_of_stock']),'CART_PREPARE_INVALID');
-        return ['verified'=>true,'native_reference'=>$id,'cart_id'=>$id,'session_id'=>$owner['session_id'],'drawer_id'=>$owner['drawer_id'],...(($payload['allow_out_of_stock']??$owner['allow_out_of_stock']??false)===true?['allow_out_of_stock'=>true]:[])];
+        return ['verified'=>true,'native_reference'=>$id,'cart_id'=>$id,'session_id'=>$owner['session_id'],'drawer_id'=>$owner['drawer_id'],...(isset($owner['sale_note'])?['sale_note'=>$owner['sale_note']]:[]),...(($payload['allow_out_of_stock']??$owner['allow_out_of_stock']??false)===true?['allow_out_of_stock'=>true]:[])];
     }
 }

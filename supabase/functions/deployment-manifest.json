@@ -214,7 +214,8 @@
         "src/totustpv/search-preferences.js",
         "src/totustpv/catalogue-preferences.js",
         "src/totustpv/stock-policy.js",
-        "src/totustpv/line-options.js"
+        "src/totustpv/line-options.js",
+        "src/totustpv/sale-note.js"
       ]
     }
   ]

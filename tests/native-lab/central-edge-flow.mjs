@@ -17,6 +17,7 @@ import {exerciseNativeCatalogueFilters} from './catalogue-filter-flow.mjs';
 import {exerciseNativeCatalogueFilterBrowser} from './catalogue-filter-browser.mjs';
 import {exerciseNativeStockPolicy} from './stock-policy-flow.mjs';
 import {exerciseNativeStockPolicyBrowser} from './stock-policy-browser.mjs';
+import {exerciseNativeSaleNote} from './sale-note-flow.mjs';
 import {exerciseNativeLinePrice} from './line-price-flow.mjs';
 import {exerciseNativeLinePriceBrowser} from './line-price-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss}){
@@ -58,6 +59,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117143621_totustpv_quantity_picker.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117145654_totustpv_line_price_options.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117152204_totustpv_parking_expiry.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261117155256_totustpv_private_sale_note.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -133,9 +135,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
-  if(['stock-policy','line-price'].includes(focus)){
+  if(['stock-policy','line-price','sale-note'].includes(focus)){
    const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
    const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};
+   if(focus==='sale-note'){const backend=await exerciseNativeSaleNote({call,raw,selection,fixture,preferences,nativeRead,paths});const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,note:'Nota interna del equipo 🙂',salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});return {...backend,screen};}
    if(focus==='line-price'){const backend=await exerciseNativeLinePrice({call,raw,selection,fixture,preferences,nativeRead,paths}),before=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);
     const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});
     const after=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);assert.equal(after.products[0].price,before.products[0].price);return {...backend,screen};}

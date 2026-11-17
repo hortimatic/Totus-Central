@@ -123,3 +123,5 @@
 @media(max-width:600px){.tpv-variant-dialog{padding:16px;border-radius:14px}.tpv-variant-dialog>header{flex-direction:column}.tpv-variant-controls label{flex-basis:100%}}
 
 .tpv-quantity-dialog{box-sizing:border-box;width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--line,#cbd5e1);border-radius:16px;padding:24px;background:var(--panel,#fff);color:var(--ink,#17212b);font:inherit;box-shadow:0 24px 80px #07152740}.tpv-quantity-dialog::backdrop{background:#091a32a6;backdrop-filter:blur(3px)}.tpv-quantity-dialog h3{font-size:1.4rem;margin:8px 0}.tpv-quantity-name{overflow-wrap:anywhere;font-weight:600}.tpv-quantity-dialog label{display:grid;gap:8px}.tpv-quantity-dialog input{box-sizing:border-box;width:100%;min-width:0;padding:12px;font-size:1.3rem}.tpv-quantity-dialog footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
+
+.tpv-ticket-adjustments .tpv-sale-note{grid-column:1/-1}.tpv-sale-note textarea{box-sizing:border-box;width:100%;min-width:0;min-height:64px;max-height:160px;resize:vertical;font:inherit}.tpv-sale-note small{color:var(--muted);font-size:.75rem}

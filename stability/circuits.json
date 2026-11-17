@@ -489,7 +489,11 @@
         "supabase/migrations/20261117152204_totustpv_parking_expiry.sql",
         "tests/totustpv-parking-options-qa.mjs",
         "tests/totustpv-parking-expiry-db-qa.mjs",
-        "tests/totustpv-parking-browser-qa.mjs"
+        "tests/totustpv-parking-browser-qa.mjs",
+        "supabase/migrations/20261117155256_totustpv_private_sale_note.sql",
+        "tests/totustpv-sale-note-qa.mjs",
+        "tests/totustpv-native-sale-note-qa.php",
+        "tests/native-lab/sale-note-flow.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -546,7 +550,8 @@
         "tests/totustpv-line-price-browser-qa.mjs",
         "tests/totustpv-parking-options-qa.mjs",
         "tests/totustpv-parking-expiry-db-qa.mjs",
-        "tests/totustpv-parking-browser-qa.mjs"
+        "tests/totustpv-parking-browser-qa.mjs",
+        "tests/totustpv-sale-note-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -557,7 +562,8 @@
         "one active physical drawer session and one remote cart dispatch across workers",
         "insufficient stock requires explicit server-loaded workstation policy and sealed native cart permission without changing webshop stock policy; default refusal and attributed stock readback remain mandatory",
         "optional required quantity selection preserves the ticket on cancellation; product minima, remaining stock, scoped preferences and account disposal remain enforced",
-        "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative"
+        "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative",
+        "Private sale notes are sealed with the owned cart, required by server policy when configured, read back from a single private native Message, and excluded from customer documents and display"
       ]
     },
     {
