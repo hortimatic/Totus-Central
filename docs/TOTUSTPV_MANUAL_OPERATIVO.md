@@ -37,6 +37,10 @@ Pulsa **+ Crear categoría** junto al selector del artículo. Escribe su nombre,
 
 En **Más acciones → Configuración → Precios de las tarjetas**, elige **Con IVA** o **Sin IVA** y guarda el mostrador. Cada tarjeta indica su modalidad; el ticket confirma el total con los impuestos del cliente. En Tabla puedes añadir **Precio sin IVA** desde Columnas y conservar **PVP con IVA** para comparar. Si la conexión no entrega el importe sin IVA, se indica que no está disponible.
 
+## Elegir cómo buscar artículos
+
+En **Más acciones → Configuración → Buscar artículos**, marca referencia, EAN, UPC, ISBN o nombre/atributos y guarda. Debe quedar un criterio. Puedes activar el teclado numérico para móvil. Los cambios conservan el ticket y actualizan la búsqueda de toda la tienda. Enter añade una unidad solo ante un identificador activado, exacto y único; ante dudas se elige el artículo o su variante.
+
 ## Contar el efectivo
 
 Ampliación comprobada en laboratorio, pendiente de activación remota.

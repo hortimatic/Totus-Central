@@ -9,10 +9,19 @@ final class NativeCatalogue
     private static function integer($value,int $min,int $max): int
     {Protocol::ensure(is_string($value)&&preg_match('/^(0|[1-9][0-9]*)$/D',$value)===1&&
         (float)$value>=$min&&(float)$value<=$max,'CATALOGUE_QUERY_INVALID');return (int)$value;}
+    private static function searchFields(array $query): array
+    {
+        $value=$query['search_fields']??'reference,ean13,upc,name';
+        Protocol::ensure(is_string($value)&&strlen($value)<=40,'CATALOGUE_SEARCH_FIELDS_INVALID');
+        $fields=explode(',',$value);$allowed=['reference','ean13','upc','isbn','name'];
+        Protocol::ensure(count($fields)>=1&&count($fields)<=5&&count(array_unique($fields))===count($fields)&&!array_diff($fields,$allowed),'CATALOGUE_SEARCH_FIELDS_INVALID');
+        return array_values(array_intersect($allowed,$fields));
+    }
     public static function read(array $query,array $profile): array
     {
         $categoriesOnly=self::integer((string)($query['categories_only']??'0'),0,1);
         if($categoriesOnly===1)return self::categories($profile);
+        $searchFields=self::searchFields($query);
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
@@ -38,7 +47,7 @@ final class NativeCatalogue
             $preview=new \Cart();$preview->id_customer=$customerId;$preview->id_currency=(int)$profile['currency_id'];
             $preview->id_address_invoice=(int)$address->id;$preview->id_address_delivery=(int)$address->id;$manager->setCart($preview);
             $parameters=[$shop,$shop,$language];
-            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,ps.cache_default_attribute,ps.wholesale_price,
+            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,p.isbn,ps.cache_default_attribute,ps.wholesale_price,
                 COALESCE(m.name,\'\') manufacturer_name,COALESCE(supplier.name,\'\') supplier_name
                 FROM `'._DB_PREFIX_.'product` p JOIN `'._DB_PREFIX_.'product_shop` ps ON ps.id_product=p.id_product AND ps.id_shop=?
                 JOIN `'._DB_PREFIX_.'product_lang` pl ON pl.id_product=p.id_product AND pl.id_shop=? AND pl.id_lang=?
@@ -55,16 +64,20 @@ final class NativeCatalogue
             if($productId>0){$sql.=' AND p.id_product=?';$parameters[]=$productId;}
             if($search!==''){
                 $needle='%'.strtr($search,['!'=>'!!','%'=>'!%','_'=>'!_']).'%';
-                $sql.=" AND (pl.name LIKE ? ESCAPE '!' OR p.reference LIKE ? ESCAPE '!' OR p.ean13 LIKE ? ESCAPE '!' OR p.upc LIKE ? ESCAPE '!'
-                    OR EXISTS(SELECT 1 FROM `"._DB_PREFIX_."product_attribute` pa JOIN `"._DB_PREFIX_."product_attribute_shop` pas
-                    ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=p.id_product
-                    AND (pa.reference LIKE ? ESCAPE '!' OR pa.ean13 LIKE ? ESCAPE '!' OR pa.upc LIKE ? ESCAPE '!'))
-                    OR EXISTS(SELECT 1 FROM `"._DB_PREFIX_."product_attribute` pa JOIN `"._DB_PREFIX_."product_attribute_shop` pas
-                    ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                    JOIN `"._DB_PREFIX_."product_attribute_combination` pac ON pac.id_product_attribute=pa.id_product_attribute
-                    JOIN `"._DB_PREFIX_."attribute_lang` al ON al.id_attribute=pac.id_attribute AND al.id_lang=?
-                    WHERE pa.id_product=p.id_product AND al.name LIKE ? ESCAPE '!'))";
-                array_push($parameters,$needle,$needle,$needle,$needle,$shop,$needle,$needle,$needle,$shop,$language,$needle);
+                $terms=[];$variantTerms=[];
+                foreach($searchFields as $field){$terms[]=($field==='name'?'pl.name':'p.'.$field)." LIKE ? ESCAPE '!'";$parameters[]=$needle;
+                    if($field!=='name')$variantTerms[]='pa.'.$field." LIKE ? ESCAPE '!'";}
+                if($variantTerms){$terms[]='EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas
+                    ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? WHERE pa.id_product=p.id_product AND ('.implode(' OR ',$variantTerms).'))';
+                    $parameters[]=$shop;foreach($variantTerms as $_)$parameters[]=$needle;}
+                if(in_array('name',$searchFields,true)){
+                    $terms[]="EXISTS(SELECT 1 FROM `"._DB_PREFIX_."product_attribute` pa JOIN `"._DB_PREFIX_."product_attribute_shop` pas
+                        ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
+                        JOIN `"._DB_PREFIX_."product_attribute_combination` pac ON pac.id_product_attribute=pa.id_product_attribute
+                        JOIN `"._DB_PREFIX_."attribute_lang` al ON al.id_attribute=pac.id_attribute AND al.id_lang=?
+                        WHERE pa.id_product=p.id_product AND al.name LIKE ? ESCAPE '!')";
+                    array_push($parameters,$shop,$language,$needle);}
+                $sql.=' AND ('.implode(' OR ',$terms).')';
             }
             $total=0;
             if($productId===0){$count=$db->prepare('SELECT COUNT(*) FROM ('.$sql.') catalogue_matches');$count->execute($parameters);$total=(int)$count->fetchColumn();}
@@ -79,11 +92,11 @@ final class NativeCatalogue
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
             if($sort==='price'&&$productId===0){
                 $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
-                $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId){
-                    [$attribute]=self::selection($byId[$key],$search,$shop);
+                $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields){
+                    [$attribute]=self::selection($byId[$key],$search,$shop,$searchFields);
                     return self::previewPrice((int)$byId[$key]['id_product'],$attribute,$context,(int)$address->id,$customerId);
-                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction);
-                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction);
+                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction,$searchFields);
+                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields];
                 $priceValues=$pricePage['prices'];$products=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
             }
             if($productId>0){
@@ -95,7 +108,7 @@ final class NativeCatalogue
                 $variantName='COALESCE((SELECT GROUP_CONCAT(al.name ORDER BY ag.position,a.position,a.id_attribute SEPARATOR \' · \') FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang='.(int)$language.' WHERE pac.id_product_attribute=pa.id_product_attribute),\'\')';
                 $variantOrder=['name'=>'TRIM(variant_sort_name)','reference'=>'pa.reference','stock'=>$variantStock,'id'=>'pa.id_product_attribute','price'=>'pa.id_product_attribute',
                     'cost'=>'pa.id_product_attribute','manufacturer'=>'pa.id_product_attribute','supplier'=>'pa.id_product_attribute'];
-                $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
+                $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pa.isbn,pas.wholesale_price,'.$variantName.' variant_sort_name FROM `'._DB_PREFIX_.'product_attribute` pa
                     JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
                     WHERE pa.id_product=? ORDER BY '.$variantOrder[$sort].' '.strtoupper($direction).',pa.id_product_attribute '.strtoupper($direction).
                     ($sort==='price'?'':' LIMIT '.($size+1).' OFFSET '.($page*$size)));
@@ -104,8 +117,8 @@ final class NativeCatalogue
                     $byId=[];foreach($variants as $variant)$byId[$productId.':'.$variant['id_product_attribute']]=$variant;ksort($byId,SORT_NATURAL);
                     $pricePage=self::pricePage(array_keys($byId),static function($key)use($productId,$byId,$context,$address,$customerId){
                         return self::previewPrice($productId,(int)$byId[$key]['id_product_attribute'],$context,(int)$address->id,$customerId);
-                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction);
-                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction);
+                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields);
+                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields];
                     $priceValues=$pricePage['prices'];$variants=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
                 }
                 $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
@@ -114,27 +127,28 @@ final class NativeCatalogue
             }else{
                 $more=$pricePage?$pricePage['has_more']:count($products)>$size;
                 foreach(array_slice($products,0,$size) as $product){
-                    [$attribute,$choose,$variant]=self::selection($product,$search,$shop);
+                    [$attribute,$choose,$variant]=self::selection($product,$search,$shop,$searchFields);
                     $item=self::item($product,$attribute,$choose,$variant,$profile,$context,(int)$address->id,$customerId);
                     if($pricePage)$item['preview_cents']=$priceValues[$product['id_product'].':0'];$rows[]=$item;
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,
+                'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,
                 ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
     }
-    private static function selection(array $product,string $search,int $shop): array
+    private static function selection(array $product,string $search,int $shop,array $searchFields): array
     {
         $db=\Db::getInstance()->getLink();$attribute=(int)$product['cache_default_attribute'];
         if($attribute===0){$s=$db->prepare('SELECT MIN(id_product_attribute) FROM `'._DB_PREFIX_.'product_attribute_shop` WHERE id_product=? AND id_shop=?');
             $s->execute([(int)$product['id_product'],$shop]);$attribute=(int)$s->fetchColumn();}
         $choose=$attribute>0;$variant=null;
-        if($choose&&$search!==''){
-            $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc FROM `'._DB_PREFIX_.'product_attribute` pa
+        $identifiers=array_values(array_filter($searchFields,static fn($field)=>$field!=='name'));
+        if($choose&&$search!==''&&$identifiers){
+            $s=$db->prepare('SELECT pa.id_product_attribute,pa.reference,pa.ean13,pa.upc,pa.isbn FROM `'._DB_PREFIX_.'product_attribute` pa
                 JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=?
-                WHERE pa.id_product=? AND (pa.reference=? OR pa.ean13=? OR pa.upc=?) LIMIT 2');
-            $s->execute([$shop,(int)$product['id_product'],$search,$search,$search]);$exact=$s->fetchAll(\PDO::FETCH_ASSOC);
+                WHERE pa.id_product=? AND ('.implode(' OR ',array_map(static fn($field)=>'pa.'.$field.'=?',$identifiers)).') LIMIT 2');
+            $s->execute(array_merge([$shop,(int)$product['id_product']],array_fill(0,count($identifiers),$search)));$exact=$s->fetchAll(\PDO::FETCH_ASSOC);
             if(count($exact)===1){$variant=$exact[0];$attribute=(int)$variant['id_product_attribute'];$choose=false;}
         }
         return [$attribute,$choose,$variant];
@@ -144,7 +158,7 @@ final class NativeCatalogue
         $specific=null;$incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
         Protocol::ensure(is_numeric($incl)&&$incl>=0,'CATALOGUE_PRICE_INVALID');return (int)round(100*\Tools::ps_round((float)$incl,2));
     }
-    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction): array
+    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction,array $searchFields): array
     {
         $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$minute=date('Y-m-d H:i:00');$boundary=null;$db=\Db::getInstance()->getLink();
         foreach(['specific_price','specific_price_rule'] as $table){
@@ -164,7 +178,7 @@ final class NativeCatalogue
             'conversion'=>(string)$context->currency->conversion_rate,'customer'=>(int)$customer->id,'groups'=>$groups,
             'address'=>(int)$address->id,'country'=>(int)$address->id_country,'state'=>(int)$address->id_state,
             'postcode'=>(string)$address->postcode,'vat'=>(string)$address->vat_number,'settings'=>$settings,
-            'search'=>$search,'category'=>$category,'product'=>$product];
+            'search'=>$search,'search_fields'=>$searchFields,'category'=>$category,'product'=>$product];
         $storage=NativeRuntime::connection();$index=new NativeCatalogueIndex($storage,_DB_PREFIX_.'totus_tpv_catalogue_index');
         $result=$index->page($identity,$ids,$reader,$page*$size,$size,$direction,$validUntil,$now);
         // Only disposable, expired presentation indexes are pruned. Native
@@ -202,7 +216,7 @@ final class NativeCatalogue
             'manufacturer'=>(string)($product['manufacturer_name']??''),'supplier'=>(string)($product['supplier_name']??''),
             'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
             'variant_name'=>$label,'reference'=>(string)($variant['reference']??$product['reference']),
-            'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'choose_variant'=>$choose,
+            'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'isbn'=>(string)($variant['isbn']??$product['isbn']),'choose_variant'=>$choose,
             'minimum_quantity'=>max(1,$minimum),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),
             'preview_cents'=>(int)round(100*\Tools::ps_round((float)$incl,2)),

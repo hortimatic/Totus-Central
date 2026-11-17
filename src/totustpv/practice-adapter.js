@@ -2,6 +2,7 @@
  * Synthetic tickets live in a separate, per-user browser namespace. They are
  * not orders, payments, stock receipts or cash closings of the business.
  */
+import {catalogueSearchFields} from './search-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 const copy=value=>structuredClone(value);
@@ -92,9 +93,10 @@ export function createTpvPracticeAdapter({actorId,storage,now=Date.now,uuid=()=>
    {id:'demo-store-a',name:'Tienda de práctica A'},{id:'demo-store-b',name:'Tienda de práctica B'}],
    drawers:[{id:'demo-drawer-a',storeId:'demo-store-a',name:'Caja A'},
     {id:'demo-drawer-b',storeId:'demo-store-b',name:'Caja B'}],sessions:copy(read().sessions)};},
-  async searchProducts({sessionId,search='',sortField='name',sortDirection='asc'}) {
+  async searchProducts({sessionId,search='',sortField='name',sortDirection='asc',searchFields}) {
    const data=read(),session=getSession(data,sessionId),needle=String(search).toLocaleLowerCase('es');
-   return catalogue.filter(p=>`${p.name} ${p.reference}`.toLocaleLowerCase('es').includes(needle))
+   const fields=catalogueSearchFields(searchFields);
+   return catalogue.filter(p=>fields.some(field=>String(p[field]||'').toLocaleLowerCase('es').includes(needle)))
     .map(product=>({...copy(product),stock:stockFor(data,session,product)})).sort((a,b)=>{
      const key={name:'name',reference:'reference',stock:'stock',price:'priceCents',id:'id',cost:'costCents',manufacturer:'manufacturer',supplier:'supplier'}[sortField]||'name',
       left=a[key]??'',right=b[key]??'',order=typeof left==='number'&&typeof right==='number'?left-right:String(left).localeCompare(String(right),'es',{numeric:true});

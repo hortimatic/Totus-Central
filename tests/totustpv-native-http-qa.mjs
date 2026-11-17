@@ -59,7 +59,11 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--cash-counting-only')){
+ if(process.argv.includes('--search-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const searchCodes=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/search-fixture.php',String(fixture.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,variant,searchCodes},profile:configured.result,base,focus:'search'});
+ }else if(process.argv.includes('--cash-counting-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'cash-counting'});
  }else if(process.argv.includes('--products-only')){
   const productSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/product-intake-setup.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));

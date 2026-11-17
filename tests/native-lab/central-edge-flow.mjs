@@ -11,6 +11,8 @@ import {loadProductJournal} from './product-journal.mjs';
 import {exerciseProductIntake} from './product-intake-flow.mjs';
 import {exerciseNativeProductBrowser} from './product-intake-browser.mjs';
 import {exerciseNativeCashCountBrowser} from './cash-counting-browser.mjs';
+import {exerciseNativeSearch} from './search-flow.mjs';
+import {exerciseNativeSearchBrowser} from './search-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete'}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
@@ -43,6 +45,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261117105231_totustpv_search_preferences.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -118,6 +121,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='search'){
+   await exerciseNativeSearch({call:values=>call({action:'catalogue',selection,operationId:randomUUID(),...values}),fixture,nativeWriteCount:()=>nativePosts});
+   await exerciseNativeSearchBrowser({handle,actor,fixture,preferences});return {focus,remoteShopTouched:false};
+  }
   if(focus==='products'){
    const prices=await call({action:'catalogue',selection,operationId:randomUUID(),search:fixture.reference});
    const originalPrice=prices.items.find(row=>String(row.product_id)===String(fixture.productId));

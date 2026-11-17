@@ -214,3 +214,7 @@ El formulario de producto conserva su ficha mientras revisa y crea una categorí
 ### Presentación de precios · 17/11/2026, 11:49 CET
 
 El catálogo nativo aporta céntimos sin IVA con su redondeo, además del PVP existente. La interfaz selecciona la presentación de tarjetas y permite ambas columnas en Tabla, manteniendo la ordenación nativa de PVP y el cálculo financiero independiente. La séptima migración conserva preferencias y permisos. Prueba nativa aislada, 461 aserciones SQL y 46 recorridos afectados aprobados; activación remota pendiente. Detalle: `TOTUSTPV_PRECIOS_IVA_20261117.md`.
+
+### Criterios del buscador · 17/11/2026, 12:10 CET
+
+La preferencia por cuenta/caja atraviesa formulario, adaptador, handler y transporte hasta la consulta nativa parametrizada. El índice contextual de PVP incluye los criterios. La identificación exacta de combinaciones y el escaneo respetan solo los identificadores activados; ISBN se proyecta de forma explícita. La octava migración conserva preferencias y derechos existentes. Pruebas: 474 aserciones SQL, 47 recorridos afectados y navegador/nativo aislados aprobados. Detalle: `TOTUSTPV_BUSCADOR_20261117.md`.

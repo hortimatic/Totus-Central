@@ -154,3 +154,11 @@ test('owned-cart native quote has a separate explicit server gate, exact resourc
  assert.equal(JSON.parse(init.body).command,'cart.quote');assert.equal(init.body.includes(connection.secret),false);
  await assert.rejects(f.transport.read('totus_tpv_quotes'),/RESOURCE_FORBIDDEN/);
 });
+
+test('catalogue criteria remain explicit and cannot add arbitrary query fields or resources',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeCatalogue({search:'9780306406157',searchFields:['isbn','reference']});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('search_fields'),'reference,isbn');assert.equal(url.searchParams.get('id_shop'),'2');
+ assert.equal(f.requests[0].init.method,'GET');
+ for(const searchFields of [[],['isbn','isbn'],['name) OR 1=1'],['id_shop'],null,'isbn'])await assert.rejects(f.transport.readNativeCatalogue({searchFields}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{search_fields:'isbn'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});

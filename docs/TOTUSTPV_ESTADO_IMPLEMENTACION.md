@@ -1,8 +1,8 @@
 # Estado de implementación de TotusTPV
 
-## Estado vigente · 17/11/2026, 11:49 CET
+## Estado vigente · 17/11/2026, 12:10 CET
 
-La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las siete migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías y precios con/sin IVA siguen pendientes de aplicación remota.
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354, releído en GitHub; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las ocho migraciones de catálogo/preferencias, accesos, pantalla de cliente, alta de productos, recuento de efectivo, categorías, precios con/sin IVA y buscador siguen pendientes de aplicación remota.
 
 La selección de billetes y monedas y el contador de efectivo ya se integran en apertura, cobro y arqueo. Se ha comprobado su persistencia privada y un cierre de 108,01 € después de una venta nativa de 8,01 €, con respuesta perdida y recuperación del mismo identificador. Los campos de movimientos conservan un ancho utilizable en móvil. La suite SQL supera 408 aserciones y los 43 recorridos afectados de esta ampliación han aprobado. CFG-03-05 pasa a implementación aislada pendiente de aceptación remota; el inventario conserva 108 opciones todavía abiertas y 41 implementadas de forma aislada. Detalle: `TOTUSTPV_ARQUEO_MONEDAS_20261117.md`.
 
@@ -21,6 +21,8 @@ La tabla de 149 configuraciones y el registro maestro permanecen abiertos: solo 
 La ampliación de categorías pasa 452 aserciones SQL y 56 pruebas específicas/compartidas de contrato, servicio, permisos y adaptadores. Su recorrido conectado de navegador confirma creación de categoría y artículo en 1440/390 y conservación del ticket. Los 66 recorridos afectados de Productos, Ventas, Directorios, TotusTPV y estabilidad han pasado desde 7d32b1d4. Tras reforzar la cancelación contra una escritura nativa concurrente, se repitieron las 452 aserciones SQL. El commit de efectivo `7d32b1d4` tiene sus cuatro comprobaciones GitHub aprobadas.
 
 La presentación con/sin IVA ya guarda la elección en tarjetas y permite comparar ambas columnas en Tabla. El laboratorio confirma 8,01 € con IVA y 6,62 € sin IVA obtenidos de PrestaShop; el navegador guarda la preferencia mediante SQL real. Se han aprobado 461 aserciones SQL y 46 recorridos afectados desde 6a506579. CFG-09-13 queda implementada de forma aislada pendiente de activación: 42 opciones en ese estado y 107 abiertas. No habilita ventas sin impuestos. Detalle: `TOTUSTPV_PRECIOS_IVA_20261117.md`.
+
+El buscador permite elegir referencia, EAN, UPC, ISBN y nombre/atributos, y ofrecer teclado numérico. Los filtros se aplican en el catálogo nativo y en Enter; el ticket se conserva y los resultados se releen al guardar. Se han aprobado 474 aserciones SQL y 47 recorridos afectados, además del navegador y consultas nativas aisladas. Seis opciones pasan a implementación aislada pendiente de aceptación: 48 implementadas y 101 abiertas. Detalle: `TOTUSTPV_BUSCADOR_20261117.md`.
 
 ## Registro de estado anterior · 16/11/2026, 20:42 CET
 
