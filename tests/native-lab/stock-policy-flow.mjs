@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-export async function exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths}){
+export async function exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths,actor,simulateCartAckLoss}){
  const items=fixture.stockPolicySetup.items,drawer={connectionId:selection.connectionId,shopId:selection.shopId,id:selection.drawerId};
  const setPolicy=enabled=>preferences(drawer,{stockPolicy:{allowOutOfStock:enabled}});
  const catalogue=()=>call({action:'catalogue',selection,operationId:randomUUID(),search:fixture.stockPolicySetup.prefix});
@@ -13,6 +13,8 @@ export async function exerciseNativeStockPolicy({call,raw,selection,fixture,pref
  for(const forged of [{allowOutOfStock:true},{stockPolicy:{allowOutOfStock:true}}]){const writes=paths.filter(row=>row.method==='POST').length,result=await raw({...intent,...forged});assert.equal(result.status,400);assert.equal(result.result.error,'TPV_REQUEST_FIELD_FORBIDDEN');assert.equal(paths.filter(row=>row.method==='POST').length,writes);}
  const blocked=await raw(intent);assert.equal(blocked.status,400);assert.equal(blocked.result.error,'TPV_QUOTE_STOCK_UNAVAILABLE');assert.equal(sales(),before);assert.equal(await quantity(items.allowed.id),0);
  await setPolicy(true);const prepared=await call(intent);assert.equal(prepared.status,'ready');assert.equal(prepared.expected.allowOutOfStock,true);assert.equal(prepared.expected.lines[0].stockBefore,0);
+ const lost=await simulateCartAckLoss(prepared.expected.cartId),posts=paths.filter(row=>row.method==='POST').length;
+ const recoveredCart=await nativeRead(`totus_tpv_operations?operation_id=${lost.operationId}&actor_id=${actor}`);assert.equal(recoveredCart.status,'verified');assert.equal(recoveredCart.result.cart_id,prepared.expected.cartId);assert.equal(recoveredCart.result.allow_out_of_stock,true);assert.equal(paths.filter(row=>row.method==='POST').length,posts);
  await setPolicy(false);const stale=await raw({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)});assert.equal(stale.status,400);assert.equal(stale.result.error,'TPV_STOCK_POLICY_STALE');assert.equal(sales(),before);assert.equal(await quantity(items.allowed.id),0);
  await setPolicy(true);const confirmed=await call({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)});assert.equal(confirmed.status,'confirmed',JSON.stringify(confirmed));assert.equal(await quantity(items.allowed.id),-1);
  const after=sales();assert.equal((await call({action:'recover',selection,operationId:id})).orderId,confirmed.orderId);assert.equal((await call({action:'submit',selection,operationId:id,payments:payments(id,prepared.expected.totalCents)})).orderId,confirmed.orderId);assert.equal(sales(),after);assert.equal(await quantity(items.allowed.id),-1);

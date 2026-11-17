@@ -28,7 +28,7 @@ try {
     $journalDb->exec(JournalSchema::mysql($jt));$native->exec(PdoNativeEffect::mysqlSchema($et));$native->exec(NativeOwnedCarts::mysqlSchema($ct));
     $journal=new PdoJournal($journalDb,$jt,$base['installation_id']);
     $effects=new PdoNativeEffect($native,$et,$journal,static fn()=>Db::getInstance()->getLink());
-    $owned=new NativeOwnedCarts($native,$ct,$jt,$profile);
+    $owned=new NativeOwnedCarts($native,$ct,$jt,$profile,$et);
     $quoteHandler=new TotusCentralConnector\NativeCartQuote([$owned,'owner'],new PrestaShop\PrestaShop\Adapter\ContextStateManager(new PrestaShop\PrestaShop\Adapter\LegacyContext()));
     $sale=new NativeSale([$owned,'quote'],[$owned,'owner'],new TotusPaymentFixture(),$profile);
     $diagnostic=new class($sale) {

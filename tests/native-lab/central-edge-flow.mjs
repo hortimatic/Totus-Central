@@ -17,7 +17,7 @@ import {exerciseNativeCatalogueFilters} from './catalogue-filter-flow.mjs';
 import {exerciseNativeCatalogueFilterBrowser} from './catalogue-filter-browser.mjs';
 import {exerciseNativeStockPolicy} from './stock-policy-flow.mjs';
 import {exerciseNativeStockPolicyBrowser} from './stock-policy-browser.mjs';
-export async function exerciseCentralEdge({fixture,profile,base,focus='complete'}){
+export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
  try{
@@ -131,7 +131,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   if(focus==='stock-policy'){
    const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
    const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};
-   const backend=await exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths});
+   const backend=await exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths,actor,simulateCartAckLoss});
    const screen=await exerciseNativeStockPolicyBrowser({handle,actor,fixture,preferences,selection,salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});
    const stock=await nativeRead(`stock_availables?filter[id_product]=[${fixture.stockPolicySetup.items.allowed.id}]&filter[id_product_attribute]=[0]&filter[id_shop]=[1]`);assert.equal(Number(stock.stock_availables[0].quantity),0);
    const webshop=await nativeRead(`stock_availables?filter[id_product]=[${fixture.stockPolicySetup.items.denied.id}]&filter[id_product_attribute]=[0]&filter[id_shop]=[1]`);assert.equal(Number(webshop.stock_availables[0].quantity),0);assert.equal(Number(webshop.stock_availables[0].out_of_stock),0,'Counter sale and return must preserve the online refusal policy');

@@ -547,6 +547,7 @@
         "tests/totustpv-connector-qa.php",
         "tests/totustpv-connector-journal-qa.php",
         "tests/totustpv-native-quote-qa.php",
+        "tests/totustpv-native-cart-owner-qa.php",
         "tests/totustpv-php-boundary-qa.mjs"
       ],
       "tests": [

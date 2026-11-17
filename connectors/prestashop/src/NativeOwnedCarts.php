@@ -9,12 +9,14 @@ final class NativeOwnedCarts
     private \PDO $db;
     private string $table;
     private string $journalTable;
+    private ?string $effectsTable;
     private array $profile;
-    public function __construct(\PDO $db,string $table,string $journalTable,array $profile)
+    public function __construct(\PDO $db,string $table,string $journalTable,array $profile,?string $effectsTable=null)
     {
-        foreach ([$table,$journalTable] as $name)Protocol::ensure(preg_match('/^[a-zA-Z0-9_]{1,64}$/D',$name)===1,'CART_STORE_CONFIG_INVALID');
+        foreach (array_filter([$table,$journalTable,$effectsTable],static fn($name)=>$name!==null) as $name)Protocol::ensure(preg_match('/^[a-zA-Z0-9_]{1,64}$/D',$name)===1,'CART_STORE_CONFIG_INVALID');
         foreach (['currency_id','language_id','carrier_id'] as $key)Protocol::ensure(is_int($profile[$key]??null)&&$profile[$key]>0,'CART_PROFILE_INVALID');
         $this->db=$db;$this->table='`'.$table.'`';$this->journalTable='`'.$journalTable.'`';$this->profile=$profile;
+        $this->effectsTable=$effectsTable===null?null:'`'.$effectsTable.'`';
     }
     public static function mysqlSchema(string $table): string
     {
@@ -35,7 +37,12 @@ final class NativeOwnedCarts
             (int)$row['api_account_id']===$command['api_account_id'] && (int)$row['shop_id']===$command['shop_id'] &&
             $row['actor_id']===$command['actor_id'],'CART_OWNERSHIP_REQUIRED');
         foreach (['cart_id','shop_id','api_account_id','customer_id'] as $key)$row[$key]=(int)$row[$key];
-        $policy=$this->db->prepare('SELECT result_json FROM '.$this->journalTable.' WHERE request_id=:request AND command=\'cart.prepare\' AND status=\'completed\' AND installation_id=:installation AND api_account_id=:account AND shop_id=:shop AND actor_id=:actor');
+        // A committed effect remains authoritative if the independent journal's
+        // completion acknowledgement was lost. Both immutable scopes must match.
+        $sql=$this->effectsTable===null?
+            'SELECT result_json FROM '.$this->journalTable.' WHERE request_id=:request AND command=\'cart.prepare\' AND status=\'completed\' AND installation_id=:installation AND api_account_id=:account AND shop_id=:shop AND actor_id=:actor':
+            'SELECT e.result_json FROM '.$this->effectsTable.' e JOIN '.$this->journalTable.' j ON j.request_id=e.operation_id AND j.fingerprint=e.fingerprint AND j.command=e.command AND j.installation_id=e.installation_id AND j.api_account_id=e.api_account_id AND j.shop_id=e.shop_id AND j.actor_id=e.actor_id WHERE e.operation_id=:request AND e.command=\'cart.prepare\' AND e.installation_id=:installation AND e.api_account_id=:account AND e.shop_id=:shop AND e.actor_id=:actor';
+        $policy=$this->db->prepare($sql);
         $policy->execute(['request'=>$row['operation_id'],'installation'=>$row['installation_id'],'account'=>$row['api_account_id'],'shop'=>$row['shop_id'],'actor'=>$row['actor_id']]);$prepared=$policy->fetchColumn();$allow=false;
         if(is_string($prepared)){$result=json_decode($prepared,true,32,JSON_THROW_ON_ERROR);$allow=($result['verified']??false)===true&&($result['cart_id']??null)===$cartId&&($result['session_id']??null)===$row['session_id']&&($result['drawer_id']??null)===$row['drawer_id']&&($result['allow_out_of_stock']??false)===true;}
         return array_merge($row,['verified'=>true,'allow_out_of_stock'=>$allow]);

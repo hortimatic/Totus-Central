@@ -62,7 +62,7 @@ try{
  if(process.argv.includes('--stock-policy-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const stockPolicySetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
-  await exerciseCentralEdge({fixture:{...fixture,stockPolicySetup},profile:configured.result,base,focus:'stock-policy'});
+  await exerciseCentralEdge({fixture:{...fixture,stockPolicySetup},profile:configured.result,base,focus:'stock-policy',simulateCartAckLoss:cartId=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-cart-ack.php',String(cartId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
  }else if(process.argv.includes('--catalogue-filters-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const catalogueFilterSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/catalogue-filter-fixture.php',String(fixture.productId),String(variant.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
