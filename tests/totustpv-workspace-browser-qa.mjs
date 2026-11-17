@@ -80,7 +80,7 @@ try{
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).waitFor();
  await page.evaluate(async()=>{
   window.fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');
-  const drawers=[{id:'a',name:'Caja A',storeId:'shop',connectionId:'connection',shopId:1},{id:'b',name:'Caja B',storeId:'shop',connectionId:'connection',shopId:1}];
+  const drawers=[{id:'a',name:'Caja A',storeId:'shop',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true},{id:'b',name:'Caja B',storeId:'shop',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}];
   const saved=new Map([['a',{viewMode:'compact',initialCategoryId:2}],['b',{viewMode:'list',initialCategoryId:1}]]);
   window.settingsFixture={saved,reads:[],queries:[],selected:[],open:true};
   const w=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,

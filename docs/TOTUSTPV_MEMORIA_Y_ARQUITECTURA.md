@@ -1,12 +1,22 @@
 # TotusTPV: memoria del trabajo y arquitectura de integración
 
-Iniciado el 15 de noviembre de 2026; actualizado el 16 de noviembre. Memoria de integración del módulo de Totus Central. Las secciones fechadas conservan el historial; el estado vigente se consulta en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md).
+Iniciado el 15 de noviembre de 2026; actualizado el 17 de noviembre. Memoria de integración del módulo de Totus Central. Esta fecha corresponde a esta memoria del TPV, no al inicio de todo Central ni de la colaboración. Las secciones fechadas conservan el historial; el estado vigente se consulta en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md).
 
 ## 1. Objetivo y estado real
 
 El objetivo es trabajar desde Totus Central: vender en mostrador, gestionar clientes, pagos, existencias y cajas, y registrar los pedidos en el PrestaShop seleccionado. TotusTPV forma parte de Central, con implementación propia y sin dependencia de otro TPV instalado.
 
-No existe todavía un módulo comercial completo. Ya se han verificado desde la sesión normal de Central cinco pedidos en preproducción, seis abonos nativos y reposición de siete unidades. El conector propio 0.1.9 y el servicio autenticado v6 están activos. El módulo conserva separados los ensayos de práctica, las pruebas nativas aisladas y las escrituras verificadas en la tienda QA. El primer intento incierto no se ha repetido y sigue pendiente de cierre auditado. El estado preciso y los requisitos abiertos están en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
+No existe todavía un módulo comercial completo. Ya se han verificado desde la sesión normal de Central cinco pedidos en preproducción, seis abonos nativos y reposición de siete unidades. El conector propio 0.1.9 y el servicio autenticado v6 están activos. El módulo conserva separados los ensayos de práctica, las pruebas nativas aisladas y las escrituras verificadas en la tienda QA. La primera incidencia QA sin pedido quedó cerrada de forma auditada el 16/11/2026, sin repetir un cobro. El estado preciso y los requisitos abiertos están en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
+
+### Estado de construcción del 17/11/2026
+
+El puesto está en `src/totustpv/workspace.js`; el adaptador autenticado en `central-adapter.js`; el controlador de servidor en `supabase/functions/totus-tpv/handler.js`. La práctica utiliza un adaptador separado con datos ficticios. Las operaciones persistentes se coordinan mediante el diario SQL y los servicios nativos de `src/totustpv/server/`. El conector propio vive en `connectors/prestashop/`; no modifica el núcleo de PrestaShop ni módulos de terceros.
+
+La configuración visual y del justificante usa preferencias de cuenta/caja. El acceso administrativo combina `configuration-reader.js`, `workstation-access.js`, el controlador autenticado y la migración `20261117021112_totustpv_workstation_access.sql`. Esta separa venta, consulta y gestión de efectivo, conserva historial y añade revisión concurrente y registro privado de cambios. La migración de accesos y la anterior de catálogo siguen pendientes de aplicación remota.
+
+Para modificar una pantalla, revisar sus consumidores en `stability/circuits.json` y conservar permisos, recuperación y comportamiento móvil. Para cambiar una operación persistente, revisar también el contrato HTTP, la autorización SQL, la identidad de solicitud y las pruebas de respuesta perdida. Un cambio de presentación del ticket no debe modificar importes, documentos nativos ni su numeración. Los campos del operador y web se fijan desde el diario y la conexión autorizada; no se aceptan como identidad fiable desde el navegador.
+
+La verificación de permisos incluye 327 aserciones SQL aisladas. El recorrido instalado usa PrestaShop 8.2.8, PHP 8.2 y MariaDB locales: venta, abono, stock, documentos, caja y recuperación de un cierre cuya respuesta se perdió. Es una infraestructura temporal de desarrollo; el uso normal de Central no necesita arrancarla. La activación remota, los requisitos restantes y la aceptación física se registran aparte.
 
 Documentos complementarios:
 

@@ -2,6 +2,8 @@
 
 Registro de desarrollo para la entrega final. No acredita publicación de la interfaz ni cierre de todos los requisitos.
 
+La ampliación de accesos separa consulta, venta y gestión de efectivo. Supera 327 aserciones SQL aisladas y 86 recorridos de estabilidad de Central. En el laboratorio nativo, escritorio y móvil recuperan un cierre cuya respuesta se pierde después de haberse confirmado en SQL: el reintento conserva la misma solicitud cuando el contexto ya no tiene sesión abierta. Después del cierre se consultan pedidos y documentos sin abrir otra caja ni escribir de nuevo en PrestaShop. Las pruebas de pantalla administrativa usan adaptadores ficticios; las autorizaciones y los conflictos de revisión se verifican además en servidor y SQL. Migración y servidor pendientes de activación remota coordinada.
+
 Se ha preparado un laboratorio desechable de desarrollo con la distribución oficial de PrestaShop 8.2.8, PHP 8.2.35 y MariaDB 10.11.16. Escucha únicamente en direcciones de bucle local. Sus productos, clientes, credenciales, cajas y bases de datos son ficticios. No requiere instalar componentes en el equipo del usuario para utilizar Totus Central. No se han modificado el núcleo de PrestaShop ni módulos de terceros.
 
 La suite nativa ha comprobado carritos y precios, redondeos de seis decimales, pedidos, pagos, factura, existencias, devoluciones parciales, reposición y rollback. Ha comprobado además la recuperación de la respuesta perdida sin volver a enviar la orden. Las pruebas de autenticación y entrega que usan adaptadores locales se identifican como tales y no sustituyen la aceptación remota.

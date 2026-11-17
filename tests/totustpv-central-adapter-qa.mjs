@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createCentralTpvAdapter,orderLookupInput} from '../src/totustpv/central-adapter.js';
 function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
-  shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,session:null};
+  shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,canSell:true,canReconcile:true,session:null};
  let dispatches=0,movementLost=true;
  const invoke=async body=>{requests.push(structuredClone(body));switch(body.action){
   case 'context':return {actorId:actor,workstations:[station]};
@@ -21,8 +21,13 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   default:throw Error('Unexpected action '+body.action);
  }};
  const create=()=>createCentralTpvAdapter({actorId:actor,invoke,storage,uuid:()=>`00000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`});
- return {create,requests,values,dispatches:()=>dispatches,settle:()=>movementLost=false};
+ return {create,requests,values,station,dispatches:()=>dispatches,settle:()=>movementLost=false};
 }
+test('the real adapter projects explicit workstation rights and rejects missing or malformed permission flags',async()=>{
+ const f=fixture();f.station.canSell=false;f.station.canOpen=false;const context=await f.create().context();
+ assert.deepEqual([context.drawers[0].canSell,context.drawers[0].canOpen,context.drawers[0].canReconcile],[false,false,true]);
+ for(const value of [undefined,'true',1,null]){f.station.canSell=value;await assert.rejects(f.create().context(),/permisos de esta caja/);}
+});
 test('lost submit is recovered by server status, never resent or reconstructed from browser prices',async()=>{
  const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:10000});
  const quote=await adapter.quote({lines:[{productId:'12:3',qty:2,discount:{kind:'percent',value:1000}}]});

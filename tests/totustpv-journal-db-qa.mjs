@@ -63,6 +63,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116180903_totustpv_workspace_preferences.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116192744_totustpv_stock_receipts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116205052_totustpv_catalogue_layout.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117021112_totustpv_workstation_access.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -426,6 +427,58 @@ try {
   await denied(()=>db.query('select public.totus_tpv_stock_receipts($1,$2::uuid,$3::jsonb,$4::jsonb)',
    ['list',null,JSON.stringify(historicalScope),'{}']),/permission denied/);
   await denied(()=>stockReceipts.list(),/TPV_STORAGE_UNAVAILABLE/);}
+ await db.exec('reset role');
+
+ await db.exec('set role service_role');
+ const accessList=async(actor=id(5),revision=1)=>(await db.query('select public.totus_tpv_workstation_access($1,$2,$3) result',[actor,qaConnection,revision])).rows[0].result;
+ const accessChange=async(request,data,actor=id(5))=>(await db.query('select public.totus_tpv_update_workstation_access($1,$2,1,$3,$4::jsonb) result',[actor,qaConnection,request,JSON.stringify(data)])).rows[0].result;
+ const accessRow=async()=>(await accessList()).items.find(row=>row.operatorId===id(5)&&row.drawerId===id(3)&&row.shopId===1);
+ await denied(()=>accessList(id(9)),/CONFIGURATION_FORBIDDEN/);await denied(()=>accessList(id(5),99),/CONTEXT_STALE/);
+ let access=await accessRow();check(access.permissions,{sell:true,open:true,reconcile:true});
+ const accessData=(permissions,active=true)=>({operatorId:id(5),drawerId:id(3),shopId:1,expectedRevision:access.revision,permissions,active});
+ const observer={sell:false,open:false,reconcile:true},cashManager={sell:false,open:true,reconcile:true};
+ const originalAccess=accessData(observer),readOnly=await accessChange(id(501),originalAccess);check(readOnly.revision,access.revision+1);
+ check(await accessChange(id(501),originalAccess),readOnly);check((await db.query('select count(*)::int n from private.totus_tpv_access_changes')).rows[0].n,1);
+ await denied(()=>accessChange(id(501),{...originalAccess,active:false}),/ALREADY_BOUND/);
+ await denied(()=>accessChange(id(502),originalAccess),/ACCESS_CHANGED/);
+ access=await accessRow();await db.exec('reset role');await db.query('update private.totus_tpv_assignments set can_sell=true where connection_id=$1 and actor_id=$2',[qaConnection,id(5)]);await db.exec('set role service_role');
+ await denied(()=>accessChange(id(503),accessData(observer)),/ACCESS_CHANGED/);access=await accessRow();
+ await accessChange(id(504),accessData(observer));access=await accessRow();
+ check((await cash('summary',id(505),{},qaScope)).status,'open');
+ check((await lookup({...qaScope,sessionId:undefined},911))[0].orderId,911);
+ await denied(()=>lookup({...qaScope,sessionId:undefined,storeId:id(22)},911),/ASSIGNMENT_OR_CONNECTION_INVALID/);
+ await denied(()=>lookup({...qaScope,sessionId:undefined,currency:'USD'},911),/ASSIGNMENT_OR_CONNECTION_INVALID/);
+ check((await db.query('select public.totus_tpv_check($1::jsonb,$2) result',[JSON.stringify(historicalScope),'sell'])).rows[0].result,true);
+
+ await denied(()=>journal('prepare',id(506),{expected:expected(1999),quoteExpiresAt:Date.now()+60000},qaScope),/ACTION_FORBIDDEN/);
+ await denied(()=>cash('movement',id(507),{kind:'cash-in',amountCents:100,reason:'Solo consulta'},qaScope),/ACTION_FORBIDDEN/);
+ await denied(()=>cash('close',id(508),{countedCents:0,note:'Solo consulta'},qaScope),/ACTION_FORBIDDEN/);
+ await accessChange(id(509),accessData(cashManager));access=await accessRow();
+ const cashInput={kind:'cash-in',amountCents:100,reason:'Gestión de caja sin permiso de venta'};
+ const managed=await cash('movement',id(510),cashInput,qaScope);check(managed.status,'open');
+ await denied(()=>journal('prepare',id(511),{expected:expected(1999),quoteExpiresAt:Date.now()+60000},qaScope),/ACTION_FORBIDDEN/);
+ await accessChange(id(512),accessData(observer));access=await accessRow();
+ check((await cash('movement',id(510),cashInput,qaScope)).expectedCashCents,managed.expectedCashCents);
+ check((await db.query('select count(*)::int n from private.totus_tpv_cash_movements where id=$1',[id(510)])).rows[0].n,1);
+ await denied(()=>cash('movement',id(513),cashInput,qaScope),/ACTION_FORBIDDEN/);
+ await accessChange(id(514),accessData(cashManager));access=await accessRow();
+ const closeInput={countedCents:managed.expectedCashCents,note:'Cierre por responsable de caja'};
+ check((await cash('close',id(515),closeInput,qaScope)).status,'closed');
+ await accessChange(id(516),accessData(observer));access=await accessRow();
+ check((await cash('close',id(515),closeInput,qaScope)).status,'closed');
+ await accessChange(id(517),accessData(observer,false));access=await accessRow();check(access.active,false);
+ await denied(()=>cash('summary',id(518),{},qaScope),/ASSIGNMENT_OR_CONNECTION_INVALID/);
+ await denied(()=>accessChange(id(519),{...accessData(observer),permissions:{...observer,reconcile:false}}),/ACCESS_REQUEST_INVALID/);
+ await denied(()=>accessChange(id(519),{...accessData(observer),active:'true'}),/ACCESS_REQUEST_INVALID/);
+ await denied(()=>accessChange(id(519),{...accessData(observer),actorId:id(9)}),/ACCESS_REQUEST_INVALID/);
+ await accessChange(id(520),accessData(observer));access=await accessRow();check(access.active,true);
+ check((await accessChange(id(501),originalAccess)).revision,readOnly.revision);check((await accessRow()).revision,access.revision,'Readback of an old request cannot restore obsolete permissions');
+ for(const role of ['anon','authenticated']){await db.exec('set role '+role);
+  await denied(()=>accessList(),/permission denied/);await denied(()=>accessChange(id(521),accessData(observer)),/permission denied/);
+  await denied(()=>db.query('select * from private.totus_tpv_access_changes'),/permission denied/);}
+ await db.exec('reset role;set role service_role');
+ await denied(()=>db.query('update private.totus_tpv_access_changes set reply=reply'),/permission denied/);
+ await denied(()=>db.query('delete from private.totus_tpv_access_changes'),/permission denied/);
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
 } finally {await db.close();}

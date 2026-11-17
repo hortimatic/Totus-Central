@@ -92,6 +92,7 @@ const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
  createLiveAdapter:()=>{const actorId=state.user.id;return createCentralTpvAdapter({actorId,storage:localStorage,invoke:tpvClient(actorId)});},
  readConfiguration:createTpvConfigurationReader({actor:()=>state.user,rpc,
+  readAssignments:({connectionId,revision})=>invokeTotusTpv({action:'workstations',connectionId,revision}),
   readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)}),
   readOperators:()=>select('profiles',{columns:'id,full_name,active',order:'full_name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})}),
  configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),

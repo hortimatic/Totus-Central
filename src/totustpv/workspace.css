@@ -92,3 +92,13 @@
 @media(max-width:999px){.totus-tpv .tpv-settings form>button[type=submit]{grid-column:1/-1;position:sticky;top:0;z-index:3;justify-self:stretch;box-shadow:0 4px 0 var(--panel)}}
 
 @media(min-width:761px){.tpv-active .tpv-sale-grid.tpv-layout-catalogue:not(.tpv-checkout-grid){grid-template-columns:minmax(0,2fr) minmax(320px,1fr)}.tpv-active .tpv-sale-grid.tpv-layout-ticket:not(.tpv-checkout-grid){grid-template-columns:minmax(0,1fr) minmax(320px,1.4fr)}}
+
+.tpv-cash-fields{border:0;padding:0;margin:0;min-width:0;display:contents}
+.tpv-access-panel{margin-block:1.5rem;padding-block:1.25rem;border-top:1px solid var(--border,#dce3ed)}
+.tpv-access-list{display:grid;gap:.65rem;margin-block:1rem}
+.tpv-access-list article{display:flex;align-items:center;gap:1rem;padding:1rem;border:1px solid var(--border,#dce3ed);border-radius:.75rem;flex-wrap:wrap}
+.tpv-access-list article>div{flex:1;min-width:min(100%,15rem)}
+.tpv-access-list small{display:block;margin-top:.25rem}
+.tpv-access-panel form{display:grid;gap:1rem;max-width:48rem}
+.tpv-access-panel label{display:grid;gap:.4rem}
+.tpv-access-panel .tpv-check{display:flex;align-items:flex-start;gap:.6rem}

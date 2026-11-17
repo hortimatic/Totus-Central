@@ -24,6 +24,13 @@ const messages={
  TPV_ORDER_QUERY_INVALID:'Escribe un número de pedido o una referencia válida.',
  TPV_ORDER_REFERENCE_AMBIGUOUS:'La referencia coincide con varios pedidos. Usa el número del ticket.',
  TPV_ORDER_REFERENCE_LOOKUP_INVALID:'No se ha podido comprobar la referencia en la tienda. Vuelve a intentarlo.',
+ TPV_CONFIGURATION_FORBIDDEN:'Solo un responsable autorizado puede gestionar los accesos de caja.',
+ TPV_ACCESS_REQUEST_INVALID:'Revisa el acceso elegido. Un puesto activo necesita permiso de consulta.',
+ TPV_ACCESS_CHANGED:'Este acceso ha cambiado. Actualiza los accesos y revisa la última configuración antes de guardar.',
+ TPV_ACCESS_REQUEST_ALREADY_BOUND:'Esta solicitud corresponde a otros cambios. Actualiza los accesos antes de continuar.',
+ TPV_ACCESS_ASSIGNMENT_NOT_FOUND:'No se encuentra esa asignación. Actualiza los accesos de caja.',
+ TPV_ACCESS_TARGET_INACTIVE:'La persona, la caja o su conexión ya no están disponibles. Actualiza los accesos.',
+ TPV_ACCESS_LIST_LIMIT:'Hay demasiadas asignaciones para esta consulta. Pide al responsable que revise su organización antes de continuar.',
  TPV_STOCK_FORBIDDEN:'Necesitas permiso de edición de Productos para registrar entradas de stock.'
 };
 /** Snapshot the SAME normal Central session, including its user identity,

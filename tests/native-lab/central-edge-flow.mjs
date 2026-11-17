@@ -34,7 +34,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   for(const file of ['20261115182617_totustpv_durable_checkout.sql','20261116110935_totustpv_cash_sessions.sql',
    '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql',
    '20261116175354_totustpv_failed_sale_review.sql','20261116180903_totustpv_workspace_preferences.sql',
-   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql'])
+   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   await db.exec('set role service_role');
@@ -94,7 +94,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    return response;
   }});
   if(['customers','browser'].includes(focus)){
-   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences,nativeWriteCount:()=>nativePosts});
+   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
    if(focus==='customers')assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,0);
    return {focus,remoteShopTouched:false};
   }
@@ -148,7 +148,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,1);
   // The growing disposable catalogue is deliberately paginated; locate the
   // fixture by exact reference, never assume its alphabetical page.
-  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,preferences,nativeWriteCount:()=>nativePosts});
+  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,preferences,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
   console.log('PASS local complete handler → SQL journal → native HTTP → order/payment/invoice/stock proof → physical cash → close; lost-response recovery never posts again. Auth and endpoint delivery are fixtures; no deployment or remote shop.');
   return {orderId:sold.orderId,saleId,nativePosts};
  }finally{await db.close();}

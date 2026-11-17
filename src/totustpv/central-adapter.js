@@ -55,8 +55,10 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   mode:'qa',
   async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
    stations=data.workstations;need(stations.every(row=>row.environment==='qa'),'Entorno de pruebas no válido.');
+   need(stations.every(row=>['canSell','canOpen','canReconcile'].every(key=>typeof row[key]==='boolean')),'No se han podido comprobar los permisos de esta caja.');
    return {stores:[...new Map(stations.map(row=>[row.storeId,{id:row.storeId,name:row.storeName}])).values()],
-    drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName,connectionId:row.connectionId,shopId:row.shopId})),
+    drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName,connectionId:row.connectionId,shopId:row.shopId,
+     canSell:row.canSell,canOpen:row.canOpen,canReconcile:row.canReconcile})),
     sessions:stations.filter(row=>row.session).map(row=>({...row.session,storeId:row.storeId,drawerId:row.drawerId}))};},
   async selectSession(value){selected=stations.find(row=>row.drawerId===value.drawerId&&row.storeId===value.storeId);
    need(selected?.session?.id===value.id,'La sesión de caja ha cambiado.');session=clone(value);return clone(session);},

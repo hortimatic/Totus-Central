@@ -12,7 +12,7 @@ try{
   window.stockFixture={receipts:[],creates:0,steps:0,failRead:true};
   const items=[{id:'101:0',nativeProductId:101,name:'Artículo uno',reference:'SCAN1',stock:0,priceCents:150},
    {id:'102:3',nativeProductId:102,name:'Variante dos',reference:'SCAN2',stock:0,priceCents:200}];
-  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA'}],
+  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',canSell:true,canOpen:true,canReconcile:true}],
    sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),selectSession:async()=>{},categories:async()=>[],
    searchProducts:async({search})=>{await new Promise(r=>setTimeout(r,180));return search?items.filter(i=>i.reference===search):items;},
    stockReceipts:async()=>structuredClone(stockFixture.receipts),

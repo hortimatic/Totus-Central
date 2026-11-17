@@ -15,7 +15,7 @@ try{for(const width of [1440,390])for(const scenario of ['confirmed','uncertain'
    if(frame instanceof HTMLIFrameElement&&frame.title==='Impresión de TotusTPV')frame.contentWindow.print=()=>deliveryFixture.prints++;
   },true);
   const confirmed={id:'sale-fixture',status:'confirmed',orderId:42,reference:'Pedido #42',totalCents:150};
-  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja ficticia',connectionId:'connection',shopId:1}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
+  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja ficticia',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
    selectSession:async()=>{},setCustomer:async()=>{},categories:async()=>[],searchProducts:async()=>{deliveryFixture.catalogueReads++;return [{id:'1:0',name:'Artículo ficticio',reference:'QA',stock:deliveryFixture.submits?9:10,priceCents:150}];},
    quote:async()=>({id:'sale-fixture',totalCents:150,currency:'EUR',lines:[],paymentMethods:['cash']}),
    submit:async()=>{deliveryFixture.submits++;return scenario==='uncertain'?{...confirmed,status:'uncertain'}:confirmed;},

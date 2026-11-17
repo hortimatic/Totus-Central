@@ -11,7 +11,7 @@ try{
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');
   window.tableFixture={prefs:{viewMode:'table',initialCategoryId:0,columns:['photo','name','reference','stock','price']},queries:[],writes:[]};
   const items=Array.from({length:50},(_,n)=>({id:(n+1)+':0',nativeProductId:n+1,name:'Artículo '+String(n+1).padStart(2,'0'),reference:'REF'+(n+1),stock:50-n,priceCents:(n+1)*100}));
-  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',connectionId:'connection',shopId:1}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
+  const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
    selectSession:async()=>{},categories:async()=>[],history:async()=>[{id:'sale-fixture',status:'confirmed',reference:'Pedido de ejemplo',totalCents:150}],
    document:async({kind})=>({kind,existing_document:true,currency:'EUR',order_id:1,reference:'EJEMPLO',created_at:'2026-11-16 12:00:00',
     merchant:{name:'Tienda ficticia',address:'Dirección oculta de ejemplo',registration:'Datos fiscales',phone:'Teléfono de ejemplo'},

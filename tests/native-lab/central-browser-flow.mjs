@@ -6,12 +6,12 @@ import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {prepareZXingModule,readBarcodes} from 'zxing-wasm/reader';
 import {startLocalServer} from '../local-static-server.mjs';
-export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete',preferences,nativeWriteCount}){
+export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete',preferences,nativeWriteCount,cashSessionCount}){
  const wasm=await readFile(new URL(import.meta.resolve('zxing-wasm/reader/zxing_reader.wasm')));
  await prepareZXingModule({overrides:{wasmBinary:wasm.buffer.slice(wasm.byteOffset,wasm.byteOffset+wasm.byteLength)},fireImmediately:true});
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
  try{for(const width of focus==='customers'?[1440]:[1440,390]){
-  const page=await browser.newPage({viewport:{width,height:950}});const errors=[];
+  const page=await browser.newPage({viewport:{width,height:950}});const errors=[],closeRequests=[];let lostClose=false;
   page.on('pageerror',error=>errors.push(error.message));
   // The browser must not contact a remote shop even for a public logo/photo.
   // Keep the production origin in the response, but deliver native fixture
@@ -32,6 +32,10 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
    const response=await handle(new Request('https://central.local/tpv',{method:'POST',
     headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:request.postData()}));
    const body=await response.text();
+   if(action==='close'&&focus!=='customers'){
+    closeRequests.push(JSON.parse(request.postData()));
+    if(response.status===200&&!lostClose){lostClose=true;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TPV_STORAGE_UNAVAILABLE'})});}
+   }
    if(action==='document'){const result=JSON.parse(body);console.log('Native browser document response',response.status,Date.now()-started,result.error||result.kind||result.mime);}
    await route.fulfill({status:response.status,contentType:'application/json',body});
   });
@@ -178,7 +182,10 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByText('Movimiento de caja registrado.',{exact:true}).waitFor();
   await page.locator('[name=counted]').fill('99,00');
   await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
+  await page.locator('.note.bad').waitFor();
+  await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  assert.equal(closeRequests.length,2);assert.deepEqual(closeRequests[0],closeRequests[1],'A committed close with a lost reply must recover the same request after context no longer reports an open cash session');
   await page.getByText('Más acciones',{exact:true}).click();
   await page.getByRole('button',{name:'Informes de caja',exact:true}).click();
   await page.getByRole('heading',{name:'Cierre de caja',exact:true}).waitFor();
@@ -186,7 +193,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.match(await page.locator('.tpv-cash-report').innerText(),/Retirada ficticia del navegador/);
   assert.equal(await page.getByRole('button',{name:'Abrir caja',exact:true}).count(),0,'Reports must not require or offer a new cash opening');
   await page.getByRole('button',{name:'Cerrar informes',exact:true}).click();
-  await page.getByRole('button',{name:'Abrir caja',exact:true}).click();
+  const sessionsBeforeHistory=await cashSessionCount(),writesBeforeHistory=nativeWriteCount();
   await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();
   await page.locator('[data-tpv-order-search] [name=orderId]').fill(orderId);
   await page.getByRole('button',{name:'Buscar pedido',exact:true}).click();
@@ -206,8 +213,9 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.equal(await page.locator('.tpv-history article').count(),1);
   await page.locator('.tpv-history').getByText('Pedido #'+orderId,{exact:true}).waitFor();
   assert.equal(nativeWriteCount(),writesBeforeLookup,'Scanning a receipt only finds the original sale; it cannot write another native order or stock movement');
-  await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
-  await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  assert.equal(await cashSessionCount(),sessionsBeforeHistory,'Historical documents and code lookup must not open another cash session');
+  assert.equal(nativeWriteCount(),writesBeforeHistory,'Historical documents only read existing native records');
+  await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Abrir caja',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
   assert.deepEqual(errors,[]);await page.close();
  }
