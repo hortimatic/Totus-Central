@@ -14,6 +14,12 @@ final class NativeSaleNote
         Protocol::ensure(preg_match_all('/./us',$note)<=500,'SALE_NOTE_INVALID');
         return $note===''?null:$note;
     }
+    public static function messageArgument($value): ?string
+    {
+        $note=self::normalize($value);
+        // PaymentModule uses empty(), which otherwise discards the valid text "0".
+        return $note==='0'?"0\n":$note;
+    }
     public static function verifyOrder($order,$value,string $fingerprint): void
     {
         $note=self::normalize($value);
@@ -22,7 +28,7 @@ final class NativeSaleNote
         $statement=$db->prepare('SELECT message,private,id_cart,id_customer FROM `'._DB_PREFIX_.'message` WHERE id_order=?');
         $statement->execute([(int)$order->id]);$matches=0;
         foreach($statement->fetchAll(\PDO::FETCH_ASSOC) as $message){
-            if((string)$message['message']!==$note)continue;
+            if(self::normalize((string)$message['message'])!==$note)continue;
             Protocol::ensure((bool)$message['private']&&(int)$message['id_cart']===(int)$order->id_cart&&
                 (int)$message['id_customer']===(int)$order->id_customer,'SALE_NOTE_PRIVATE_READBACK_FAILED');
             $matches++;

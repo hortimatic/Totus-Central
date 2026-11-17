@@ -4,6 +4,11 @@ require __DIR__.'/../connectors/prestashop/src/NativeSaleNote.php';
 use TotusCentralConnector\NativeSaleNote;
 function noteCheck($ok){if(!$ok)throw new RuntimeException('Private sale note contract failed');}
 noteCheck(NativeSaleNote::normalize(null)===null);
+noteCheck(NativeSaleNote::messageArgument(null)===null);
+noteCheck(NativeSaleNote::messageArgument('0')==="0\n");
+noteCheck(!empty(NativeSaleNote::messageArgument('0')));
+noteCheck(NativeSaleNote::normalize(NativeSaleNote::messageArgument('0'))==='0');
+noteCheck(NativeSaleNote::messageArgument('Entrega mañana')==='Entrega mañana');
 noteCheck(NativeSaleNote::normalize("  \r\n  ")===null);
 noteCheck(NativeSaleNote::normalize("  Entrega el miércoles\r\nLlamar antes\t🙂  ")==="Entrega el miércoles\nLlamar antes\t🙂");
 noteCheck(NativeSaleNote::normalize(str_repeat('🙂',500))===str_repeat('🙂',500));

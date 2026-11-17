@@ -18,5 +18,5 @@ for(const file of readdirSync('connectors/prestashop/module/upgrade').filter(fil
 // run explicitly, not silently substituted with fake native dependencies.
 for(const file of readdirSync('tests/native-lab').filter(file=>file.endsWith('.php')))
  run(['-l',`tests/native-lab/${file}`]);
-for(const file of ['tests/totustpv-document-logo-qa.php','tests/totustpv-catalogue-index-qa.php','tests/totustpv-return-order-qa.php','tests/totustpv-connector-qa.php','tests/totustpv-connector-journal-qa.php','tests/totustpv-native-effect-qa.php','tests/totustpv-native-quote-qa.php','tests/totustpv-native-cart-owner-qa.php','tests/totustpv-native-sale-note-qa.php'])
+for(const file of ['tests/totustpv-document-logo-qa.php','tests/totustpv-catalogue-index-qa.php','tests/totustpv-return-order-qa.php','tests/totustpv-connector-qa.php','tests/totustpv-connector-journal-qa.php','tests/totustpv-native-effect-qa.php','tests/totustpv-native-quote-qa.php','tests/totustpv-native-cart-owner-qa.php','tests/totustpv-native-sale-note-qa.php','tests/totustpv-native-line-name-qa.php'])
  process.stdout.write(run([file]));

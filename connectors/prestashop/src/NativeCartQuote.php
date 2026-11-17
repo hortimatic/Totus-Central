@@ -8,6 +8,7 @@ namespace TotusCentralConnector;
  */
 final class NativeCartQuote
 {
+    public static function supportsLineNames(): bool{return true;}
     private $ownerLookup;
     private $contextManager;
     private $cartLoader;
@@ -72,14 +73,17 @@ final class NativeCartQuote
             $cart->getOrderTotal(true,\Cart::BOTH);
             $products=$cart->getProducts(true);
             Protocol::ensure(is_array($products) && count($products)>0 && count($products)<=200,'CART_LINES_INVALID');
-            $lines=[];
+            $lines=[];$names=$owner['line_names']??[];
             foreach ($products as $product) {
                 Protocol::ensure((int)($product['id_product'] ?? 0)>0 &&
                     (int)($product['cart_quantity'] ?? 0)>0,'CART_LINE_INVALID');
+                $key=(int)$product['id_product'].':'.(int)($product['id_product_attribute']??0);$catalogueName=null;
+                if(isset($names[$key])&&isset($product['name'])&&is_string($product['name'])){$candidate=$product['name'].((isset($product['attributes'])&&$product['attributes']!=null)?' ('.$product['attributes'].')':'');if(preg_match('//u',$candidate)===1&&preg_match_all('/./us',$candidate)<=512&&!preg_match('/[\x00-\x1f\x7f]/u',$candidate))$catalogueName=$candidate;}
                 $lines[]=[
                     'product_id'=>(int)$product['id_product'],
                     'attribute_id'=>(int)($product['id_product_attribute'] ?? 0),
                     'quantity'=>(int)$product['cart_quantity'],
+                    ...($catalogueName===null?[]:['catalogue_name'=>$catalogueName]),...(isset($names[$key])?['display_name'=>$names[$key]]:[]),
                     'allow_out_of_stock'=>($owner['allow_out_of_stock']??false)===true,
                     'unit_tax_incl'=>self::decimal($product['price_wt'] ?? null),
                     'unit_tax_excl'=>self::decimal($product['price_with_reduction_without_tax'] ?? null),

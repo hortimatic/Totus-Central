@@ -3,6 +3,7 @@
  * never a browser-provided quote/profile/stock snapshot. A SHA-256 fingerprint
  * detects changed content; it is not authentication or a replacement for TLS/ACL.
  */
+import {lineName} from '../line-name.js';
 import {nativeCents,nativeMicros} from './native-adapter.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const positive=value=>Number.isSafeInteger(value)&&value>0;
@@ -43,6 +44,8 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
   need(positive(line.product_id)&&validUint(line.attribute_id)&&positive(line.quantity)&&line.quantity<=10000&&
    !seen.has(key)&&(line.allow_out_of_stock===undefined||typeof line.allow_out_of_stock==='boolean'),'TPV_NATIVE_QUOTE_LINES_INVALID');seen.add(key);
   need(profile.allowOutOfStock!==true||typeof line.allow_out_of_stock==='boolean','TPV_NATIVE_STOCK_POLICY_UNAVAILABLE');
+  if(line.catalogue_name!==undefined)need(typeof line.catalogue_name==='string'&&Array.from(line.catalogue_name).length>0&&Array.from(line.catalogue_name).length<=512,'TPV_NATIVE_LINE_NAME_INVALID');
+  if(line.display_name!==undefined)need(lineName(line.display_name)===line.display_name&&line.display_name!=='','TPV_NATIVE_LINE_NAME_INVALID');
   const records=stockRecords.filter(stock=>stock.productId===line.product_id&&stock.attributeId===line.attribute_id);
   need(records.length===1,'TPV_QUOTE_STOCK_MAPPING_REQUIRED');const stock=records[0];
   need(positive(stock.id)&&!usedStock.has(stock.id)&&stock.shopId===scope.shopId&&stock.shopGroupId===0&&
@@ -52,7 +55,7 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
   const result={productId:line.product_id,attributeId:line.attribute_id,qty:line.quantity,
    unitTaxInclMicros:nativeMicros(line.unit_tax_incl),unitTaxExclMicros:nativeMicros(line.unit_tax_excl),
    lineTaxInclCents:nativeCents(line.line_tax_incl),lineTaxExclCents:nativeCents(line.line_tax_excl),
-   stockRecordId:stock.id,stockBefore:stock.quantity};
+   stockRecordId:stock.id,stockBefore:stock.quantity,...(line.catalogue_name!==undefined?{catalogueName:line.catalogue_name}:{}),...((line.display_name??line.catalogue_name)!==undefined?{name:line.display_name??line.catalogue_name}:{})};
   need(result.unitTaxExclMicros<=result.unitTaxInclMicros&&result.lineTaxExclCents<=result.lineTaxInclCents,
    'TPV_NATIVE_QUOTE_TAX_INVALID');return result;
  });

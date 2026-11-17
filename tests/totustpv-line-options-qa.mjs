@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {lineOptions,lineOptionsFromForm,lineOptionsHtml,lineAdjustment} from '../src/totustpv/line-options.js';
 test('price changes default off and cannot be enabled through truthy or unknown fields',()=>{
- assert.deepEqual(lineOptions(),{allowPriceChanges:false,requireSaleNote:false});assert.deepEqual(lineOptions({allowPriceChanges:true}),{allowPriceChanges:true,requireSaleNote:false});
+ assert.deepEqual(lineOptions(),{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false});assert.deepEqual(lineOptions({allowPriceChanges:true}),{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
  for(const value of [null,[],true,{allowPriceChanges:'true'},{allowPriceChanges:1},{allowPriceChanges:null},{allowPriceChanges:true,actorId:'other'}])assert.throws(()=>lineOptions(value));
- assert.deepEqual(lineOptionsFromForm(new Map([['allowPriceChanges','on']])),{allowPriceChanges:true,requireSaleNote:false});
+ assert.deepEqual(lineOptionsFromForm(new Map([['allowPriceChanges','on']])),{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
  assert.match(lineOptionsHtml({allowPriceChanges:true},false),/name="allowPriceChanges" checked disabled/);
+ assert.deepEqual(lineOptionsFromForm(new Map([['allowNameChanges','on']])),{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:true});
+ assert.match(lineOptionsHtml({allowNameChanges:true},false),/name="allowNameChanges" checked disabled/);
+ for(const value of ['true',1,null,{}])assert.throws(()=>lineOptions({allowNameChanges:value}));
 });
 test('unit price overrides are positive integer cents, with existing reduction contracts preserved',()=>{
  for(const value of [1,725,999999999])assert.deepEqual(lineAdjustment({kind:'price',value}),{kind:'price',value});

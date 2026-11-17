@@ -129,3 +129,5 @@
 .tpv-document table[data-item-discounts] th:first-child{width:20%}.tpv-document table[data-item-discounts] th:nth-child(2){width:35%;font-size:.85em}.tpv-document table[data-item-discounts] th:nth-child(3){width:45%}.tpv-document table[data-item-discounts] th:last-child{width:45%}.tpv-document table[data-item-discounts] abbr{text-decoration:none}
 
 .tpv-document :is(.tpv-receipt-item-name,.tpv-receipt-line-details)>td{white-space:normal;text-align:left}
+
+.tpv-line-name-button{display:block;border:0;background:transparent;color:var(--accent);padding:2px 0;min-height:32px;font:inherit;font-size:.75rem;text-align:left;text-decoration:underline;cursor:pointer}

@@ -59,10 +59,10 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only'))){
+ if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const linePriceSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/line-price-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
-  await exerciseCentralEdge({fixture:{...fixture,linePriceSetup},profile:configured.result,base,simulateCataloguePriceChange:(id,price)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/price-history-change.php',String(id),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),focus:process.argv.includes('--sale-note-only')?'sale-note':'line-price'});
+  await exerciseCentralEdge({fixture:{...fixture,linePriceSetup},profile:configured.result,base,simulateCataloguePriceChange:(id,price)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/price-history-change.php',String(id),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),focus:process.argv.includes('--line-name-only')?'line-name':process.argv.includes('--sale-note-only')?'sale-note':'line-price'});
  }else if(process.argv.includes('--stock-policy-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const stockPolicySetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));

@@ -2,6 +2,7 @@
  * credentials, native commands or privileged client can enter this module.
  * Request IDs survive response loss; financial commands are never auto-retried.
  */
+import {lineName} from './line-name.js';
 import {saleNote} from './sale-note.js';
 import {parkingExpiry} from './parking-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
@@ -47,7 +48,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   drawerId:selected.drawerId,...(session?{sessionId:session.id}:{})};};
  function nativeLines(lines,labels=false){return lines.map(line=>{const pair=String(line.productId).split(':').map(Number);
   need(pair.length===2&&Number.isSafeInteger(pair[0])&&pair[0]>0&&Number.isSafeInteger(pair[1])&&pair[1]>=0,'Selecciona la variante del producto.');
-  return {productId:pair[0],attributeId:pair[1],qty:line.qty,...(line.discount?{discount:line.discount}:{}),...(labels?{label:line.name||'Producto #'+pair[0]}:{})};});}
+  return {productId:pair[0],attributeId:pair[1],qty:line.qty,...(line.discount?{discount:line.discount}:{}),...(lineName(line.displayName)!==undefined?{displayName:lineName(line.displayName)}:{}),...(labels?{label:line.name||'Producto #'+pair[0],...(line.originalName?{originalLabel:line.originalName}:{})}:{})};});}
  const cartIntent=(lines,adjustment,coupon,labels=false,note)=>({lines:nativeLines(lines,labels),...(saleNote(note)?{note:saleNote(note)}:{}),...(adjustment?{adjustment}:{}),...(coupon?{coupon}:{}),
   ...(customer?{customerId:customer.id,invoiceAddressId:customer.addressId,deliveryAddressId:customer.addressId}:{})});
  async function releaseDraft(){if(!activeDraft)return;
@@ -96,7 +97,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(!row.choose_variant&&row.variant_name?' · '+row.variant_name:''),reference:row.reference,
-    stock:row.stock,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
+    stock:row.stock,temporaryLineNames:row.temporary_line_names===true,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     variantAttributes:row.choose_variant?[]:catalogueVariantAttributes(row.variant_attributes),barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{variantGroups:{value:variantGroups.map(row=>({id:row.id,name:row.name}))},variantGroupId:{value:variantGroupId},hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
   async quote({lines,adjustment,coupon,note}){
@@ -158,7 +159,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     customer={id:p.customerId,addressId:p.invoiceAddressId};displayCustomer={...customer,name:[client.firstname,client.lastname].join(' '),addressLabel:address.alias};
    }
    return {draft:clone(activeDraft),customer:displayCustomer,adjustment:p.adjustment,coupon:p.coupon,note:saleNote(p.note),
-    lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:line.label||'Producto #'+line.productId,
+    lines:p.lines.map(line=>({productId:line.productId+':'+line.attributeId,name:lineName(line.displayName)||line.label||'Producto #'+line.productId,originalName:line.originalLabel||line.label||'Producto #'+line.productId,...(lineName(line.displayName)?{customName:lineName(line.displayName)}:{}),
      qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
      ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};
   },

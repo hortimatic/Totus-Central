@@ -7,6 +7,7 @@ namespace TotusCentralConnector;
  */
 final class NativeSale
 {
+    public static function supportsLineNames(): bool{return true;}
     private $quoteReader;
     private $ownerReader;
     private $module;
@@ -46,7 +47,7 @@ final class NativeSale
             ($saved['quote']['cart_id']??null)===$payload['cart_id'] &&
             ($saved['quote']['shop_id']??null)===$command['shop_id'] &&
             hash_equals($saved['quote_fingerprint']??'',$payload['quote_fingerprint']), 'SALE_QUOTE_MISMATCH');
-        $quote=$saved['quote'];$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
+        $quote=$saved['quote'];if(!empty($owner['line_names'])||array_filter($quote['lines'],static fn($line)=>array_key_exists('display_name',$line)))NativeOrderLineNames::assertQuote($owner['line_names']??[],$quote['lines']);$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
         foreach ($payload['payments'] as $payment) {
             Protocol::ensure(is_array($payment) &&
                 array_diff(array_keys($payment),['method','amount_cents','received_cents'])===[] &&
@@ -73,6 +74,7 @@ final class NativeSale
     public function execute(array $command): array
     {
         [$payload,$saved,$owner]=$this->intent($command);
+        if(!empty($owner['line_names']))NativeOrderLineNames::preflight($owner['line_names'],(int)$command['shop_id']);
         Protocol::ensure(is_int($saved['quoted_at']??null) && $saved['quoted_at']<=time()*1000+1000 &&
             $saved['quoted_at']>=time()*1000-120000,'SALE_QUOTE_EXPIRED');
         $cart=new \Cart($payload['cart_id']);
@@ -122,10 +124,11 @@ final class NativeSale
             }
             $label=count($payload['payments'])>1?'Mixto':$this->profile['payment_labels'][$payload['payments'][0]['method']];
             $this->module->validateOrder((int)$cart->id,(int)$preparing->id,$saved['quote']['total_cents']/100,
-                $label,$owner['sale_note']??null,[],(int)$cart->id_currency,false,$cart->secure_key,$context->shop);
+                $label,isset($owner['sale_note'])?NativeSaleNote::messageArgument($owner['sale_note']):null,[],(int)$cart->id_currency,false,$cart->secure_key,$context->shop);
             $order=new \Order((int)$this->module->currentOrder);
             Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_cart===(int)$cart->id &&
                 count($order->getOrderPaymentCollection())===0,'SALE_INITIAL_ORDER_INVALID');
+            if(!empty($owner['line_names']))NativeOrderLineNames::apply($order,$owner['line_names'],$saved['quote']['lines']);
             foreach ($payload['payments'] as $payment) {
                 $method=$this->profile['payment_labels'][$payment['method']];
                 Protocol::ensure($order->addOrderPayment($payment['amount_cents']/100,$method,
@@ -169,6 +172,7 @@ final class NativeSale
             (int)$order->id_lang===$quote['language_id'] && $order->module===$this->module->name &&
             self::cents($order->total_paid_tax_incl)===$quote['total_cents'],'SALE_ORDER_READBACK_FAILED');
         $noteOwner=($this->ownerReader)($payload['cart_id'],$command);
+        if(!empty($noteOwner['line_names'])){NativeOrderLineNames::assertQuote($noteOwner['line_names'],$quote['lines']);NativeOrderLineNames::verify($order,$noteOwner['line_names']);}
         if(isset($quote['sale_note_hash']))NativeSaleNote::verifyOrder($order,$noteOwner['sale_note']??null,$quote['sale_note_hash']);
         $details=$order->getOrderDetailList();$expected=[];$observed=[];
         foreach ($quote['lines'] as $line)$expected[$line['product_id'].':'.$line['attribute_id']]=$line['quantity'];

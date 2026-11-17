@@ -1,4 +1,9 @@
 const messages={
+ TPV_LINE_NAME_INVALID:'Escribe un nombre de hasta 255 caracteres, sin saltos de línea ni símbolos < > = { }.',
+ TPV_LINE_NAME_FORBIDDEN:'Activa el cambio de nombres y comprueba tu permiso para editar ventas, o restaura el nombre del catálogo.',
+ TPV_NATIVE_LINE_NAME_UNAVAILABLE:'La tienda aún no permite cambiar el nombre en el ticket. Pide al responsable que revise la preparación del puesto.',
+ TPV_NATIVE_LINE_NAME_MISMATCH:'No se ha confirmado el nombre del artículo en la tienda. Revisa el ticket antes de cobrar.',
+ TPV_NATIVE_LINE_NAME_INVALID:'La tienda no ha confirmado un nombre válido para el artículo. Revisa el ticket antes de cobrar.',
  TPV_SALE_NOTE_REQUIRED:'Añade una nota interna al ticket antes de cobrar. La configuración de esta caja la exige.',
  TPV_SALE_NOTE_INVALID:'Revisa la nota interna: hasta 500 caracteres de texto, sin símbolos < ni > ni caracteres de control.',
  TPV_NATIVE_SALE_NOTE_UNAVAILABLE:'La tienda aún no admite notas internas desde este puesto. Pide al responsable que complete su preparación.',

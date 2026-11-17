@@ -2,6 +2,7 @@
 require __DIR__.'/../connectors/prestashop/src/Protocol.php';
 require __DIR__.'/../connectors/prestashop/src/NativeOwnedCarts.php';
 require __DIR__.'/../connectors/prestashop/src/NativeSaleNote.php';
+require __DIR__.'/../connectors/prestashop/src/NativeOrderLineNames.php';
 use TotusCentralConnector\NativeOwnedCarts;
 $db=new PDO('sqlite::memory:');$db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE carts(operation_id TEXT,cart_id INTEGER,installation_id TEXT,api_account_id INTEGER,shop_id INTEGER,actor_id TEXT,session_id TEXT,drawer_id TEXT,customer_id INTEGER)');
@@ -35,4 +36,9 @@ $check($owner->owner(701,$command)['sale_note']===$receipt['sale_note']);
 foreach(['verified'=>false,'cart_id'=>702,'session_id'=>'other-session','drawer_id'=>'other-drawer'] as $key=>$value){$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode([...$receipt,$key=>$value])]);$check(!isset($owner->owner(701,$command)['sale_note']));}
 $db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);$db->exec("UPDATE effects SET fingerprint='foreign'");$check(!isset($owner->owner(701,$command)['sale_note']));
 
+$db->exec("UPDATE effects SET fingerprint='fingerprint-fixture'");$receipt['line_names']=['101:0'=>'Preparado del cliente 🙂'];
+$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);
+$check($owner->owner(701,$command)['line_names']===$receipt['line_names']);
+foreach(['verified'=>false,'cart_id'=>702,'session_id'=>'other-session','drawer_id'=>'other-drawer'] as $key=>$value){$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode([...$receipt,$key=>$value])]);$check(!isset($owner->owner(701,$command)['line_names']));}
+$db->prepare('UPDATE effects SET result_json=?')->execute([json_encode($receipt)]);$db->exec("UPDATE effects SET fingerprint='foreign'");$check(!isset($owner->owner(701,$command)['line_names']));
 echo "PASS native cart ownership: {$checks} SQLite assertions; committed scoped effects survive lost journal acknowledgement, foreign or altered receipts fail closed. No native order created.\n";

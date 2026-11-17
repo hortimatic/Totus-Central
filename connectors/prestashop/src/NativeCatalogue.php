@@ -11,6 +11,8 @@ final class NativeCatalogue
         $parameters=(new \ReflectionMethod(\Cart::class,'updateQty'))->getParameters();
         return isset($parameters[8])&&$parameters[8]->getName()==='skipAvailabilityCheckOutOfStock';
     }
+    private static function counterLineNames(int $shop): bool
+    {return class_exists(NativeOrderLineNames::class)&&method_exists(NativeOwnedCarts::class,'supportsLineNames')&&method_exists(NativeCartQuote::class,'supportsLineNames')&&method_exists(NativeSale::class,'supportsLineNames')&&NativeOwnedCarts::supportsLineNames()&&NativeCartQuote::supportsLineNames()&&NativeSale::supportsLineNames()&&NativeOrderLineNames::supports($shop);}
     private static function counterPriceOverride(): bool
     {return method_exists(NativeLineAdjustments::class,'supportsUnitPriceOverride')&&NativeLineAdjustments::supportsUnitPriceOverride();}
     private static function integer($value,int $min,int $max): int
@@ -124,7 +126,7 @@ final class NativeCatalogue
             if($sort!=='price'||$productId>0)$sql.=' LIMIT '.($productId>0?1:($size+1)).' OFFSET '.($productId>0?0:$page*$size);
             $s=$db->prepare($sql);$s->execute($parameters);$products=$s->fetchAll(\PDO::FETCH_ASSOC);$rows=[];$more=false;
             if($policyOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-stock-policy','product_id'=>$productId,'shop_id'=>$shop,'allow_out_of_stock'=>self::counterStockOverride()];}
-            if($capabilitiesOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-capabilities','product_id'=>$productId,'shop_id'=>$shop,'unit_price_override'=>self::counterPriceOverride(),'private_sale_note'=>class_exists(NativeSaleNote::class)];}
+            if($capabilitiesOnly){Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');return ['source'=>'native-product-capabilities','product_id'=>$productId,'shop_id'=>$shop,'unit_price_override'=>self::counterPriceOverride(),'private_sale_note'=>class_exists(NativeSaleNote::class),'temporary_line_names'=>self::counterLineNames($shop)];}
             if($sort==='price'&&$productId===0){
                 $byId=[];foreach($products as $product)$byId[$product['id_product'].':0']=$product;ksort($byId,SORT_NATURAL);
                 $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields,$hideUnavailable){
@@ -262,7 +264,7 @@ final class NativeCatalogue
             'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
             'variant_name'=>$label,'variant_attributes'=>$attributes,'reference'=>(string)($variant['reference']??$product['reference']),
             'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'isbn'=>(string)($variant['isbn']??$product['isbn']),'choose_variant'=>$choose,
-            'minimum_quantity'=>max(1,$minimum),'allow_out_of_stock'=>self::counterStockOverride(),'unit_price_override'=>self::counterPriceOverride(),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
+            'minimum_quantity'=>max(1,$minimum),'allow_out_of_stock'=>self::counterStockOverride(),'unit_price_override'=>self::counterPriceOverride(),'temporary_line_names'=>self::counterLineNames((int)$profile['shop_id']),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),
             'preview_cents'=>(int)round(100*\Tools::ps_round((float)$incl,2)),
             'preview_tax_excl_cents'=>(int)round(100*\Tools::ps_round((float)$excl,2)),
