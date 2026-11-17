@@ -460,7 +460,8 @@
         "tests/totustpv-http-client-qa.mjs",
         "tests/totustpv-central-adapter-qa.mjs",
         "tests/totustpv-refund-intent-qa.mjs",
-        "tests/totustpv-printed-documents-qa.mjs"
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/totustpv-receipt-barcode-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

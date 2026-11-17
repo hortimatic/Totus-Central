@@ -342,6 +342,9 @@ try {
  check((await prefs(qaScope,{receipt:{showDate:false}})).receipt.title,'Mi justificante');
  check((await prefs()).receipt.showReferences,false);
  check((await prefs()).receipt.showLogo,true);
+ check((await prefs()).receipt.showBarcode,false);
+ check((await prefs(qaScope,{receipt:{showBarcode:true}})).receipt.showBarcode,true);
+ await denied(()=>prefs(qaScope,{receipt:{showBarcode:'true'}}),/INVALID/);
  check((await prefs(qaScope,{receipt:{showLogo:false}})).receipt.showLogo,false);
  await denied(()=>prefs(qaScope,{receipt:{showLogo:'true'}}),/INVALID/);
  check((await prefs()).receipt.showOrderReference,true);

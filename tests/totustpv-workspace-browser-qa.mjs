@@ -100,7 +100,7 @@ try{
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>settingsFixture.saved.get('a')),{viewMode:'list',initialCategoryId:1,
   display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false},
-  receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});
+  receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true}});
  await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);
  assert.equal(await page.evaluate(()=>settingsFixture.workspace.hasDraft()),false,'Presentation filters are not an edited sale');

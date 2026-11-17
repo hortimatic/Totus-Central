@@ -21,7 +21,9 @@ const messages={
  TPV_DISCOUNT_FORBIDDEN:'Necesitas permiso de edición de Ventas para aplicar descuentos.',
  TPV_DRAFT_STALE:'Este ticket ha cambiado. Actualiza los tickets aparcados antes de continuar.',
  TPV_DRAFT_IN_USE:'Otro cobro u operador está utilizando este ticket. Consulta su estado antes de continuar.',
- TPV_ORDER_QUERY_INVALID:'Escribe un número de pedido válido.',
+ TPV_ORDER_QUERY_INVALID:'Escribe un número de pedido o una referencia válida.',
+ TPV_ORDER_REFERENCE_AMBIGUOUS:'La referencia coincide con varios pedidos. Usa el número del ticket.',
+ TPV_ORDER_REFERENCE_LOOKUP_INVALID:'No se ha podido comprobar la referencia en la tienda. Vuelve a intentarlo.',
  TPV_STOCK_FORBIDDEN:'Necesitas permiso de edición de Productos para registrar entradas de stock.'
 };
 /** Snapshot the SAME normal Central session, including its user identity,

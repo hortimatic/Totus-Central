@@ -7,6 +7,25 @@ final class NativeDocuments
 {
     public static function merchantLogoPath($filename): ?string
     {return is_string($filename)&&preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,179}\.(png|jpe?g|gif|webp)$/iD',$filename)===1?'/img/'.$filename:null;}
+    public static function referenceBarcode($reference): ?array
+    {
+        // The R: namespace distinguishes an order reference from a numeric
+        // order ID or product scan. Keep modules readable on 58 mm paper.
+        if(!is_string($reference)||preg_match('/^[A-Za-z0-9-]{1,10}$/D',$reference)!==1||!class_exists('TCPDFBarcode')||!function_exists('imagecreatefromstring'))return null;
+        try{$payload='R:'.$reference;$png=(new \TCPDFBarcode($payload,'C128'))->getBarcodePngData(3,80,[0,0,0]);
+            if(!is_string($png)||strlen($png)>60000||!str_starts_with($png,"\x89PNG\r\n\x1a\n"))return null;
+            $bars=imagecreatefromstring($png);if(!$bars)return null;
+            // Ten narrow modules of white space on both sides are part of
+            // the image, so printed/exported copies retain their quiet zones.
+            $image=imagecreatetruecolor(imagesx($bars)+60,imagesy($bars));
+            imagefill($image,0,0,imagecolorallocate($image,255,255,255));imagecopy($image,$bars,30,0,0,0,imagesx($bars),imagesy($bars));
+            $stream=fopen('php://temp','w+b');if($stream===false)return null;
+            imagepng($image,$stream);rewind($stream);$png=stream_get_contents($stream);fclose($stream);
+            imagedestroy($bars);imagedestroy($image);
+            if(!is_string($png)||strlen($png)>60000)return null;
+            return ['format'=>'Code128','mime'=>'image/png','text'=>$reference,'payload'=>$payload,'data'=>base64_encode($png)];
+        }catch(\Throwable $error){return null;}
+    }
     public static function customerForOrder(\Order $order,int $counterCustomer): ?array
     {
         Protocol::ensure(\Validate::isLoadedObject($order),'DOCUMENT_ORDER_INVALID');
@@ -64,6 +83,7 @@ final class NativeDocuments
             ...($kind==='gift'?[]:['line_cents'=>(int)round(100*(float)$line['total_price_tax_incl']),
                 'tax_excl_cents'=>(int)round(100*(float)$line['total_price_tax_excl'])])];
         return ['kind'=>$kind,'order_id'=>(int)$order->id,'reference'=>(string)$order->reference,'created_at'=>(string)$order->date_add,
+            'reference_barcode'=>self::referenceBarcode((string)$order->reference),
             'merchant'=>$merchant+['logo_path'=>self::merchantLogoPath(\Configuration::get('PS_SHOP_LOGO',null,null,(int)$order->id_shop))],
             ...($kind==='gift'?[]:['customer'=>self::customerForOrder($order,(int)($profile['counter_customer_id']??0))]),
             'currency'=>(new \Currency((int)$order->id_currency))->iso_code,'lines'=>$lines,

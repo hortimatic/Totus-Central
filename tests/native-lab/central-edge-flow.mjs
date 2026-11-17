@@ -64,7 +64,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
    assert.equal(response.error,undefined,response.error?.message);return response.data;
   };
-  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,
@@ -94,7 +94,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    return response;
   }});
   if(['customers','browser'].includes(focus)){
-   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences});
+   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences,nativeWriteCount:()=>nativePosts});
    if(focus==='customers')assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,0);
    return {focus,remoteShopTouched:false};
   }
@@ -148,7 +148,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,1);
   // The growing disposable catalogue is deliberately paginated; locate the
   // fixture by exact reference, never assume its alphabetical page.
-  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,preferences});
+  await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,preferences,nativeWriteCount:()=>nativePosts});
   console.log('PASS local complete handler → SQL journal → native HTTP → order/payment/invoice/stock proof → physical cash → close; lost-response recovery never posts again. Auth and endpoint delivery are fixtures; no deployment or remote shop.');
   return {orderId:sold.orderId,saleId,nativePosts};
  }finally{await db.close();}

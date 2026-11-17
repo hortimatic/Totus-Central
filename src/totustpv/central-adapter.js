@@ -7,6 +7,11 @@ const clone=value=>structuredClone(value);
 const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?
  Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
 const canonical=value=>JSON.stringify(ordered(value));
+export function orderLookupInput(value){const text=String(value??'').trim();if(!text)return {};
+ const tagged=/^R:/i.test(text);
+ if(!tagged&&/^[0-9]+$/.test(text)){const orderId=Number(text);need(text.length<=15&&Number.isSafeInteger(orderId)&&orderId>0,'Escribe un número de pedido válido.');return {orderId};}
+ const reference=(tagged?text.slice(2):text).toUpperCase();
+ need(/^[A-Z0-9-]{1,10}$/.test(reference),'Escribe un número de pedido o una referencia válida.');return {reference};}
 export function catalogueImageUrl(origin,path){
  try{const base=new URL(origin);if(base.protocol==='https:'&&base.href===base.origin+'/'&&
   typeof path==='string'&&/^\/img\/p\/(?:[0-9]\/)+[0-9]+\.jpg$/.test(path))return base.origin+path;}catch{}
@@ -142,7 +147,11 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   },
   async history(){return (await call('history')).map(row=>receipt(row,{...row,
     reference:row.orderId?'Pedido #'+row.orderId:'Cobro preparado'}));},
-  async orders({orderId}={}){return (await call('orders',orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
+  async orders({orderId,reference}={}){
+   need(orderId===undefined||Number.isSafeInteger(orderId)&&orderId>0,'Escribe un número de pedido válido.');
+   need(reference===undefined||typeof reference==='string'&&/^[A-Za-z0-9-]{1,10}$/.test(reference),'Escribe una referencia válida.');
+   need(orderId===undefined||reference===undefined,'Busca por número o por referencia.');
+   return (await call('orders',reference!==undefined?{reference:reference.toUpperCase()}:orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
   async document({saleId,kind,refundId}){return call('document',{kind,...(refundId?{refundId}:{})},saleId);},
   async searchCustomers({search='',page=0,customerId=0}={}){const data=await call('customers',{search,page,customerId});
    need(data?.shop_id===selected.shopId&&Array.isArray(data.items)&&Array.isArray(data.addresses)&&data.defaults?.guest_group_id>0,'No se ha podido verificar el directorio de esta tienda.');return data;},

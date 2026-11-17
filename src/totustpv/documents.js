@@ -1,4 +1,4 @@
-import {receiptOptions,receiptLogoUrl} from './receipt-options.js';
+import {receiptOptions,receiptLogoUrl,receiptBarcodeUrl} from './receipt-options.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
@@ -9,6 +9,12 @@ function customerHtml(customer,o){if(!o.showCustomer||!customer?.invoice)return 
   ${o.showCustomerPhone&&invoice.phone?`<div>Tel. ${esc(invoice.phone)}</div>`:''}${o.showCustomerEmail&&customer.email?`<div>${esc(customer.email)}</div>`:''}
   ${o.showAddressComment&&invoice.comment?`<p style="white-space:pre-wrap">${esc(invoice.comment)}</p>`:''}
   ${o.showDeliveryAddress&&customer.delivery?`<strong>Entrega</strong><div>${esc(customer.delivery.name)}</div><p>${address(customer.delivery)}</p>`:''}</section>`;}
+function barcodeHtml(document,o,preview){if(!o.showBarcode)return '';
+ const url=receiptBarcodeUrl(document.reference_barcode,document.reference),content=preview?
+  '<div class="tpv-sample-barcode" aria-label="Ejemplo de código de barras"></div><small>Ejemplo · sin pedido real</small>':url?
+  `<img class="tpv-reference-barcode" src="${url}" alt="Código de barras del pedido #${esc(document.order_id)}" style="display:block;box-sizing:border-box;width:100%;height:14mm;background:#fff">${o.showOrderReference?`<small>${esc(document.reference)}</small>`:''}`:
+  '<small>Código de barras no disponible. Usa el número de pedido.</small>';
+ return `<figure class="tpv-order-barcode" style="margin:12px 0 0;text-align:center">${content}</figure>`;}
 export function receiptHtml(document,options,{preview=false}={}){
  if(!preview&&!document?.existing_document||!['receipt','gift'].includes(document?.kind)||document.currency!=='EUR'||!Array.isArray(document.lines))throw Error('Documento no válido.');
  const gift=document.kind==='gift',merchant=document.merchant,o=receiptOptions(options),logo=receiptLogoUrl(document.merchant_logo_origin,merchant.logo_path);
@@ -21,6 +27,7 @@ export function receiptHtml(document,options,{preview=false}={}){
   ${gift?'':`<dl>${o.showDiscounts&&document.discount_cents?`<div><dt>Descuentos de ticket</dt><dd>−${money(document.discount_cents)}</dd></div>`:''}<div><dt>Total</dt><dd><strong>${money(document.total_cents)}</strong></dd></div>
    ${o.showPayments?Object.entries(document.payments).map(([method,cents])=>`<div><dt>${esc(paymentLabel(method))}</dt><dd>${money(cents)}</dd></div>`).join(''):''}</dl>${preview?'':'<small>La factura nativa está disponible en Documentos de este pedido.</small>'}`}
   ${o.footer?`<p class="tpv-receipt-footer" style="white-space:pre-wrap">${esc(o.footer)}</p>`:''}
+  ${barcodeHtml(document,o,preview)}
   ${preview?'':'<div class="inline-actions"><button type="button" class="btn secondary" data-tpv-action="close-document">Cerrar documento</button><button type="button" class="btn primary" data-tpv-action="print-document">Imprimir</button></div>'}</article>`;
 }
 export function receiptPreviewHtml(options){return receiptHtml({kind:'receipt',currency:'EUR',created_at:'2026-11-16 12:30:00',
@@ -47,7 +54,7 @@ export function fitTpvPrintPage(document){
  document.head.append(paper);return {paperMm:TOTUS_PRINTER_PROFILE.paperMm,heightMm};
 }
 export function prepareTpvPrintHtml(html,title){
- return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:auto;margin:5mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#111;margin:0;width:48mm;overflow-wrap:anywhere}h3,p{margin:6px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;font-size:10px}th,td{text-align:left;padding:5px 2px;border-bottom:1px solid #ddd}th:first-child{width:50%}th:nth-child(2){width:15%;white-space:nowrap}th:last-child,td:last-child{text-align:right;white-space:nowrap}small{display:block;font-size:9px}dl>div{display:flex;justify-content:space-between;gap:5px;padding:3px 0}dt{min-width:0}dd{margin:0;text-align:right;white-space:nowrap}.tpv-document th:last-child{font-size:.85em;white-space:nowrap}.tpv-document table{font-size:.91em}.tpv-document small{font-size:.82em}.inline-actions{display:none}</style></head><body>${html}</body></html>`;
+ return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:auto;margin:5mm}*{box-sizing:border-box}body{display:flow-root;font:11px Arial,sans-serif;color:#111;margin:0;width:48mm;overflow-wrap:anywhere}h3,p{margin:6px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;font-size:10px}th,td{text-align:left;padding:5px 2px;border-bottom:1px solid #ddd}th:first-child{width:50%}th:nth-child(2){width:15%;white-space:nowrap}th:last-child,td:last-child{text-align:right;white-space:nowrap}small{display:block;font-size:9px}dl>div{display:flex;justify-content:space-between;gap:5px;padding:3px 0}dt{min-width:0}dd{margin:0;text-align:right;white-space:nowrap}.tpv-document th:last-child{font-size:.85em;white-space:nowrap}.tpv-document table{font-size:.91em}.tpv-document small{font-size:.82em}.inline-actions{display:none}</style></head><body>${html}</body></html>`;
 }
 export function printTpvMarkup(html,title,{current=()=>true}={}){
  const frame=globalThis.document.createElement('iframe');

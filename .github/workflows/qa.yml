@@ -31,6 +31,7 @@ jobs:
       - run: node tests/totustpv-tender-browser-qa.mjs
       - run: node tests/totustpv-receipt-delivery-browser-qa.mjs
       - run: node tests/totustpv-printed-documents-qa.mjs
+      - run: node tests/totustpv-receipt-barcode-browser-qa.mjs
       - run: node tests/totustpv-central-browser-qa.mjs
       - run: node tests/totustpv-setup-browser-qa.mjs
   conventional-assistant:

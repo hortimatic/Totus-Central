@@ -10,11 +10,11 @@ test('catalogue response excludes procurement data without server-observed Produ
  assert.equal(catalogueForActor(native,true).items[0].cost_base_cents,75);
  assert.equal(Object.hasOwn(catalogueForActor(native,true).items[0],'unexpected_private_field'),false);
 });
-function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false}={}){
- const calls=[];let outbound=0;
+function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows}={}){
+ const calls=[],nativeRequests=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
  const row={connectionId:otherConnection?actor:connection,connectionRevision:5,shopId:1,storeId:actor,drawerId:drawer,
-  environment:'qa',profileRevision:1,session:null,canReconcile:!reportDenied,nativeProfile:{verified:true,configured:true,native_version:'8.2.8',
+  environment:'qa',profileRevision:1,session:nativeRows===undefined?null:{id:session,status:'open'},canSell:false,canReconcile:!reportDenied,nativeProfile:{verified:true,configured:true,native_version:'8.2.8',
    installation_id:actor,shop_id:1,currency:'EUR'}};
  const factory=(url,key,options)=>{
   calls.push({factory:key,options});return {auth:{getUser:async token=>{calls.push({auth:token});return badAuth?
@@ -23,14 +23,24 @@ function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=
    if(name==='totus_tpv_context')return denied?{error:{message:'TPV_VIEW_FORBIDDEN'}}:{data:{actorId:actor,workstations:[row]}};
    if(name==='totus_tpv_journal')return {data:{status:'open',id:args.p_operation_id,scope:args.p_scope}};
    if(name==='totus_tpv_cash_reports')return {data:[]};
+   if(name==='totus_tpv_check')return reportDenied?{error:{message:'TPV_ACTION_FORBIDDEN'}}:{data:true};
+   if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
+    protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:'fictional-key-not-valid-at-any-shop'}};
+   if(name==='totus_api_call')return {data:{ok:true}};
+   if(name==='totus_tpv_orders')return reportDenied?{error:{message:'TPV_ACTION_FORBIDDEN'}}:{data:args.p_order_id&&args.p_order_id!==42?[]:
+    [{id:actor,status:'confirmed',orderId:42,createdAt:'2026-11-17T12:00:00Z',drawerName:'Caja ficticia',totalCents:150,lines:[],refunds:[],private_marker:'must not escape'}]};
    throw Error('Unexpected RPC '+name);
   }};
  };
- const handle=createCentralTpvHandler({factory,env,request:async()=>{outbound++;throw Error('Unexpected native request');}});
+ const handle=createCentralTpvHandler({factory,env,resolve:async()=>['93.184.216.34'],request:async(url,options)=>{
+  outbound++;nativeRequests.push({url,method:options.method});assert.equal(options.method,'GET');
+  if(nativeRows===undefined)throw Error('Unexpected native request');
+  return new Response(JSON.stringify({orders:nativeRows}),{status:200,headers:{'Content-Type':'application/json'}});
+ }});
  const call=async(body,auth='Bearer verified-fixture-token')=>{
   const response=await handle(new Request('https://central.invalid/tpv',{method:'POST',headers:{...(auth?{Authorization:auth}:{}),
    'Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,body:await response.json()};};
- return {call,calls,get outbound(){return outbound;}};
+ return {call,calls,nativeRequests,get outbound(){return outbound;}};
 }
 test('actual authentication and normal-user context precede privileged clients; browser cannot choose actor',async()=>{
  for(const options of [{},{badAuth:true}]){
@@ -74,4 +84,35 @@ test('closed cash reports require current reconciliation rights but no new cash 
  assert.equal(read.args.p_session_id,null);assert.equal(f.calls.some(row=>row.name==='totus_api_server'),false);assert.equal(f.outbound,0);
  const denied=fixture({reportDenied:true});assert.equal((await denied.call(body)).status,400);
  assert.equal(denied.calls.some(row=>row.factory==='fixture-server-only'),false);
+});
+
+const orderLookup={action:'orders',operationId:session,selection:{connectionId:connection,shopId:1,drawerId:drawer,sessionId:session}};
+test('reference lookup reads native IDs then returns only the matching authorized Central sale',async()=>{
+ const f=fixture({nativeRows:[{id:'42',reference:'ABCDEFGHI',id_shop:'1'}]});
+ const result=await f.call({...orderLookup,reference:'abcdefghi'});assert.equal(result.status,200);assert.equal(result.body[0].orderId,42);
+ assert.equal(Object.hasOwn(result.body[0],'private_marker'),false);
+ assert.equal(f.nativeRequests.length,1);const url=new URL(f.nativeRequests[0].url);
+ assert.equal(url.pathname,'/api/orders');assert.equal(url.searchParams.get('filter[reference]'),'[ABCDEFGHI]');
+ assert.equal(url.searchParams.get('filter[id_shop]'),'[1]');assert.equal(url.searchParams.get('limit'),'0,2');
+ assert.equal(f.calls.find(row=>row.name==='totus_tpv_check').args.p_action,'reconcile');
+ assert.equal(f.calls.find(row=>row.name==='totus_tpv_orders').args.p_order_id,42);
+ const external=fixture({nativeRows:[{id:'99',reference:'ABCDEFGHI',id_shop:'1'}]});
+ assert.deepEqual((await external.call({...orderLookup,reference:'ABCDEFGHI'})).body,[],'An untracked native order cannot be imported by scanning');
+});
+test('reference lookup rejects ambiguity, native scope mismatch and unsafe input without any native write',async()=>{
+ for(const rows of [[{id:'42',reference:'ABCDEFGHI',id_shop:'1'},{id:'43',reference:'ABCDEFGHI',id_shop:'1'}],
+  [{id:'42',reference:'ABCDEFGHI',id_shop:'2'}],[{id:'42',reference:'OTHER',id_shop:'1'}]]){
+  const f=fixture({nativeRows:rows}),result=await f.call({...orderLookup,reference:'ABCDEFGHI'});
+  assert.equal(result.status,400);assert.match(result.body.error,/TPV_ORDER_REFERENCE_(?:AMBIGUOUS|LOOKUP_INVALID)/);
+  assert.equal(f.calls.some(row=>row.name==='totus_tpv_orders'),false);assert.ok(f.nativeRequests.every(row=>row.method==='GET'));
+ }
+ const empty=fixture({nativeRows:[]});assert.deepEqual((await empty.call({...orderLookup,reference:'ABCDEFGHI'})).body,[]);
+ for(const invalid of [{reference:'[ABC]'}, {reference:'ABC\n'}, {reference:'ABCDEFGHI',orderId:42},{reference:null}]){
+  const f=fixture({nativeRows:[]});assert.equal((await f.call({...orderLookup,...invalid})).status,400);
+  assert.equal(f.outbound,0);assert.equal(f.calls.some(row=>row.name==='totus_api_server'),false);
+ }
+ const denied=fixture({reportDenied:true,nativeRows:[]});assert.equal((await denied.call({...orderLookup,reference:'ABCDEFGHI'})).status,400);
+ assert.equal(denied.outbound,0);assert.equal(denied.calls.some(row=>row.name==='totus_api_server'),false);
+ const numeric=fixture({nativeRows:[]});assert.equal((await numeric.call({...orderLookup,orderId:42})).status,200);
+ assert.equal(numeric.outbound,0,'Numeric historical lookup stays independent of native availability');
 });

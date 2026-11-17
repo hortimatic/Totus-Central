@@ -2,9 +2,13 @@
  * Auth and delivery remain explicit fixtures; never a remote acceptance claim.
  */
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
+import {prepareZXingModule,readBarcodes} from 'zxing-wasm/reader';
 import {startLocalServer} from '../local-static-server.mjs';
-export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete',preferences}){
+export async function exerciseCentralBrowser({handle,actor,productId,reference,variant,focus='complete',preferences,nativeWriteCount}){
+ const wasm=await readFile(new URL(import.meta.resolve('zxing-wasm/reader/zxing_reader.wasm')));
+ await prepareZXingModule({overrides:{wasmBinary:wasm.buffer.slice(wasm.byteOffset,wasm.byteOffset+wasm.byteLength)},fireImmediately:true});
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
  try{for(const width of focus==='customers'?[1440]:[1440,390]){
   const page=await browser.newPage({viewport:{width,height:950}});const errors=[];
@@ -120,6 +124,11 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByRole('heading',{name:'Justificante de compra',exact:true}).waitFor();
   assert.match(await page.locator('.tpv-document').innerText(),width===390?/7,01/:/8,01/);
   await page.waitForFunction(()=>{const logo=document.querySelector('.tpv-receipt-logo');return logo?.complete&&logo.naturalWidth>0;});
+  await page.waitForFunction(()=>{const barcode=document.querySelector('.tpv-reference-barcode');return barcode?.complete&&barcode.naturalWidth>0;});
+  const barcodeImage=await page.locator('.tpv-reference-barcode').getAttribute('src');
+  const decoded=await readBarcodes(new Uint8Array(Buffer.from(barcodeImage.split(',')[1],'base64')),{formats:['Code128'],maxNumberOfSymbols:1});
+  assert.equal(decoded.length,1);const orderCode=decoded[0].text;
+  assert.equal(orderCode,'R:'+await page.locator('.tpv-order-barcode small').innerText());
   if(width===1440){assert.match(await page.locator('.tpv-receipt-customer').innerText(),/QA Central Laboratorio/);
    assert.match(await page.locator('.tpv-receipt-customer').innerText(),/600000000/);}
   else assert.equal(await page.locator('.tpv-receipt-customer').count(),0,'Anonymous counter identity stays omitted even when the saved customer option is enabled');
@@ -182,6 +191,16 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   try{const [historicalDownload]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Factura PDF',exact:true}).click()]);
    assert.equal(historicalDownload.suggestedFilename(),'totus-invoice-'+orderId+'.pdf');
   }catch(error){throw new Error('Historical invoice download failed: '+await page.locator('.note.bad').allTextContents(),{cause:error});}
+  const writesBeforeLookup=nativeWriteCount();
+  await page.locator('[data-tpv-order-search] [name=orderId]').fill(orderCode);
+  await page.locator('[data-tpv-order-search] [name=orderId]').press('Enter');
+  await page.waitForFunction(()=>document.querySelector('[data-tpv-order-search] button[type=submit]')?.disabled===false);
+  await page.getByRole('status').getByText('Historial: referencia '+orderCode.slice(2).toUpperCase()+'.',{exact:true}).waitFor();
+  assert.equal(await page.locator('[data-tpv-order-search] [name=orderId]').inputValue(),orderCode);
+  assert.equal(await page.locator('[data-tpv-order-search] [name=orderId]').evaluate(field=>document.activeElement===field&&field.selectionStart===0&&field.selectionEnd===field.value.length),true,'The reference remains selected for the next keyboard scan');
+  assert.equal(await page.locator('.tpv-history article').count(),1);
+  await page.locator('.tpv-history').getByText('Pedido #'+orderId,{exact:true}).waitFor();
+  assert.equal(nativeWriteCount(),writesBeforeLookup,'Scanning a receipt only finds the original sale; it cannot write another native order or stock movement');
   await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);

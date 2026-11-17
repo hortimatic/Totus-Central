@@ -57,7 +57,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
-    history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
+    history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
     'customer-write':['action','selection','operationId','resource','operation','recordId','fields'],
     drafts:['action','selection','operationId'],'get-draft':['action','selection','operationId','draftId'],
@@ -143,12 +143,16 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
     check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
    if(input.action==='history')return respond(check(await rpc('totus_tpv_history',{p_scope:scope,p_before:input.before??null})));
+   const orderRows=async orderId=>{
+    const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:orderId??null,p_sale_id:null}));
+    return rows.map(record=>({id:record.id,status:record.status,orderId:record.orderId,
+     createdAt:record.createdAt,drawerName:record.drawerName,totalCents:record.totalCents,lines:record.lines,
+     refunds:record.refunds.map(({id,status,totalCents})=>({id,status,totalCents}))}));
+   };
    if(input.action==='orders'){
     need(input.orderId===undefined||Number.isSafeInteger(input.orderId)&&input.orderId>0,'TPV_ORDER_QUERY_INVALID');
-    const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:input.orderId??null,p_sale_id:null}));
-    return respond(rows.map(record=>({id:record.id,status:record.status,orderId:record.orderId,
-     createdAt:record.createdAt,drawerName:record.drawerName,totalCents:record.totalCents,lines:record.lines,
-     refunds:record.refunds.map(({id,status,totalCents})=>({id,status,totalCents}))})));
+    need(input.reference===undefined||typeof input.reference==='string'&&input.reference===input.reference.trim()&&/^[A-Za-z0-9-]{1,10}$/.test(input.reference)&&input.orderId===undefined,'TPV_ORDER_QUERY_INVALID');
+    if(input.reference===undefined)return respond(await orderRows(input.orderId));
    }
    if(input.action==='sale-status'){
     await authorize({action:'reconcile'});
@@ -175,7 +179,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   if(input.action!=='categories')await authorize({action:['catalogue','resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
+   if(input.action!=='categories')await authorize({action:['orders','catalogue','resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','customers','customer-metadata','document','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
    if(['customers','customer-metadata','customer-write'].includes(input.action)||
      input.action==='prepare'&&input.customerId!==undefined&&input.customerId!==row.nativeProfile.counter_customer_id){
@@ -193,6 +197,16 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      if(command==='return.commit')check(await rpc('totus_tpv_refund_journal',{p_action:'get',p_id:operationId,p_scope:scope,p_data:{}}));
      return true;}});
    if(input.action==='categories')return respond(await transport.readNativeCategories());
+   if(input.action==='orders'){
+    const reference=input.reference.toUpperCase(),response=await transport.read('orders',{
+     'filter[reference]':`[${reference}]`,'filter[id_shop]':`[${scope.shopId}]`,display:'[id,reference,id_shop]',limit:'0,2'});
+    const rows=Array.isArray(response)&&response.length===0?[]:response?.orders;
+    need(Array.isArray(rows)&&rows.length<=2,'TPV_ORDER_REFERENCE_LOOKUP_INVALID');
+    need(rows.length<2,'TPV_ORDER_REFERENCE_AMBIGUOUS');if(!rows.length)return respond([]);
+    const native=rows[0],orderId=Number(native.id);
+    need(positive(orderId)&&Number(native.id_shop)===scope.shopId&&typeof native.reference==='string'&&native.reference.toUpperCase()===reference,'TPV_ORDER_REFERENCE_LOOKUP_INVALID');
+    return respond(await orderRows(orderId));
+   }
    if(input.action==='resolve-incident'){
     const record=await ledger.get({scope,operationId:input.operationId});
     need(record&&['uncertain','cancelled'].includes(record.status)&&record.orderId==null,'TPV_INCIDENT_REVIEW_FORBIDDEN');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCentralTpvAdapter} from '../src/totustpv/central-adapter.js';
+import {createCentralTpvAdapter,orderLookupInput} from '../src/totustpv/central-adapter.js';
 function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
   shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,session:null};
@@ -12,6 +12,7 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   case 'submit':dispatches++;throw Error('Lost reply');
   case 'sale-status':return {id:body.operationId,status:'confirmed',orderId:42,totalCents:801};
   case 'history':return [];
+  case 'orders':return [{id:'sale-fixture',status:'confirmed',orderId:42,totalCents:150}];
   case 'cash-movement':if(movementLost)throw Error('Lost reply');return {expectedCashCents:9900,payments:{cash:801,card:200}};
   case 'customer-write':return {verified:true,persisted:true,record_id:'7'};
   case 'returnable':return {orderId:42,remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
@@ -54,4 +55,18 @@ test('a partial return can choose an original payment method only within its rem
  assert.equal(f.requests.filter(row=>row.action==='prepare-refund').length,0);
  await adapter.prepareRefund({...values,refundMethod:'card'});
  assert.deepEqual(f.requests.at(-1).payments,[{method:'card',amountCents:401}]);assert.equal(f.requests.at(-1).reason,'Defectuoso');
+});
+
+test('order lookup distinguishes ordinary IDs from namespaced scanned references',async()=>{
+ assert.deepEqual(orderLookupInput(' 00042 '),{orderId:42});assert.deepEqual(orderLookupInput(''),{});
+ assert.deepEqual(orderLookupInput('R:00042'),{reference:'00042'});
+ assert.deepEqual(orderLookupInput('r:abcdefghi'),{reference:'ABCDEFGHI'});
+ assert.deepEqual(orderLookupInput('ab-cd12efg'),{reference:'AB-CD12EFG'});
+ for(const value of ['0','R:','x'.repeat(11),'[ABCDEFGHI]','ABC%','<script>','9999999999999999'])assert.throws(()=>orderLookupInput(value),/válid/);
+ const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});
+ assert.equal((await adapter.orders({reference:'abcdefghi'}))[0].orderId,42);
+ assert.equal(f.requests.at(-1).reference,'ABCDEFGHI');assert.equal(Object.hasOwn(f.requests.at(-1),'orderId'),false);
+ await assert.rejects(adapter.orders({orderId:42,reference:'ABCDEFGHI'}),/número o por referencia/);
+ await assert.rejects(adapter.orders({reference:'[unsafe]'}),/válida/);
+ assert.equal(f.dispatches(),0);
 });
