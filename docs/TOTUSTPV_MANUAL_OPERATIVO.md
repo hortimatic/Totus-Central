@@ -100,3 +100,7 @@ En **Más acciones → Entrada de stock**, busca o escanea los artículos. Las l
 ## Límites que impiden declarar explotación completa
 
 Quedan pendientes crédito/anticipos/cobros posteriores, presupuestos/reservas, vales/saldo, traslados e inventarios generales, stock avanzado/compartido/paquetes/virtuales, apertura directa del cajón y aceptación física, además de concurrencia web y numeración de facturas. No se debe sustituir todavía la operativa comercial de producción ni cambiar el dominio.
+
+## Crear o gestionar cajas desde la preparación del puesto
+
+El administrador puede abrir Crear y gestionar cajas. Se abre Administración → Negocio y cajas en otra pestaña, conservando la preparación del TPV. Crea o edita allí la caja y guarda. Regresa al TPV y pulsa Actualizar tiendas y cajas. Revisa la selección y asigna el puesto a su operador; crear una caja no le concede acceso automáticamente. Si la conexión ha cambiado, cancela la preparación y vuelve a entrar. Esta ampliación sigue en rama, pendiente de publicación.

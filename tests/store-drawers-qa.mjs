@@ -8,9 +8,9 @@ page.on('pageerror',e=>errors.push(e.message));
 const get=()=>page.evaluate(()=>({stores:window.__mockDb.ops_stores,drawers:window.__mockDb.ops_cash_drawers}));
 const press=async (action,id)=>page.locator('[data-action="'+action+'"]'+(id?'[data-id="'+id+'"]':'')).first().click();
 try{
- await page.goto('http://127.0.0.1:4173/tests/app-mock.html',{waitUntil:'networkidle'});
- await clickModuleLink(page,page.locator('#nav [data-route="administracion"]'));
- await page.locator('[data-action="admin-section"][data-section="negocio"]').first().click();
+ await page.goto('http://127.0.0.1:4173/tests/app-mock.html?module=administracion&section=negocio',{waitUntil:'networkidle'});
+ assert.equal(new URL(page.url()).searchParams.get('section'),'negocio');
+ await page.reload({waitUntil:'networkidle'});
  assert(await page.locator('#cfgBusiness').count()===1,'No está visible la ficha del negocio');
  await press('store-new');
  await page.locator('#stName').fill('Almacén QA');

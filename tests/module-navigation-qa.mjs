@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import {MODULE_PATHS,moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick,moduleReads} from '../src/module-navigation.js';
+import {MODULE_PATHS,moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick,moduleReads,adminSectionFromUrl,drawerManagementUrl} from '../src/module-navigation.js';
+assert.equal(drawerManagementUrl('https://example.invalid/central/tpv?token=private'),'https://example.invalid/central/administracion?section=negocio');
+assert.equal(adminSectionFromUrl('https://example.invalid/administracion?section=unknown'),null);
+assert.equal(moduleUrl('https://example.invalid/administracion?section=negocio&token=private','inicio'),'https://example.invalid/inicio');
+assert.equal(moduleUrl('https://example.invalid/administracion?section=negocio&token=private','administracion'),'https://example.invalid/administracion?section=negocio');
+assert.equal(new URL(drawerManagementUrl('https://example.invalid/tests/app-mock.html')).searchParams.get('module'),'administracion');
 const routes=[{id:'inicio'},{id:'gastos'}];
 const clean=new URL(moduleUrl('https://example.invalid/?v=old&utm_source=chatgpt.com&utm_campaign=x&ps_order=7&ps_store=hortimatic#retorno','inicio'));
 assert.equal(clean.searchParams.has('utm_source'),false);assert.equal(clean.searchParams.has('v'),false);assert.equal(clean.search,'');assert.equal(clean.hash,'');assert.equal(clean.pathname,'/inicio');

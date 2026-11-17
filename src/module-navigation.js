@@ -1,9 +1,14 @@
 // Public routes are Spanish paths. Internal permission/database IDs stay stable.
 export const MODULE_PATHS={totustpv:'tpv',inicio:'inicio',pricing:'precio',ventas:'ventas',productos:'productos',prestashop:'prestashop',clientes:'clientes',proveedores:'proveedores',marcas:'marcas',cajas:'cajas',gastos:'gastos',facturacion:'facturacion',documentos:'documentos',fiscalidad:'fiscalidad',informes:'informes',tareas:'tareas',equipo:'chat',administracion:'administracion',configuracion:'configuracion',automatizaciones:'automatizaciones',apis:'apis',cotejos:'cotejos'};
 const moduleId=value=>Object.entries(MODULE_PATHS).find(([,path])=>path===value)?.[0]||value;
+const ADMIN_SECTIONS=new Set(['usuarios','roles','negocio','fiscal','storage','backups','log']);
+export function adminSectionFromUrl(href){const section=new URL(href).searchParams.get('section');return ADMIN_SECTIONS.has(section)?section:null;}
+export function drawerManagementUrl(href){const url=new URL(moduleUrl(href,'administracion'));url.searchParams.set('section','negocio');return url.href;}
 export function moduleUrl(href,module){
  const url=new URL(href),parts=url.pathname.split('/').filter(Boolean),last=parts.at(-1)||'';
+ const section=module==='administracion'?adminSectionFromUrl(href):null;
  url.search='';url.hash='';
+ if(section)url.searchParams.set('section',section);
  // Standalone HTML documents remain usable in local previews and embedded hosts.
  if(/\.html$/.test(last)&&last!=='index.html'){url.searchParams.set('module',MODULE_PATHS[module]||module);return url.href;}
  if(last==='index.html'||Object.hasOwn(MODULE_PATHS,moduleId(last)))parts.pop();

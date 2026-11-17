@@ -9,7 +9,7 @@ import {createAutomationsUI} from './automations-ui.js';
 import {prestashopInvoiceDraft,prestashopInvoiceLineAmounts} from './prestashop-invoice.js';
 import {createApiManager} from './api-manager.js';
 import {NAV_GROUPS,orderedRoutes} from './navigation-preferences.js';
-import {moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick} from './module-navigation.js';
+import {moduleNavigationState,moduleUrl,requestedModule,nativeModuleClick,adminSectionFromUrl,drawerManagementUrl} from './module-navigation.js';
 import {interfaceIcon} from './interface-icons.js';
 import {applyStitchLayout} from './stitch-layout.js';
 import {enhancePasswordVisibility,hidePasswords,accessDeadline} from './login-controls.js';
@@ -95,7 +95,7 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
   readAssignments:({connectionId,revision})=>invokeTotusTpv({action:'workstations',connectionId,revision}),
   readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)}),
   readOperators:()=>select('profiles',{columns:'id,full_name,active',order:'full_name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})}),
- configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),
+ configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),drawerManagement:()=>isAdmin()&&can('administracion','view')?drawerManagementUrl(location.href):null,
  workspacePreferences:(drawer,preferences=null)=>rpc('totus_tpv_workspace_preferences',{
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  canCustomer:action=>can('clientes',action),
@@ -3048,7 +3048,7 @@ document.addEventListener('click',async e=>{
   if(a==='user-purge'){if(!await confirmAction('Eliminar definitivamente la cuenta de '+el.dataset.email+'. No se podrá recuperar. Los documentos, mensajes y movimientos se conservan con sus referencias históricas. Elimina antes sus conexiones de APIs.',{phrase:'BORRAR DEFINITIVAMENTE',title:'Eliminar cuenta definitivamente',acceptLabel:'Eliminar definitivamente'}))return;const result=await invokeTeam({action:'purge_user',email:el.dataset.email});await refresh(result.message);return}
   if(a==='user-delete'){await deleteUser(el.dataset.email);return}
   if(a==='config-save'){await saveConfig();return}
-  if(a==='admin-section'){const section=el.dataset.section||'usuarios';setView('administracion',{section});if(section==='roles'){const owner=sessionViewOwner();await loadCore({route:'administracion'});if(owner!==sessionViewOwner()||state.route!=='administracion'||getView('administracion').section!==section)return;}render();if(isAuditPanelVisible())void refreshAuditPanel();if(section==='storage')await refreshStoragePanel();if(section==='onedrive')await refreshOneDrivePanel();return}
+  if(a==='admin-section'){const section=el.dataset.section||'usuarios';setView('administracion',{section});const adminUrl=new URL(location.href);adminUrl.searchParams.set('section',section);history.replaceState(history.state,'',moduleUrl(adminUrl.href,'administracion'));if(section==='roles'){const owner=sessionViewOwner();await loadCore({route:'administracion'});if(owner!==sessionViewOwner()||state.route!=='administracion'||getView('administracion').section!==section)return;}render();if(isAuditPanelVisible())void refreshAuditPanel();if(section==='storage')await refreshStoragePanel();if(section==='onedrive')await refreshOneDrivePanel();return}
 
   if(a==='onedrive-expiry-save'){
    const expires=val('odCredentialExpiry');
@@ -3361,6 +3361,7 @@ async function boot({fromLogin=false,timingRun=null}={}){
  state.user={...member,id:profile?.id||session.user.id};
  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
  const internalReturn=history.state?.totusModuleNavigation===true;
+ const adminSection=adminSectionFromUrl(location.href);if(adminSection)setView('administracion',{section:adminSection});
  const initialModule=requestedModule(location.href,ROUTES,profile?.ui_preferences?.interface?.config?.startModule,internalReturn);if(initialModule==='cotejos')prestashopUI.selectTab('receipts');setRoute(initialModule==='cotejos'?'prestashop':initialModule);history.replaceState(moduleNavigationState(location.href,state.route,history.state),'',moduleUrl(location.href,state.route));
  if(internalReturn)history.replaceState(null,'',moduleUrl(location.href,state.route));
  await refresh('',{route:state.route,initialProfile:profile});chatNotifier.start();headerTools.start();

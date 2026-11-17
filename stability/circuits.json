@@ -153,7 +153,9 @@
       ],
       "tests": [
         "tests/closing-integral-browser-qa.mjs",
-        "tests/business-write-browser-qa.mjs"
+        "tests/business-write-browser-qa.mjs",
+        "tests/store-drawers-qa.mjs",
+        "tests/form-drafts-qa.mjs"
       ],
       "invariants": [
         "no double income",

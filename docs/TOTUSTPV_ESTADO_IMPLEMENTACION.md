@@ -172,3 +172,7 @@ Se descartó crear un archivo temporal de credenciales cuando la revisión autom
 ## Siguiente entrega
 
 Completar los proveedores persistentes de carrito/perfil, autorización HTTP normal de Central, configuración por tienda/caja/usuario, integración real de la interfaz y recuperación de todos los efectos. La API clásica se mantiene para las operaciones representables; se prepara una capacidad propia para los comandos nativos que faltan. No se ha instalado nada en una web ni se plantea actualizar a 9. La instalación 1.7 no debe retirarse antes de validar la sustitución completa. No se anuncia el TPV como comercialmente operativo.
+
+### 17/11/2026, 13:06 CET · gestión de cajas integrada
+
+La preparación enlaza con el registro existente de Central, en otra pestaña y con permisos administrativos. La sección de destino admite recarga directa. La lista del TPV se actualiza conservando campos, sin escrituras de asignación. Aprueban 98 recorridos distintos (82 iniciales y 16 de continuación, tras corregir una suposición de reapertura del panel) y ocho pruebas de estabilidad. No hay nueva migración ni publicación. Detalle: TOTUSTPV_GESTION_CAJAS_20261117.md. El archivo privado incorpora una nueva referencia de variantes: 30 originales conservados; su contraste completo sigue pendiente.

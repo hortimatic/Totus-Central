@@ -30,7 +30,7 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  onConfigure=null,canConfigure=()=>false,readSetup=null,createLiveAdapter=null,
- readConfiguration=null,configureWorkstation=null,workspacePreferences=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
+ readConfiguration=null,configureWorkstation=null,drawerManagement=()=>null,workspacePreferences=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
  let scanQueue=[],scanning=false,mobilePane='catalogue';
  let catalogueSort={field:'name',direction:'asc'},catalogueRefreshTimer=null;
@@ -123,6 +123,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  function configurationHtml(){if(accessPanel.isEditing())return accessPanel.html();const c=configuration,store=formValues.configure?.store||c.stores[0]?.id,
   drawers=c.drawers.filter(row=>row.store_id===store);
   return `<form data-tpv-form="configure" class="tpv-configuration"><h4>Asignar un puesto de preproducción</h4><p>${esc(c.origin)} · conexión verificada, revisión ${c.revision}. Selecciona establecimientos y usuarios ya registrados en Central.</p>
+   <div class="inline-actions">${drawerManagement()?`<a class="btn" href="${esc(drawerManagement())}" target="_blank" rel="noopener">Crear y gestionar cajas ↗</a>`:''}${button('refresh-configuration','Actualizar tiendas y cajas')}</div><p class="small muted">La gestión se abre en otra pestaña. Al volver, actualiza esta lista para ver las cajas guardadas. Tus selecciones y el ticket se conservan.</p>
    <label>Establecimiento<select name="store" data-tpv-config-store required>${c.stores.map(row=>`<option value="${esc(row.id)}" ${row.id===store?'selected':''}>${esc(row.name)}</option>`).join('')}</select></label>
    <label>Caja<select name="drawer" required>${drawers.map(row=>`<option value="${esc(row.id)}" ${row.id===formValues.configure?.drawer?'selected':''}>${esc(row.name)}</option>`).join('')}</select></label>
    <label>Operador<select name="operator" required>${c.operators.map(row=>`<option value="${esc(row.id)}" ${row.id===(formValues.configure?.operator||c.actorId)?'selected':''}>${esc(row.full_name||row.id)}</option>`).join('')}</select></label>
@@ -330,6 +331,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(action==='assign'&&canAssign()&&readConfiguration)return work(async()=>{
    if(lines.length||payment||returnForm||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
    configuration=await readConfiguration();accessPanel.load(configuration);configurationId=crypto.randomUUID();if(adapter&&context)tab='configuration';});
+  if(action==='refresh-configuration'&&canAssign()&&readConfiguration)return work(async()=>{
+   const form=host.querySelector('[data-tpv-form="configure"]');if(form)rememberForm(form);
+   const updated=await readConfiguration();
+   if(updated.connectionId!==configuration.connectionId||updated.revision!==configuration.revision)throw Error('La conexión ha cambiado. Cancela esta preparación y vuelve a seleccionar el puesto.');
+   configuration=updated;accessPanel.load(configuration);notice='Tiendas y cajas actualizadas. Revisa la selección antes de asignar el puesto.';
+  });
   if(action==='cancel-configuration'){configuration=null;configurationId=null;delete formValues.configure;tab='sale';render();return;}
   if(target.dataset.tpvStock)return work(async()=>{const p=products.find(p=>p.id===target.dataset.tpvStock);if(!p)return;
    if(p.chooseVariant){variantProduct=p.nativeProductId;productPage=0;await reloadProducts();}else stockIntake.add(p);});
