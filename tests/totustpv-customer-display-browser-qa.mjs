@@ -37,6 +37,7 @@ try{for(const width of [1440,390]){
  assert.equal(await display.locator('[data-display-lines] li').count(),0);assert.equal(await display.locator('[data-display-amount]').innerText(),'');
  await page.evaluate(()=>{screenFixture.now=Date.now();screenFixture.model.phase='verified';screenFixture.controller.sync();});
  await display.getByRole('heading',{name:'Todo listo para pagar',exact:true}).waitFor();
+ await page.evaluate(()=>{screenFixture.now=Date.now()-11000;});
  await display.evaluate(()=>document.body.dataset.tpvHeartbeat=String(Date.now()-11000));await display.getByRole('heading',{name:'Pantalla en espera',exact:true}).waitFor({timeout:2500});
  assert.equal(await display.locator('[data-display-lines] li').count(),0);assert.equal(await display.locator('[data-display-amount]').innerText(),'');
  await page.evaluate(()=>{screenFixture.now=Date.now();screenFixture.controller.sync();});await display.getByRole('heading',{name:'Todo listo para pagar',exact:true}).waitFor();
