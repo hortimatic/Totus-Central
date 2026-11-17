@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-export async function exerciseNativeLineName({call,raw,selection,fixture,preferences,nativeRead,paths}){
+export async function exerciseNativeLineName({call,raw,selection,fixture,preferences,nativeRead,paths,numbering}){
  const results=[];for(const item of [fixture.linePriceSetup.items.normal,fixture.linePriceSetup.items.variant]){const drawer={connectionId:selection.connectionId,shopId:selection.shopId,id:selection.drawerId};
  const original=await nativeRead(`products?filter[id]=[${item.id}]`),posts=()=>paths.filter(row=>row.method==='POST').length;
  const prepare=(id,name)=>({action:'prepare',selection,operationId:id,lines:[{productId:item.id,attributeId:item.attributeId||0,qty:1,...(name===undefined?{}:{displayName:name})}]});
@@ -19,10 +19,13 @@ export async function exerciseNativeLineName({call,raw,selection,fixture,prefere
  const sold=await call({action:'submit',selection,operationId:id,payments});assert.equal(sold.status,'confirmed');
  const written=posts();assert.equal((await call({action:'recover',selection,operationId:id})).status,'confirmed');assert.equal((await call({action:'submit',selection,operationId:id,payments})).status,'confirmed');assert.equal(posts(),written);
  const receipt=await call({action:'document',selection,operationId:id,kind:'receipt'});assert.ok(JSON.stringify(receipt).includes(name));
+ const number=101+results.length,prefix=results.length?'R-':'V-';assert.deepEqual(receipt.ticket_number,{kind:'sale',number,prefix,label:prefix+number});
+ await numbering({salePrefix:'R-'});assert.deepEqual((await call({action:'document',selection,operationId:id,kind:'receipt'})).ticket_number,receipt.ticket_number);
  const after=await nativeRead(`products?filter[id]=[${item.id}]`);assert.deepEqual(after,original,'Temporary sale names must never modify catalogue products');
  const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId:id}),refundId=randomUUID();
  await call({action:'prepare-refund',selection,operationId:refundId,saleId:id,items:[{detailId:available.items[0].detail_id,qty:1,restock:true}],payments:[{method:'cash',amountCents:total}]});
  assert.equal((await call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:total,currency:'EUR'}})).status,'confirmed');
+ const credit=await call({action:'document',selection,operationId:id,kind:'credit-note',refundId});assert.deepEqual(credit.ticket_number,{kind:'return',number:51+results.length,prefix:'D-',label:'D-'+(51+results.length)});
  console.log('PASS temporary sale name: opt-in, malformed refusal before native writes, policy revocation before payment, native OrderDetail and receipt, read-only recovery, unchanged catalogue, refund and restock. Local only.');
- results.push({operationId:id,orderId:sold.orderId});}return {sales:results};
+ results.push({operationId:id,orderId:sold.orderId});}assert.deepEqual(await numbering(),{enabled:true,salePrefix:'R-',returnPrefix:'D-',lastSaleNumber:102,lastReturnNumber:52});console.log('PASS native receipt numbers: sale and refund confirmation, repeated recovery, separate counters and immutable historical prefix after configuration changes.');return {sales:results};
 }

@@ -504,7 +504,11 @@
         "tests/native-lab/line-name-flow.mjs",
         "tests/totustpv-native-line-name-qa.php",
         "tests/totustpv-line-name-qa.mjs",
-        "tests/totustpv-line-name-browser-qa.mjs"
+        "tests/totustpv-line-name-browser-qa.mjs",
+        "src/totustpv/receipt-series.js",
+        "supabase/migrations/20261117181754_totustpv_receipt_numbering.sql",
+        "tests/totustpv-receipt-series-qa.mjs",
+        "tests/totustpv-receipt-series-browser-qa.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -565,7 +569,9 @@
         "tests/totustpv-sale-note-qa.mjs",
         "tests/totustpv-receipt-line-discounts-qa.mjs",
         "tests/totustpv-line-name-qa.mjs",
-        "tests/totustpv-line-name-browser-qa.mjs"
+        "tests/totustpv-line-name-browser-qa.mjs",
+        "tests/totustpv-receipt-series-qa.mjs",
+        "tests/totustpv-receipt-series-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

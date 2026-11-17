@@ -98,6 +98,7 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
  configureWorkstation:invokeTotusTpv,canAssign:()=>can('configuracion','edit'),drawerManagement:()=>isAdmin()&&can('administracion','view')?drawerManagementUrl(location.href):null,
  workspacePreferences:(drawer,preferences=null)=>rpc('totus_tpv_workspace_preferences',{
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
+ receiptNumbering:(drawer,settings=null)=>rpc('totus_tpv_receipt_series',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  canCustomer:action=>can('clientes',action),
  canStock:()=>can('productos','edit')&&can('totustpv','create'),
  canCreateProduct:()=>can('productos','view')&&can('productos','create')&&can('totustpv','create'),

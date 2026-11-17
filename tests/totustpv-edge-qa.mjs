@@ -33,6 +33,7 @@ function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=
    if(name==='totus_tpv_context')return denied?{error:{message:'TPV_VIEW_FORBIDDEN'}}:{data:{actorId:actor,workstations:[row]}};
    if(name==='totus_tpv_journal')return {data:{status:'open',id:args.p_operation_id,scope:args.p_scope}};
    if(name==='totus_tpv_cash_reports')return {data:[]};
+   if(name==='totus_tpv_receipt_number')return {data:null};
    if(name==='totus_tpv_cash')return {data:{status:'closed',id:args.p_scope.sessionId}};
    if(name==='totus_tpv_check')return reportDenied?{error:{message:'TPV_ACTION_FORBIDDEN'}}:{data:true};
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
@@ -108,9 +109,10 @@ test('closed cash reports require current reconciliation rights but no new cash 
 
 const orderLookup={action:'orders',operationId:session,selection:{connectionId:connection,shopId:1,drawerId:drawer,sessionId:session}};
 test('receipt operator and website come from the authorized journal and connection, never native text or the current browser',async()=>{
- const f=fixture({nativeRows:[],nativeDocument:{kind:'receipt',operator_name:'Forged operator',merchant_origin:'https://unrelated.invalid'}});
+ const f=fixture({nativeRows:[],nativeDocument:{kind:'receipt',operator_name:'Forged operator',merchant_origin:'https://unrelated.invalid',ticket_number:{kind:'sale',prefix:'FAKE',number:999,label:'FAKE999'}}});
  const result=await f.call({action:'document',operationId:actor,selection:orderLookup.selection,kind:'receipt'});
  assert.equal(result.status,200);assert.equal(result.body.operator_name,'Cajero original');assert.equal(result.body.merchant_origin,'https://preproduccion.hortimatic.com');
+ assert.equal(result.body.ticket_number,null);const numbering=f.calls.find(row=>row.name==='totus_tpv_receipt_number');assert.equal(numbering.args.p_operation,actor);assert.equal(numbering.args.p_kind,'sale');assert.equal(numbering.key,'fixture-server-only');
  assert.equal(f.nativeRequests.length,1);assert.equal(new URL(f.nativeRequests[0].url).searchParams.get('actor_id'),actor);
 });
 test('reference lookup reads native IDs then returns only the matching authorized Central sale',async()=>{

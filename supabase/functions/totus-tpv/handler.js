@@ -327,11 +327,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      need(uuid(input.refundId),'TPV_DOCUMENT_QUERY_INVALID');
      const refund=sale.refunds.find(row=>row.id===input.refundId&&row.status==='confirmed');
      need(refund&&uuid(refund.actorId),'TPV_DOCUMENT_VERIFIED_RETURN_REQUIRED');
-     return respond(await transport.readNativeDocument({operationId:refund.id,sourceActorId:refund.actorId,kind:input.kind}));
+     const document=await transport.readNativeDocument({operationId:refund.id,sourceActorId:refund.actorId,kind:input.kind});
+     return respond({...document,ticket_number:check(await rpc('totus_tpv_receipt_number',{p_scope:scope,p_operation:refund.id,p_kind:'return'}))});
     }
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
     const document=await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind});
-    return respond(['receipt','gift'].includes(input.kind)?{...document,merchant_logo_origin:TOTUS_QA_POLICY.origin,
+    return respond(['receipt','gift'].includes(input.kind)?{...document,ticket_number:check(await rpc('totus_tpv_receipt_number',{p_scope:scope,p_operation:sale.id,p_kind:'sale'})),merchant_logo_origin:TOTUS_QA_POLICY.origin,
      merchant_origin:TOTUS_QA_POLICY.origin,operator_name:typeof sale.operatorName==='string'?sale.operatorName.slice(0,100):null}:document);
    }
    if(input.action==='catalogue'){

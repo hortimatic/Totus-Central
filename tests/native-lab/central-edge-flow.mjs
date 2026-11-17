@@ -63,6 +63,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117155256_totustpv_private_sale_note.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117170825_totustpv_temporary_line_names.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -78,7 +79,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_catalogue_intake:['p_action','p_id','p_scope','p_data'],
    totus_prestashop_product_create_journal:['p_action','p_request_id','p_data'],
    totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
-   totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
+   totus_tpv_receipt_series:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_number:['p_scope','p_operation','p_kind'],totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
    if(name==='totus_products_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}],websites:[{key:'qa-shop',connection_id:connection,origin:'https://preproduccion.hortimatic.com',status:'active',name:'QA local'}]}};}
    if(name==='totus_tpv_product_intake'&&args.p_action==='verified'&&args.p_data.stepKey===dropProductAck){dropProductAck=null;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
@@ -141,7 +142,11 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   if(['stock-policy','line-price','sale-note','line-name'].includes(focus)){
    const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
    const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};
-   if(focus==='line-name')return await exerciseNativeLineName({call,raw,selection,fixture,preferences,nativeRead,paths});
+   if(focus==='line-name'){
+    const numbering=async value=>{const response=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_receipt_series',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:value??null});assert.equal(response.error,undefined,response.error?.message);return response.data;};
+    await numbering({enabled:true,salePrefix:'V-',returnPrefix:'D-',lastSaleNumber:100,lastReturnNumber:50});
+    return await exerciseNativeLineName({call,raw,selection,fixture,preferences,nativeRead,paths,numbering});
+   }
    if(focus==='sale-note'){const backend=await exerciseNativeSaleNote({call,raw,selection,fixture,preferences,nativeRead,paths});const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,note:'Nota interna del equipo 🙂',salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});return {...backend,screen};}
    if(focus==='line-price'){const backend=await exerciseNativeLinePrice({call,raw,selection,fixture,preferences,nativeRead,paths,changeCataloguePrice:simulateCataloguePriceChange}),before=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);
     const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});

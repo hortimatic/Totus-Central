@@ -5,7 +5,7 @@ import {startLocalServer} from './local-static-server.mjs';
 import {prepareTpvPrintHtml,receiptHtml,TOTUS_PRINTER_PROFILE} from '../src/totustpv/documents.js';
 import {cashReportHtml} from '../src/totustpv/cash-reports.js';
 import {receiptLogoUrl,receiptWebsiteUrl} from '../src/totustpv/receipt-options.js';
-const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',created_at:'2026-11-16 12:00:00',
+const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',ticket_number:{kind:'sale',number:46631,prefix:'V-',label:'V-46631'},created_at:'2026-11-16 12:00:00',
  merchant:{name:'Totus · laboratorio',address:'Calle de prueba',city:'Madrid'},lines:[{name:'Café ñandú <img src=x onerror=alert(1)>',reference:'REFERENCIA-LARGA-DE-PRUEBA-1234567890',quantity:1,line_cents:801}],
  payments:{bizum:801},total_cents:801,discount_cents:0};
 const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'00000000-0000-4000-8000-000000000001',storeName:'Tienda de prueba',drawerName:'Caja 1',

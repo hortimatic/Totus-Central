@@ -82,6 +82,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117155256_totustpv_private_sale_note.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117170825_totustpv_temporary_line_names.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -392,6 +393,34 @@ try {
  for(const variantOrder of [null,true,3,{},'stock','cost:desc','name;drop:asc'])await denied(()=>prefs(qaScope,{display:{variantOrder}}),/INVALID/);
  check((await prefs()).stockPolicy,{allowOutOfStock:false});
  check((await prefs()).lineOptions,{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false});
+ // Numbering is shared by the shop, allocated at confirmation and immutable.
+ const series=async settings=>(await db.query('select public.totus_tpv_receipt_series($1::uuid,$2::bigint,$3::uuid,$4::jsonb) result',[qaScope.connectionId,1,qaScope.drawerId,settings===undefined?null:JSON.stringify(settings)])).rows[0].result;
+ check(await series(),{enabled:false,salePrefix:'V',returnPrefix:'D',lastSaleNumber:0,lastReturnNumber:0});
+ for(const settings of [true,[],{enabled:'true'},{salePrefix:'<x>'},{salePrefix:'a'.repeat(13)},{lastSaleNumber:-1},{lastReturnNumber:1.5},{actorId:id(9)}])await denied(()=>series(settings),/INVALID/);
+ await db.exec('begin');check(await series({enabled:true,lastSaleNumber:40,lastReturnNumber:8}),{enabled:true,salePrefix:'V',returnPrefix:'D',lastSaleNumber:40,lastReturnNumber:8});
+ await db.exec('reset role;set role service_role');
+ const numbered=expected(9501);await journal('prepare',id(9501),{expected:numbered,quoteExpiresAt:Date.now()+60000},qaScope);
+ await journal('claim',id(9501),{revision:1,expected:numbered,payments},qaScope);
+ const confirmNumbered=()=>journal('confirm',id(9501),{revision:1,orderId:9501,verification:{status:'confirmed',readbackVerified:true,orderId:9501}},qaScope);
+ await confirmNumbered();await confirmNumbered();
+ check((await db.query('select number,prefix from private.totus_tpv_receipt_numbers where operation_id=$1',[id(9501)])).rows,[{number:41,prefix:'V'}]);
+ await db.exec('reset role;set role authenticated');check((await series()).lastSaleNumber,41);await series({salePrefix:'NEW'});
+ await db.exec('reset role;set role service_role');check((await db.query('select prefix from private.totus_tpv_receipt_numbers where operation_id=$1',[id(9501)])).rows[0].prefix,'V');
+ const readNumber=async(operation,kind)=>(await db.query('select public.totus_tpv_receipt_number($1::jsonb,$2::uuid,$3) result',[JSON.stringify(qaScope),operation,kind])).rows[0].result;
+ check(await readNumber(id(9501),'sale'),{kind:'sale',number:41,prefix:'V',label:'V41'});
+ await db.query("insert into private.totus_tpv_refunds(id,sale_id,session_id,actor_id,scope,intent,line_amounts,total_cents) values($1,$2,$3,$4,$5,'{}','[]',0)",[id(9502),id(9501),qaScope.sessionId,qaScope.actorId,JSON.stringify(qaScope)]);
+ await db.query("update private.totus_tpv_refunds set status='confirmed',result='{}' where id=$1",[id(9502)]);
+ check((await db.query('select number,prefix from private.totus_tpv_receipt_numbers where operation_id=$1',[id(9502)])).rows,[{number:9,prefix:'D'}]);
+ check(await readNumber(id(9502),'return'),{kind:'return',number:9,prefix:'D',label:'D9'});
+ // A historical V4 + 2 must not collide with a later V + 42.
+ await db.query("insert into private.totus_tpv_receipt_numbers(operation_id,kind,connection_id,shop_id,store_id,number,prefix) values($1,'sale',$2,1,$3,2,'V4')",[id(9503),qaScope.connectionId,qaScope.storeId]);
+ await db.exec('reset role;set role authenticated');await series({salePrefix:'V'});await db.exec('reset role;set role service_role');
+ const collisionExpected=expected(9504);await journal('prepare',id(9504),{expected:collisionExpected,quoteExpiresAt:Date.now()+60000},qaScope);await journal('claim',id(9504),{revision:1,expected:collisionExpected,payments},qaScope);
+ await journal('confirm',id(9504),{revision:1,orderId:9504,verification:{status:'confirmed',readbackVerified:true,orderId:9504}},qaScope);
+ check(await readNumber(id(9504),'sale'),{kind:'sale',number:43,prefix:'V',label:'V43'});
+ await db.exec('savepoint counter_check');await denied(()=>series({lastSaleNumber:40}),/permission denied/);await db.exec('rollback to counter_check');
+ await db.exec('reset role;set role authenticated;savepoint counter_decrease');await denied(()=>series({lastSaleNumber:40}),/COUNTER_DECREASE_FORBIDDEN/);await db.exec('rollback to counter_decrease');
+ await db.exec('rollback');
  for(const lineOptions of [null,[],true,{allowPriceChanges:'true'},{allowPriceChanges:null},{allowPriceChanges:1},{price:true},{allowPriceChanges:true,actorId:id(9)}])await denied(()=>prefs(qaScope,{lineOptions}),/INVALID/);
  check((await prefs(qaScope,{lineOptions:{allowPriceChanges:true}})).lineOptions,{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
  check((await prefs(qaScope,{viewMode:'table'})).lineOptions,{allowPriceChanges:true,requireSaleNote:false,allowNameChanges:false});
