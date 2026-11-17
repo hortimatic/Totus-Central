@@ -34,7 +34,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   for(const file of ['20261115182617_totustpv_durable_checkout.sql','20261116110935_totustpv_cash_sessions.sql',
    '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql',
    '20261116175354_totustpv_failed_sale_review.sql','20261116180903_totustpv_workspace_preferences.sql',
-   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql'])
+   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   await db.exec('set role service_role');
@@ -64,7 +64,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
    assert.equal(response.error,undefined,response.error?.message);return response.data;
   };
-  await preferences({connectionId:connection,shopId:1,id:drawer},{receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+  await preferences({connectionId:connection,shopId:1,id:drawer},{customerDisplay:{enabled:true,showPrices:true,showCustomer:true,color:'#1773c9',fontSize:23},receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret'}[key])};
   const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,

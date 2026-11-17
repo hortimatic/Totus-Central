@@ -19,7 +19,7 @@ jobs:
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs
-      - run: node --test tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs
+      - run: node --test tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs tests/totustpv-customer-display-qa.mjs
       - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs tests/totustpv-cart-qa.mjs
       - run: node --test tests/totustpv-operator-payments-qa.mjs tests/totustpv-payment-readback-qa.mjs tests/totustpv-quote-contract-qa.mjs tests/totustpv-practice-qa.mjs
       - run: node tests/totustpv-central-qa.mjs
@@ -29,6 +29,7 @@ jobs:
       - run: node tests/totustpv-workspace-browser-qa.mjs
       - run: node tests/totustpv-workstation-rights-browser-qa.mjs
       - run: node tests/totustpv-workstation-access-browser-qa.mjs
+      - run: node tests/totustpv-customer-display-browser-qa.mjs
       - run: node tests/totustpv-stock-intake-browser-qa.mjs
       - run: node tests/totustpv-catalogue-table-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs

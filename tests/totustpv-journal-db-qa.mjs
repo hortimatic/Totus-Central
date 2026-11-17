@@ -64,6 +64,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116192744_totustpv_stock_receipts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116205052_totustpv_catalogue_layout.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117021112_totustpv_workstation_access.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117031559_totustpv_customer_display.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -329,6 +330,13 @@ try {
  await db.exec('reset role;set role authenticated');
  await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
  check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
+ check((await prefs()).customerDisplay,{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23});
+ check((await prefs(qaScope,{customerDisplay:{enabled:true,showPrices:false,color:'#112233',fontSize:40}})).customerDisplay,
+  {enabled:true,showPrices:false,showCustomer:false,color:'#112233',fontSize:40});
+ check((await prefs(qaScope,{customerDisplay:{showCustomer:true}})).customerDisplay.color,'#112233');
+ for(const customerDisplay of [null,[],true,{enabled:'true'},{showPrices:0},{showCustomer:'false'},{color:'red'},{color:'#fff'},{color:'url(https://evil.invalid)'},{fontSize:13},{fontSize:41},{fontSize:23.5},{customerEmail:true}])
+  await denied(()=>prefs(qaScope,{customerDisplay}),/INVALID/);
+ check((await prefs(qaScope,{viewMode:'list'})).customerDisplay.enabled,true);
  check((await prefs()).viewMode,'list');await denied(()=>prefs({...qaScope,drawerId:id(999)}),/FORBIDDEN/);
  check((await prefs(qaScope,{columns:['name','photo','stock'],sortField:'stock',sortDirection:'desc'})).sortField,'stock');
  check((await prefs()).columns,['name','photo','stock']);check((await prefs()).viewMode,'list');
@@ -384,6 +392,7 @@ try {
  await denied(()=>prefs(qaScope,{columns:null}),/INVALID/);
  await denied(()=>prefs(qaScope,{viewMode:'bad',initialCategoryId:0}),/INVALID/);
  await db.exec(`set request.jwt.claim.sub='${id(9)}'`);await denied(()=>prefs(),/FORBIDDEN|ACCESS/);
+ await denied(()=>prefs(qaScope,{customerDisplay:{enabled:true}}),/FORBIDDEN|ACCESS/);
  await db.exec('reset role');
  await db.exec('set role service_role');
  const stockRpc=async(name,args)=>{

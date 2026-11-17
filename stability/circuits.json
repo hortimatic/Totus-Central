@@ -428,6 +428,12 @@
         "supabase/migrations/20261116150203_totustpv_cash_reports.sql",
         "src/totustpv/cash-reports.js",
         "src/totustpv/workstation-access.js",
+        "src/totustpv/customer-display.js",
+        "src/totustpv/customer-display.css",
+        "src/totustpv/customer-display-watch.js",
+        "supabase/migrations/20261117031559_totustpv_customer_display.sql",
+        "tests/totustpv-customer-display-qa.mjs",
+        "tests/totustpv-customer-display-browser-qa.mjs",
         "supabase/migrations/20261117021112_totustpv_workstation_access.sql",
         "tests/totustpv-workstation-access-edge-qa.mjs",
         "tests/totustpv-configuration-reader-qa.mjs",
@@ -471,7 +477,9 @@
         "tests/totustpv-workstation-access-edge-qa.mjs",
         "tests/totustpv-configuration-reader-qa.mjs",
         "tests/totustpv-workstation-rights-browser-qa.mjs",
-        "tests/totustpv-workstation-access-browser-qa.mjs"
+        "tests/totustpv-workstation-access-browser-qa.mjs",
+        "tests/totustpv-customer-display-qa.mjs",
+        "tests/totustpv-customer-display-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

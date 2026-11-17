@@ -111,6 +111,16 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.getByRole('button',{name:'Calcular y cobrar',exact:true}).click();
   await page.locator('[data-tpv-form="pay"],.note.bad').first().waitFor({timeout:60000});
   assert.equal(await page.locator('[data-tpv-form="pay"]').count(),1,'Prepare failed at '+width+': '+await page.locator('#root').innerText());
+  await page.getByText('Más acciones',{exact:true}).click();const publicWindow=page.waitForEvent('popup');
+  await page.getByRole('button',{name:'Pantalla para cliente',exact:true}).click();const customerDisplay=await publicWindow;
+  await customerDisplay.getByRole('heading',{name:'Todo listo para pagar',exact:true}).waitFor();
+  assert.match(await customerDisplay.locator('[data-display-amount]').innerText(),width===390?/7,01/:/8,01/);
+  if(width===390)assert.match(await customerDisplay.locator('[data-display-discount]').innerText(),/Descuento del ticket: −0,50/);
+  if(width===1440)assert.match(await customerDisplay.locator('[data-display-customer]').innerText(),/QA Central Laboratorio/);
+  else assert.equal(await customerDisplay.locator('[data-display-customer]').innerText(),'');
+  assert.doesNotMatch(await customerDisplay.locator('body').innerText(),/600000000|@ejemplo/);
+  await customerDisplay.screenshot({path:`artifacts/native-lab/tpv-pantalla-cliente-${width}.png`,fullPage:true});
+  await page.getByText('Más acciones',{exact:true}).click();
   await page.getByRole('button',{name:'Entregado 10 euros',exact:true}).click();
   assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),width===390?/2,99/:/1,99/);
   await page.locator('[name=method]').selectOption(width===1440?'bizum':'mixed');
@@ -120,6 +130,8 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.screenshot({path:`artifacts/native-lab/tpv-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Confirmar cobro y crear pedido'}).click();
   await page.getByRole('heading',{name:'Pedido verificado en PrestaShop',exact:true}).waitFor({timeout:60000});
+  await customerDisplay.getByRole('heading',{name:'Gracias por tu compra',exact:true}).waitFor();
+  assert.equal(await customerDisplay.locator('[data-display-customer]').innerText(),'','The customer name disappears when the sale is confirmed');
   assert.match(await page.locator('.tpv-receipt').innerText(),/Pedido #[0-9]+/);
   const orderId=(await page.locator('.tpv-receipt').innerText()).match(/Pedido #([0-9]+)/)[1];
   assert.match(await page.locator('.tpv-receipt').innerText(),width===390?/7,00/:/0,00/);
@@ -185,6 +197,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   await page.locator('.note.bad').waitFor();
   await page.getByRole('button',{name:'Cerrar caja',exact:true}).click();
   await page.getByText('Caja cerrada. Diferencia:',{exact:false}).waitFor();
+  assert.equal(customerDisplay.isClosed(),true,'The public-facing window closes with the cash context');
   assert.equal(closeRequests.length,2);assert.deepEqual(closeRequests[0],closeRequests[1],'A committed close with a lost reply must recover the same request after context no longer reports an open cash session');
   await page.getByText('Más acciones',{exact:true}).click();
   await page.getByRole('button',{name:'Informes de caja',exact:true}).click();

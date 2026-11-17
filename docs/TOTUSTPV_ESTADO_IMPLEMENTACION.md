@@ -1,12 +1,14 @@
 # Estado de implementación de TotusTPV
 
-## Estado vigente · 17/11/2026, 04:09 CET
+## Estado vigente · 17/11/2026, 04:40 CET
 
-La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las migraciones de catálogo/preferencias y accesos siguen pendientes de aplicación remota.
+La entrega completa sigue en desarrollo en el PR 213, borrador sin publicar la nueva interfaz. El frontend publicado continúa en 7796c354; no se ha sustituido el módulo remoto 0.1.9 ni el servicio totus-tpv v6 durante esta ampliación. Las migraciones de catálogo/preferencias, accesos y pantalla de cliente siguen pendientes de aplicación remota.
 
 El laboratorio con PrestaShop 8.2.8/PHP 8.2/MariaDB ha verificado catálogo contextual completo, caducidad de ofertas, pedidos, pagos, factura, devoluciones y abonos, stock, recepción por albarán, recuperación sin duplicados, cierre y escritorio/móvil. La ampliación del justificante incluye cliente opcional, logo, formatos, numeración de líneas, precio unitario histórico e impuesto, operador de la venta, web autorizada y código Code128 que permite localizar el pedido original. Se han comprobado 327 aserciones SQL, 86 recorridos de regresión durante la ampliación y papel simulado de 58 mm; los detalles y las limitaciones de cada prueba constan en TOTUSTPV_VERIFICACION_NATIVA_20261117.md. Ninguna de estas pruebas certifica la impresora, cajón o lector físicos.
 
 La administración de accesos existentes permite separar venta/consulta, gestión de efectivo y activación por persona/caja, con revisión concurrente y registro privado. Se ha probado la consulta de pedidos y documentos sin abrir caja, la denegación de escrituras sin permiso y la recuperación del mismo cierre después de perderse su respuesta. El manual de uso y la memoria técnica están actualizados como documentos de trabajo; no sustituyen todavía el dossier final completo con las imágenes privadas.
+
+La pantalla para el cliente incorpora las cinco opciones de su referencia: activación, precios, nombre condicionado al permiso, color y letra. Se ha comprobado con el total calculado por PrestaShop local, escritorio/móvil, cierre, privacidad y tickets largos con total visible. La suite SQL ampliada supera 345 aserciones y los 37 recorridos afectados desde el commit de accesos han pasado, además de repetir las comprobaciones específicas tras la revisión visual. El bloque de accesos `db35815b` tiene las cuatro comprobaciones de GitHub aprobadas. Los detalles figuran en `TOTUSTPV_PANTALLA_CLIENTE_20261117.md`; la comprobación del monitor físico continúa pendiente.
 
 La tabla de 149 configuraciones y el registro maestro permanecen abiertos: solo se marca cada opción con su implementación y evidencia concreta. Siguen pendientes funciones de mercancía, configuraciones compartidas y permisos, presupuestos/crédito/vales, otras opciones de las capturas, aceptación remota y documentación final. Las 29 capturas originales se conservan en la documentación privada, fuera del repositorio público.
 

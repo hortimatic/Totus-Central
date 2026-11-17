@@ -41,6 +41,12 @@ Puedes consultar **Pedidos y devoluciones** con la caja cerrada. Para localizar 
 
 En **Configuración**, las opciones de justificante se agrupan por establecimiento, contenido, confirmación y cliente. Permiten ajustar título, pie, fecha, letra, logo, referencia, numeración de artículos, precio unitario, impuestos, operador, web y datos opcionales del cliente. La vista previa usa datos de ejemplo. El ticket regalo oculta importes y cliente. Los cambios se guardan para tu cuenta y caja; no modifican la numeración de la factura nativa. Las demás opciones solicitadas siguen en la matriz de requisitos y no se consideran disponibles por aparecer en una captura de referencia.
 
+## Pantalla para el cliente
+
+En **Configuración → Pantalla para el cliente**, activa la opción y guarda. Puedes ocultar precios, permitir el nombre del cliente, cambiar color y tamaño de letra. Desde **Más acciones → Pantalla para cliente**, abre la ventana, muévela al segundo monitor y pulsa **Pantalla completa**. Si se bloquea, permite las ventanas emergentes de Central y repite la acción.
+
+La lista acompaña el ticket y distingue la estimación del total verificado. El nombre necesita permiso de Clientes y desaparece al confirmar; no se muestran datos de contacto ni de pago. Al salir o cerrar caja se borra y cierra la ventana. Si pierde la actualización del mostrador, pasa a espera y borra sus datos. Esta función se ha comprobado en ventanas de navegador; su aceptación en el monitor físico sigue pendiente.
+
 ## Devolver
 
 Busca el pedido en el historial del establecimiento, elige las líneas/cantidades, indica el motivo y si el artículo vuelve a existencias. Puedes respetar el reparto original o elegir un medio original con saldo suficiente. Revisa el abono y confirma el reintegro externo cuando corresponda. TotusTPV registra el reintegro; no opera el datáfono ni la cuenta bancaria. La recuperación de una respuesta incierta consulta la misma operación. El abono PDF se descarga del documento nativo existente.

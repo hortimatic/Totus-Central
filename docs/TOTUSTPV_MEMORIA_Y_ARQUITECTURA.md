@@ -18,6 +18,8 @@ Para modificar una pantalla, revisar sus consumidores en `stability/circuits.jso
 
 La verificación de permisos incluye 327 aserciones SQL aisladas. El recorrido instalado usa PrestaShop 8.2.8, PHP 8.2 y MariaDB locales: venta, abono, stock, documentos, caja y recuperación de un cierre cuya respuesta se perdió. Es una infraestructura temporal de desarrollo; el uso normal de Central no necesita arrancarla. La activación remota, los requisitos restantes y la aceptación física se registran aparte.
 
+La ampliación siguiente añade la pantalla del cliente mediante `customer-display.js`, su estilo y un vigilante de actualización ejecutado en esa ventana. El puesto solo proyecta nombre opcional, líneas, cantidades, importes y estado; los datos de contacto, identificadores y detalles de pago no pasan a esa vista. Las preferencias personales se almacenan mediante el mismo RPC limitado por cuenta/caja, ampliado en `20261117031559_totustpv_customer_display.sql`. El total queda visible mientras la lista se desplaza. Se han verificado 345 aserciones SQL y 37 recorridos afectados desde el bloque de accesos, además del total nativo y el cierre de la ventana en escritorio/móvil.
+
 Documentos complementarios:
 
 - [Estudio histórico y recorridos](TOTUSTPV_ESTUDIO_Y_RECORRIDOS_20261115.md): referencia histórica de interfaz, configuración y manuales.
