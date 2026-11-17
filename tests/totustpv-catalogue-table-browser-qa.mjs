@@ -10,7 +10,7 @@ try{
  await page.evaluate(async()=>{
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');
   window.tableFixture={prefs:{viewMode:'table',initialCategoryId:0,columns:['photo','name','reference','stock','price']},queries:[],writes:[]};
-  const items=Array.from({length:50},(_,n)=>({id:(n+1)+':0',nativeProductId:n+1,name:'Artículo '+String(n+1).padStart(2,'0'),reference:'REF'+(n+1),stock:50-n,priceCents:(n+1)*100}));
+  const items=Array.from({length:50},(_,n)=>({id:(n+1)+':0',nativeProductId:n+1,name:'Artículo '+String(n+1).padStart(2,'0'),reference:'REF'+(n+1),stock:50-n,priceCents:(n+1)*100,netPriceCents:(n+1)*80}));
   const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda QA'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja QA',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
    selectSession:async()=>{},categories:async()=>[],history:async()=>[{id:'sale-fixture',status:'confirmed',reference:'Pedido de ejemplo',totalCents:150}],
    document:async({kind})=>({kind,existing_document:true,currency:'EUR',order_id:1,reference:'EJEMPLO',created_at:'2026-11-16 12:00:00',
@@ -124,5 +124,15 @@ try{
   await parent.click();await page.locator('[data-tpv-add="999:1"]').waitFor();assert.equal(await page.locator('[data-tpv-add="999:2"]').isDisabled(),true,'An out-of-stock variant stays blocked');
   await page.locator('[data-tpv-add="999:1"]').click();assert.equal(await page.locator('[data-tpv-quantity="999:1"]').inputValue(),'1');
  }
- assert.deepEqual(errors,[]);console.log('PASS catalogue table/display: common column editor, role-limited costs, saved columns and card preferences, whole-result sort/page and progress cancellation, ticket ordering and three viewport sizes. Synthetic catalogue source; no audible-device claim.');
+ await page.evaluate(()=>{tableFixture.variantMode=false;tableFixture.prefs.viewMode='grid';tableFixture.prefs.display={priceMode:'net',showPrices:true};tableFixture.workspace.mount(document.querySelector('#tpv'));});
+ const first=page.locator('[data-tpv-add="1:0"]');await first.waitFor();assert.match(await first.locator('b').innerText(),/0,80[^]*sin IVA/);
+ for(const width of [1440,768,390]){await page.setViewportSize({width,height:950});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await page.screenshot({path:`artifacts/totustpv-table/net-prices-${width}.png`,fullPage:true});}
+ await page.locator('.tpv-actions>summary').click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ assert.equal(await page.locator('[name=priceMode]').inputValue(),'net');await page.locator('[name=priceMode]').selectOption('gross');
+ await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Venta',exact:true}).click();assert.match(await first.locator('b').innerText(),/1,00[^]*con IVA/);
+ await page.evaluate(()=>{tableFixture.prefs.viewMode='table';tableFixture.prefs.columns=['name','netPrice','price'];tableFixture.workspace.mount(document.querySelector('#tpv'));});
+ await page.locator('[data-tpv-column=netPrice]').first().waitFor();assert.match(await page.locator('[data-tpv-column=netPrice]').first().innerText(),/0,80/);
+ assert.match(await page.locator('[data-tpv-column=price]').first().innerText(),/1,00/);
+ assert.deepEqual(errors,[]);console.log('PASS catalogue table/display: common column editor, role-limited costs, saved columns and card preferences, native gross/net presentation, whole-result sort/page and progress cancellation, ticket ordering and three viewport sizes. Synthetic catalogue source; no audible-device claim.');
 }finally{await page.close();await browser.close();if(server)await new Promise(r=>server.close(r));}

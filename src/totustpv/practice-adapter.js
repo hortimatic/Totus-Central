@@ -6,9 +6,9 @@ const need=(ok,message)=>{if(!ok)throw new Error(message);};
 const integer=value=>Number.isSafeInteger(value)&&value>=0;
 const copy=value=>structuredClone(value);
 const catalogue=[
- {id:'demo-1',name:'Artículo de práctica',reference:'DEMO-001',category:'Práctica',priceCents:801,stock:20},
- {id:'demo-2',name:'Artículo con variante · Azul',reference:'DEMO-002-A',category:'Variantes',priceCents:1250,stock:12},
- {id:'demo-3',name:'Accesorio de práctica',reference:'DEMO-003',category:'Práctica',priceCents:450,stock:30}
+ {id:'demo-1',name:'Artículo de práctica',reference:'DEMO-001',category:'Práctica',priceCents:801,netPriceCents:662,stock:20},
+ {id:'demo-2',name:'Artículo con variante · Azul',reference:'DEMO-002-A',category:'Variantes',priceCents:1250,netPriceCents:1033,stock:12},
+ {id:'demo-3',name:'Accesorio de práctica',reference:'DEMO-003',category:'Práctica',priceCents:450,netPriceCents:372,stock:30}
 ];
 export function createTpvPracticeAdapter({actorId,storage,now=Date.now,uuid=()=>crypto.randomUUID(),locks=globalThis.navigator?.locks}={}) {
  need(typeof actorId==='string'&&actorId.length>0&&storage,'La práctica necesita una cuenta identificada.');

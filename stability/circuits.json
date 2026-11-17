@@ -459,7 +459,9 @@
         "tests/totustpv-category-contract-qa.mjs",
         "tests/totustpv-category-service-qa.mjs",
         "src/category-create-contract.js",
-        "supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql"
+        "supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql",
+        "tests/totustpv-price-display-qa.mjs",
+        "supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -503,7 +505,8 @@
         "tests/totustpv-cash-counting-qa.mjs",
         "tests/totustpv-cash-counting-browser-qa.mjs",
         "tests/totustpv-category-contract-qa.mjs",
-        "tests/totustpv-category-service-qa.mjs"
+        "tests/totustpv-category-service-qa.mjs",
+        "tests/totustpv-price-display-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

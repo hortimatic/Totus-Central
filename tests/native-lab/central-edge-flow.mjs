@@ -42,6 +42,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -118,11 +119,15 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(focus==='products'){
+   const prices=await call({action:'catalogue',selection,operationId:randomUUID(),search:fixture.reference});
+   const originalPrice=prices.items.find(row=>String(row.product_id)===String(fixture.productId));
+   assert.ok(originalPrice,'The original simple article must be found by its native reference');
+   assert.equal(originalPrice.preview_cents,801);assert.equal(originalPrice.preview_tax_excl_cents,662);
    const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');
     const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};
    const productResult=await exerciseProductIntake({call:(action,values,id)=>call({action,selection,operationId:id,...values}),db,scope:selection,fixture:fixture.productSetup,paths,nativeRead,
     loseBaseReply:()=>{dropProductReply=true;},loseStageAck:key=>{dropProductAck=key;}});
-   await exerciseNativeProductBrowser({handle,actor,fixture});return productResult;
+   await exerciseNativeProductBrowser({handle,actor,fixture,preferences});return productResult;
   }
   const saleId=randomUUID(),prepared=await call({action:'prepare',selection,operationId:saleId,
    lines:[{productId:fixture.productId,attributeId:0,qty:1}]});

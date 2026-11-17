@@ -206,6 +206,7 @@ final class NativeCatalogue
             'minimum_quantity'=>max(1,$minimum),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),
             'preview_cents'=>(int)round(100*\Tools::ps_round((float)$incl,2)),
+            'preview_tax_excl_cents'=>(int)round(100*\Tools::ps_round((float)$excl,2)),
             'image_path'=>$image>0?'/img/p/'.\Image::getImgFolderStatic($image).$image.'.jpg':null];
     }
 }

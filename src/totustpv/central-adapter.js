@@ -76,7 +76,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(row.variant_name?' · '+row.variant_name:''),reference:row.reference,
-    stock:row.stock,priceCents:row.preview_cents,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
+    stock:row.stock,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     barcode:row.ean,upc:row.upc,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
   async quote({lines,adjustment,coupon}){

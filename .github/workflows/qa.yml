@@ -17,7 +17,7 @@ jobs:
       - run: node --test tests/totustpv-checkout-qa.mjs
       - run: node tests/totustpv-journal-db-qa.mjs
       - run: node --test tests/totustpv-category-contract-qa.mjs tests/totustpv-category-service-qa.mjs tests/totustpv-product-intake-contract-qa.mjs tests/totustpv-product-intake-service-qa.mjs tests/totustpv-product-intake-edge-qa.mjs
-      - run: node --test tests/totustpv-cash-counting-qa.mjs
+      - run: node --test tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs

@@ -3,7 +3,7 @@ import {mkdir} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright';
 import {startLocalServer} from '../local-static-server.mjs';
-export async function exerciseNativeProductBrowser({handle,actor,fixture}){
+export async function exerciseNativeProductBrowser({handle,actor,fixture,preferences}){
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[];
  page.setDefaultTimeout(60000);page.on('pageerror',error=>errors.push(error.message));
  try{
@@ -18,16 +18,27 @@ export async function exerciseNativeProductBrowser({handle,actor,fixture}){
   await page.route('**/__product_fixture',async route=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:route.request().postData()}));
    return route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});});
+  await page.route('**/__product_preferences',async route=>{const {drawer,value}=JSON.parse(route.request().postData());
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(await preferences(drawer,value))});});
   await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
   await page.evaluate(async actor=>{
    fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js'),{createCentralTpvAdapter}=await import('/src/totustpv/central-adapter.js');
    window.productWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true,full_name:'Cajero del laboratorio'}),can:()=>true,canReadCost:()=>true,canCreateProduct:()=>true,confirm:async()=>true,autoOpen:true,
+    workspacePreferences:async(drawer,value)=>{const response=await fetch('/__product_preferences',{method:'POST',body:JSON.stringify({drawer,value})});return response.json();},
     createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async payload=>{
      const response=await fetch('/__product_fixture',{method:'POST',body:JSON.stringify(payload)}),result=await response.json();
      if(!response.ok||result.error){const error=Error(result.error||'Native fixture error');error.code=result.error;throw error;}return result;
     }})});productWorkspace.mount(document.querySelector('#tpv'));
   },actor);
   const search=page.locator('[data-tpv-search]');await search.waitFor();await search.fill(fixture.reference);
+  await page.locator(`[data-tpv-add="${fixture.productId}:0"]`).waitFor();
+  await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+  await page.locator('[name=priceMode]').selectOption('net');await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();
+  await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();await page.getByRole('button',{name:'Venta',exact:true}).click();
+  assert.match(await page.locator(`[data-tpv-add="${fixture.productId}:0"] b`).innerText(),/6,62[^]*sin IVA/);
+  await mkdir('artifacts/totustpv-product-intake',{recursive:true});
+  for(const width of [1440,390]){await page.setViewportSize({width,height:950});await page.screenshot({path:`artifacts/totustpv-product-intake/native-net-prices-${width}.png`,fullPage:true});}
+  await page.setViewportSize({width:1440,height:950});
   await page.locator(`[data-tpv-add="${fixture.productId}:0"]`).click();assert.equal(await page.locator('.tpv-ticket-line').count(),1);
   await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Nuevo producto',exact:true}).click();
   const dialog=page.locator('.tpv-product-dialog');await dialog.locator('[data-tpv-product-form],[role=alert]').first().waitFor();

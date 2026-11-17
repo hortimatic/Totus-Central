@@ -33,6 +33,10 @@ Si se interrumpe el guardado de la revisión, pulsa **Comprobar envío** manteni
 
 Pulsa **+ Crear categoría** junto al selector del artículo. Escribe su nombre, elige **Dentro de** y pulsa **Revisar categoría**. Confirma su creación y, cuando aparezca **Categoría creada**, pulsa **Usar en este producto**. La ficha y el ticket se conservan. Las solicitudes permanecen en **Categorías guardadas**; una respuesta pendiente se consulta con la misma solicitud antes de volver a crear nada.
 
+## Elegir cómo se muestran los precios
+
+En **Más acciones → Configuración → Precios de las tarjetas**, elige **Con IVA** o **Sin IVA** y guarda el mostrador. Cada tarjeta indica su modalidad; el ticket confirma el total con los impuestos del cliente. En Tabla puedes añadir **Precio sin IVA** desde Columnas y conservar **PVP con IVA** para comparar. Si la conexión no entrega el importe sin IVA, se indica que no está disponible.
+
 ## Contar el efectivo
 
 Ampliación comprobada en laboratorio, pendiente de activación remota.

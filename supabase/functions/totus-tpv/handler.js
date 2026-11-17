@@ -18,7 +18,7 @@ const positive=value=>Number.isSafeInteger(value)&&value>0;
 export function catalogueForActor(data,canReadCosts){
  need(Array.isArray(data?.items),'TPV_CATALOGUE_INVALID');
  const fields=['id','product_id','attribute_id','name','variant_name','reference','ean','upc','choose_variant','minimum_quantity',
-  'stock','unit_tax_incl','unit_tax_excl','preview_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
+  'stock','unit_tax_incl','unit_tax_excl','preview_cents','preview_tax_excl_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
  return {...data,items:data.items.map(item=>Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]])))};
 }
 const check=response=>{if(response?.error)throw new Error(/^TPV_[A-Z0-9_]{1,90}$/.test(response.error.message||'')?response.error.message:'TPV_STORAGE_UNAVAILABLE');

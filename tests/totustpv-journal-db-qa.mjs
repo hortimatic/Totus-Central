@@ -70,6 +70,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117093928_totustpv_cash_counting.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('native-lab/directory-journal.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -362,6 +363,10 @@ try {
  await denied(()=>prefs(qaScope,{display:{returnToStart:'true'}}),/INVALID/);
  check((await prefs(qaScope,{columns:['name','price']})).display.ticketNewestFirst,true);
  await denied(()=>prefs(qaScope,{display:{showPrices:'false'}}),/INVALID/);
+ check((await prefs(qaScope,{display:{priceMode:'net'},columns:['name','netPrice','price']})).display.priceMode,'net');
+ check((await prefs(qaScope)).columns,['name','netPrice','price']);
+ for(const priceMode of ['gross','net'])check((await prefs(qaScope,{display:{priceMode}})).display.priceMode,priceMode);
+ for(const priceMode of ['<script>',true,null,4,'none'])await denied(()=>prefs(qaScope,{display:{priceMode}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:{canChangeTax:true}}),/INVALID/);
  await denied(()=>prefs(qaScope,{display:null}),/INVALID/);
  check((await prefs(qaScope,{receipt:{title:'Mi justificante',footer:'Gracias\nHasta pronto',fontSize:14,fontFamily:'monospace',showReferences:false}})).receipt.fontSize,14);

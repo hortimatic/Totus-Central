@@ -210,3 +210,7 @@ El objetivo de estabilidad se consigue con estos controles y evidencias. No se d
 ### Alta auxiliar de categorías · 17/11/2026, 11:36 CET
 
 El formulario de producto conserva su ficha mientras revisa y crea una categoría mediante el escritor común de directorios y su diario existente. `catalogue-intake-service.js` y la migración `20261117100653_totustpv_catalogue_helpers.sql` conservan la preparación, propiedad y reserva contra concurrencia; la selección solo se actualiza tras releer el catálogo nativo. La tienda procede de la asignación autorizada. Los recorridos SQL y nativo aislado pasan; esta sexta migración no está aplicada remotamente. Detalle de estructura y mantenimiento: `TOTUSTPV_CATEGORIAS_20261117.md`.
+
+### Presentación de precios · 17/11/2026, 11:49 CET
+
+El catálogo nativo aporta céntimos sin IVA con su redondeo, además del PVP existente. La interfaz selecciona la presentación de tarjetas y permite ambas columnas en Tabla, manteniendo la ordenación nativa de PVP y el cálculo financiero independiente. La séptima migración conserva preferencias y permisos. Prueba nativa aislada, 461 aserciones SQL y 46 recorridos afectados aprobados; activación remota pendiente. Detalle: `TOTUSTPV_PRECIOS_IVA_20261117.md`.
