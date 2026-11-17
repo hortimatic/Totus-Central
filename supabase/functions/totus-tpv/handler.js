@@ -17,9 +17,18 @@ const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}
 const positive=value=>Number.isSafeInteger(value)&&value>0;
 export function catalogueForActor(data,canReadCosts){
  need(Array.isArray(data?.items),'TPV_CATALOGUE_INVALID');
- const fields=['id','product_id','attribute_id','name','variant_name','reference','ean','upc','isbn','choose_variant','minimum_quantity',
+ const fields=['id','product_id','attribute_id','name','variant_name','variant_attributes','reference','ean','upc','isbn','choose_variant','minimum_quantity',
   'stock','unit_tax_incl','unit_tax_excl','preview_cents','preview_tax_excl_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
- return {...data,items:data.items.map(item=>Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]])))};
+ return {...data,items:data.items.map(item=>{
+  const projected=Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]]));
+  if(Object.hasOwn(projected,'variant_attributes')){
+   need(Array.isArray(projected.variant_attributes)&&projected.variant_attributes.length<=64,'TPV_CATALOGUE_INVALID');
+   projected.variant_attributes=projected.variant_attributes.map(row=>{
+    need(row&&positive(row.id)&&positive(row.groupId)&&typeof row.name==='string'&&Array.from(row.name).length<=128&&typeof row.groupName==='string'&&Array.from(row.groupName).length<=128,'TPV_CATALOGUE_INVALID');
+    return Object.fromEntries(['id','groupId','name','groupName'].map(key=>[key,row[key]]));
+   });
+  }return projected;
+ })};
 }
 const check=response=>{if(response?.error)throw new Error(/^TPV_[A-Z0-9_]{1,90}$/.test(response.error.message||'')?response.error.message:'TPV_STORAGE_UNAVAILABLE');
  need(response&&Object.hasOwn(response,'data'),'TPV_STORAGE_UNAVAILABLE');return response.data;};

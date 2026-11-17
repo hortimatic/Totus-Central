@@ -7,6 +7,7 @@ export async function exerciseNativeCatalogueFilters({call,fixture,nativeWriteCo
  const parent=filtered.items.find(row=>row.product_id===sample.ids.variants);assert.equal(parent.stock,0);assert.equal(parent.choose_variant,true);
  const variants=await call({productId:sample.ids.variants,catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});
  assert.equal(variants.total_count,1);assert.equal(variants.items.length,1);assert.equal(variants.items[0].attribute_id,fixture.variant.variants[1].attributeId);assert.ok(variants.items[0].stock>0);
+ assert.ok(variants.items[0].variant_attributes.length>0);assert.ok(variants.items[0].variant_attributes.every(row=>Number.isSafeInteger(row.id)&&Number.isSafeInteger(row.groupId)&&row.name&&row.groupName));
  const unavailable=await call({search:fixture.variant.variants[0].reference,catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});assert.equal(unavailable.total_count,0);
  for(const excluded of [sample.parentId,sample.childId]){const result=await call({...base,catalogueFilters:{hideUnavailable:false,excludedCategories:[excluded]}});assert.equal(result.total_count,0);assert.equal(result.items.length,0);}
  const price=await call({...base,sortField:'price',catalogueFilters:{hideUnavailable:true,excludedCategories:[]}});assert.equal(price.total_count,2);assert.deepEqual(price.catalogue_filters,{hideUnavailable:true,excludedCategories:[]});

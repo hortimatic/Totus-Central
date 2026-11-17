@@ -231,15 +231,19 @@ final class NativeCatalogue
         $incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
         $excl=\Product::getPriceStatic($id,false,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
         Protocol::ensure(is_numeric($incl)&&is_numeric($excl)&&$incl>=0&&$excl>=0,'CATALOGUE_PRICE_INVALID');
-        $label='';$minimum=1;
+        $label='';$minimum=1;$attributes=[];
         if($attribute>0){$combination=new \Combination($attribute);Protocol::ensure(\Validate::isLoadedObject($combination)&&(int)$combination->id_product===$id,'CATALOGUE_VARIANT_INVALID');
-            $label=implode(' · ',array_column($combination->getAttributesName((int)$profile['language_id']),'name'));$minimum=(int)$combination->minimal_quantity;}
+            $query=\Db::getInstance()->getLink()->prepare('SELECT a.id_attribute,a.id_attribute_group,al.name,agl.public_name group_name FROM `'._DB_PREFIX_.'product_attribute_combination` pac JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_lang` al ON al.id_attribute=a.id_attribute AND al.id_lang=? JOIN `'._DB_PREFIX_.'attribute_group_lang` agl ON agl.id_attribute_group=a.id_attribute_group AND agl.id_lang=? WHERE pac.id_product_attribute=? ORDER BY ag.position,a.position,a.id_attribute LIMIT 65');
+            $query->execute([(int)$profile['language_id'],(int)$profile['language_id'],$attribute]);$nativeAttributes=$query->fetchAll(\PDO::FETCH_ASSOC);
+            Protocol::ensure(count($nativeAttributes)<=64,'CATALOGUE_VARIANT_ATTRIBUTES_LIMIT');
+            $attributes=array_map(static fn($row)=>['id'=>(int)$row['id_attribute'],'groupId'=>(int)$row['id_attribute_group'],'groupName'=>(string)$row['group_name'],'name'=>(string)$row['name']],$nativeAttributes);
+            $label=implode(' · ',array_column($attributes,'name'));$minimum=(int)$combination->minimal_quantity;}
         else{$native=new \Product($id,false,(int)$profile['language_id'],(int)$profile['shop_id']);$minimum=(int)$native->minimal_quantity;}
         $cover=\Image::getCover($id);$image=(int)($cover['id_image']??0);
         return ['id'=>$id.':'.$attribute,'product_id'=>$id,'attribute_id'=>$attribute,'name'=>(string)$product['name'],
             'manufacturer'=>(string)($product['manufacturer_name']??''),'supplier'=>(string)($product['supplier_name']??''),
             'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
-            'variant_name'=>$label,'reference'=>(string)($variant['reference']??$product['reference']),
+            'variant_name'=>$label,'variant_attributes'=>$attributes,'reference'=>(string)($variant['reference']??$product['reference']),
             'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'isbn'=>(string)($variant['isbn']??$product['isbn']),'choose_variant'=>$choose,
             'minimum_quantity'=>max(1,$minimum),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),

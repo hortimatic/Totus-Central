@@ -176,3 +176,7 @@ Completar los proveedores persistentes de carrito/perfil, autorización HTTP nor
 ### 17/11/2026, 13:06 CET · gestión de cajas integrada
 
 La preparación enlaza con el registro existente de Central, en otra pestaña y con permisos administrativos. La sección de destino admite recarga directa. La lista del TPV se actualiza conservando campos, sin escrituras de asignación. Aprueban 98 recorridos distintos (82 iniciales y 16 de continuación, tras corregir una suposición de reapertura del panel) y ocho pruebas de estabilidad. No hay nueva migración ni publicación. Detalle: TOTUSTPV_GESTION_CAJAS_20261117.md. El archivo privado incorpora una nueva referencia de variantes: 30 originales conservados; su contraste completo sigue pendiente.
+
+### 17/11/2026 · atributos nativos de variantes
+
+Las combinaciones explican grupo y valor (por ejemplo, Color: Rojo), en tarjetas y tabla, con proyección pública limitada y respaldo del nombre compuesto anterior. Aprueban 46 recorridos afectados y laboratorio nativo con navegador, conservación del ticket y móvil/escritorio. Selección por atributo y orden inicial siguen pendientes; no se cierra un requisito amplio por este avance. Sin nueva migración ni publicación. Detalle: TOTUSTPV_VARIANTES_20261117.md. Las cuatro comprobaciones de GitHub del bloque d464df92 han finalizado correctamente.

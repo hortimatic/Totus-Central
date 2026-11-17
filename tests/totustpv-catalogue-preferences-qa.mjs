@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cataloguePreferences,cataloguePreferencesFromForm,catalogueFilters,visibleCatalogueCategories,catalogueDetails,cataloguePreferencesHtml} from '../src/totustpv/catalogue-preferences.js';
+import {cataloguePreferences,cataloguePreferencesFromForm,catalogueFilters,visibleCatalogueCategories,catalogueDetails,cataloguePreferencesHtml,variantDetails} from '../src/totustpv/catalogue-preferences.js';
 import {createCatalogueTable} from '../src/totustpv/catalogue-table.js';
 test('catalogue filters are bounded presentation choices, with no stock or permission override',()=>{
  assert.deepEqual(cataloguePreferences(),{hideUnavailable:false,excludedCategories:[],extraDetails:false});
@@ -25,4 +25,10 @@ test('form choices retain multiple and empty exclusions and additional data is e
 test('a selectable variant parent does not present its aggregate zero as an unavailable unit',()=>{
  const table=createCatalogueTable();table.setColumns(['name','stock']);const html=table.html([{id:'1:2',name:'Con variantes',chooseVariant:true,stock:0},{id:'2:0',name:'Simple agotado',stock:0}]);
  assert.match(html,/data-tpv-column="stock">Por variante/);assert.match(html,/data-tpv-column="stock">0/);
+});
+test('variant groups explain choices in cards and tables without interpreting native labels as markup',()=>{
+ const row={id:'1:3',name:'Artículo rojo',variantAttributes:[{groupName:'Color',name:'<Rojo>'},{groupName:'Tamaño',name:'M'}]};
+ assert.equal(variantDetails(row),'Color: <Rojo> · Tamaño: M');assert.equal(variantDetails({...row,chooseVariant:true}),'');
+ const table=createCatalogueTable();table.setColumns(['name']);const html=table.html([row]);
+ assert.match(html,/Color: &lt;Rojo&gt; · Tamaño: M/);assert.equal(html.includes('<Rojo>'),false);
 });

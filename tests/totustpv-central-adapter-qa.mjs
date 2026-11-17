@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createCentralTpvAdapter,orderLookupInput} from '../src/totustpv/central-adapter.js';
+import {createCentralTpvAdapter,orderLookupInput,catalogueVariantAttributes} from '../src/totustpv/central-adapter.js';
+test('native variant attributes retain their groups and labels without importing extra native data',()=>{
+ const row={id:3,groupId:2,name:'Rojo',groupName:'Color',private:'discarded'};
+ assert.deepEqual(catalogueVariantAttributes([row]),[{id:3,groupId:2,name:'Rojo',groupName:'Color'}]);
+ assert.deepEqual(catalogueVariantAttributes(undefined),[]);
+ for(const value of [null,{},[row,row],[{...row,id:0}],[{...row,name:''}],[{...row,groupId:'2'}],Array(65).fill(row)])assert.throws(()=>catalogueVariantAttributes(value),/atributos/);
+});
 function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
   shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,canSell:true,canReconcile:true,session:null};

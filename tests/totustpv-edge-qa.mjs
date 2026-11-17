@@ -10,6 +10,11 @@ test('catalogue response excludes procurement data without server-observed Produ
  assert.equal(catalogueForActor(native,true).items[0].cost_base_cents,75);
  assert.equal(Object.hasOwn(catalogueForActor(native,true).items[0],'unexpected_private_field'),false);
 });
+test('variant metadata exposes only bounded attribute identities and public labels',()=>{
+ const attribute={id:2,groupId:1,name:'Rojo',groupName:'Color',cost:99,secret:'omit'};
+ assert.deepEqual(catalogueForActor({items:[{variant_attributes:[attribute]}]},false).items[0].variant_attributes,[{id:2,groupId:1,name:'Rojo',groupName:'Color'}]);
+ for(const value of [null,{},Array(65).fill(attribute),[{...attribute,id:0}],[{...attribute,name:'x'.repeat(129)}]])assert.throws(()=>catalogueForActor({items:[{variant_attributes:value}]},false),/TPV_CATALOGUE_INVALID/);
+});
 function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows,nativeDocument,noSession=false}={}){
  const calls=[],nativeRequests=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};

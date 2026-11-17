@@ -9,6 +9,15 @@ const clone=value=>structuredClone(value);
 const ordered=value=>Array.isArray(value)?value.map(ordered):value&&typeof value==='object'?
  Object.fromEntries(Object.keys(value).sort().map(key=>[key,ordered(value[key])])):value;
 const canonical=value=>JSON.stringify(ordered(value));
+export function catalogueVariantAttributes(value){
+ if(value===undefined)return [];
+ need(Array.isArray(value)&&value.length<=64,'La tienda no ha confirmado los atributos de la variante.');
+ const ids=new Set();return value.map(row=>{
+  need(row&&Number.isSafeInteger(row.id)&&row.id>0&&Number.isSafeInteger(row.groupId)&&row.groupId>0&&
+   typeof row.name==='string'&&row.name.trim().length>0&&Array.from(row.name).length<=128&&typeof row.groupName==='string'&&Array.from(row.groupName).length<=128&&!ids.has(row.id),'La tienda no ha confirmado los atributos de la variante.');
+  ids.add(row.id);return {id:row.id,groupId:row.groupId,name:row.name,groupName:row.groupName};
+ });
+}
 export function orderLookupInput(value){const text=String(value??'').trim();if(!text)return {};
  const tagged=/^R:/i.test(text);
  if(!tagged&&/^[0-9]+$/.test(text)){const orderId=Number(text);need(text.length<=15&&Number.isSafeInteger(orderId)&&orderId>0,'Escribe un número de pedido válido.');return {orderId};}
@@ -81,7 +90,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(!row.choose_variant&&row.variant_name?' · '+row.variant_name:''),reference:row.reference,
     stock:row.stock,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
-    barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
+    variantAttributes:row.choose_variant?[]:catalogueVariantAttributes(row.variant_attributes),barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
    Object.defineProperties(items,{hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
   async quote({lines,adjustment,coupon}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
