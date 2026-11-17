@@ -17,6 +17,11 @@ function fixture({denied=false,foreignWebsite=false,session=false}={}){
    {data:{connections:[{id:selection.connectionId,revision:6}],websites:[{key:'qa-shop',connection_id:selection.connectionId,origin:foreignWebsite?'https://hortimatic.com':TOTUS_QA_POLICY.origin,status:'active'}]}};}
   if(name==='totus_api_server'){assert.equal(key,'server-key');return {data:{id:selection.connectionId,revision:6,endpoint:TOTUS_QA_POLICY.origin+'/api'}};}
   if(name==='totus_api_call')return {data:true};
+  if(name==='totus_tpv_catalogue_intake'){
+   assert.equal(key,'server-key');assert.equal(args.p_scope.actorId,actor);assert.equal(args.p_scope.sessionId,undefined);
+   if(args.p_action==='list')return {data:[{id,name:'Familia',status:'attention'}]};
+   assert.equal(args.p_action,'get');return {data:{id,payload:{name:'Familia',parentId:'2'},payloadHash:'private-hash',fingerprint:'private-fingerprint',leaseToken:drawer,status:'attention'}};
+  }
   if(name==='totus_tpv_product_intake'){
    assert.equal(key,'server-key');assert.equal(args.p_scope.actorId,actor);assert.equal(args.p_scope.drawerId,drawer);assert.equal(args.p_scope.sessionId,undefined);
    if(args.p_action==='list')return {data:[{id,name:'Artículo',reference:'ART-001',status:'attention'}]};
@@ -29,6 +34,15 @@ function fixture({denied=false,foreignWebsite=false,session=false}={}){
  const call=async body=>{const response=await handler(new Request('https://fixture.invalid/tpv',{method:'POST',headers:{Authorization:'Bearer fixture-token','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,body:await response.json()};};
  return {call,calls,get outbound(){return outbound;}};
 }
+
+test('category history is readable after closing cash while creation still needs Products rights and a session',async()=>{
+ const f=fixture();assert.equal((await f.call({action:'product-categories',selection,operationId:id})).status,200);
+ const result=await f.call({action:'product-category-get',selection,operationId:id});assert.equal(result.body.name,'Familia');
+ for(const key of ['payload','payloadHash','fingerprint','leaseToken'])assert.equal(Object.hasOwn(result.body,key),false);
+ assert.equal((await f.call({action:'product-category-step',selection,operationId:id})).status,400);assert.equal(f.outbound,0);
+ const denied=fixture({denied:true,session:true});assert.equal((await denied.call({action:'product-category-prepare',selection:{...selection,sessionId:id},operationId:id,payload:{name:'Familia',parentId:'2'}})).status,400);
+ assert.equal(denied.calls.some(call=>call.name==='totus_api_server'),false,'Category permission is checked before retrieving credentials');
+});
 test('saved product work can be read after cash closes, without exposing its private command or image',async()=>{
  const f=fixture();assert.equal((await f.call({action:'product-intakes',selection,operationId:id})).status,200);
  const result=await f.call({action:'product-intake-get',selection:{...selection,sessionId:id},operationId:id});assert.equal(result.status,200);assert.equal(result.body.productId,'99');

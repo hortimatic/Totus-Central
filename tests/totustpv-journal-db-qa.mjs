@@ -68,6 +68,8 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117031559_totustpv_customer_display.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117052454_totustpv_product_intake.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117093928_totustpv_cash_counting.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('native-lab/directory-journal.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -547,9 +549,53 @@ try {
  const unfinishedProducts=await intake('list',null,{},productReadScope);check(unfinishedProducts.length,100);check(unfinishedProducts.every(row=>row.status==='ready'),true,'Pending work is never hidden behind completed history');
  await denied(()=>intake('create',id(800),intakeData),/ACTIVE_LIMIT/);check((await intake('create',id(700),intakeData)).status,'ready');
  await intake('cancel',id(700));check((await intake('create',id(800),intakeData)).status,'ready');
+ const categoryData={kind:'category',payload:{name:'Categoría ficticia',parentId:'2'},payloadHash:'c'.repeat(64),fingerprint:'d'.repeat(64)};
+ const category=async(action,request,data={},selected=productScope)=>(await db.query('select public.totus_tpv_catalogue_intake($1,$2,$3::jsonb,$4::jsonb) result',
+  [action,request,JSON.stringify(selected),JSON.stringify(data)])).rows[0].result;
+ let categoryRow=await category('create',id(900),categoryData);check(categoryRow.status,'ready');check(categoryRow.payload,categoryData.payload);
+ check((await category('create',id(900),categoryData)).version,1);
+ await denied(()=>category('create',id(900),{...categoryData,payload:{name:'Otra',parentId:'2'}}),/BOUND/);
+ for(const payload of [{name:'',parentId:'2'},{name:'<script>',parentId:'2'},{name:'Prueba',parentId:'all'},{name:'Prueba',parentId:2},{name:'Prueba',parentId:'2',shopId:2}])
+  await denied(()=>category('create',id(901),{...categoryData,payload}),/INVALID/);
+ await denied(()=>category(null,id(900)),/INVALID/);
+ await denied(()=>category('create',id(901),{...categoryData,actorId:id(9)}),/INVALID/);
+ await denied(()=>category('get',id(900),{}, {...productReadScope,shopId:2}),/ASSIGNMENT|INVALID/);
+ for(const role of ['anon','authenticated']){await db.exec('set role '+role);await denied(()=>category('get',id(900)),/permission denied/);
+  await denied(()=>db.query('select * from private.totus_tpv_catalogue_intakes'),/permission denied/);}
+ await db.exec('reset role;set role service_role');
+ check((await category('start',id(900),{token:id(902)})).leaseToken,id(902));check((await category('start',id(900),{token:id(903)})).busy,true);
+ check((await category('verified',id(900),{token:id(903),recordId:'42'})).superseded,true);
+ await denied(()=>category('verified',id(900),{token:id(902),recordId:'0'}),/RESULT_INVALID/);
+ categoryRow=await category('failed',id(900),{token:id(902),code:'TPV_CATALOGUE_INTENT_UNCERTAIN'});check(categoryRow.status,'attention');
+ await cash('close',id(915),{countedCents:0,note:'Cierre con categoría pendiente'},productScope);
+ check((await category('get',id(900),{},productReadScope)).status,'attention');
+ await denied(()=>category('start',id(900),{token:id(917)}),/CASH_SESSION_MISMATCH/);
+ productScope.sessionId=id(916);await journal('open',id(916),{openingCents:0},productScope);
+ await category('start',id(900),{token:id(918)});
+ await asAdmin(`update private.totus_tpv_catalogue_intakes set lease_until=clock_timestamp()-interval '1 second' where id='${id(900)}';`);
+ check((await category('start',id(900),{token:id(919)})).leaseToken,id(919));
+ check((await category('failed',id(900),{token:id(918),code:'TPV_CATALOGUE_INTENT_UNCERTAIN'})).superseded,true);
+ categoryRow=await category('verified',id(900),{token:id(919),recordId:'42'});check(categoryRow.status,'completed');check(categoryRow.recordId,'42');
+ check((await category('start',id(900),{token:id(920)})).version,categoryRow.version);
+ await denied(()=>category('cancel',id(900)),/REVIEW_REQUIRED/);
+ await category('create',id(901),categoryData);const cancelledCategory=await category('cancel',id(901));check(cancelledCategory.status,'cancelled');
+ check((await category('cancel',id(901))).version,cancelledCategory.version);
+ for(let n=950;n<1050;n++)await category('create',id(n),categoryData);
+ check((await category('list',null,{},productReadScope)).length,100);
+ await denied(()=>category('create',id(1050),categoryData),/INTENT_LIMIT/);check((await category('create',id(950),categoryData)).status,'ready');
+ await category('cancel',id(950));check((await category('create',id(1050),categoryData)).status,'ready');
+ const directoryData={actor_id:productScope.actorId,connection_id:productScope.connectionId,revision:productScope.connectionRevision,resource:'categories',operation:'create',
+  signature:'a'.repeat(64),scope_hash:'b'.repeat(64),baseline_ids:[]};
+ const dir=async(action,data=directoryData)=>(await db.query('select public.totus_directory_operation($1,$2,$3::jsonb) result',[action,id(940),JSON.stringify(data)])).rows[0].result;
+ check(await dir('lookup'),null);check((await dir('claim')).status,'claimed');check((await dir('complete',{...directoryData,record_id:'42'})).status,'completed');
+ check((await dir('lookup')).record_id,42);await denied(()=>dir('lookup',{...directoryData,actor_id:id(9)}),/otra operación|identidad/);
+ await db.query('select public.totus_directory_operation($1,$2,$3::jsonb)',['claim',id(1050),JSON.stringify({...directoryData,scope_hash:'e'.repeat(64)})]);
+ await denied(()=>category('cancel',id(1050)),/REVIEW_REQUIRED/);
+ await denied(()=>db.query('delete from private.totus_tpv_catalogue_intakes'),/permission denied/);
  await asAdmin(`create or replace function private.totus_module_can(email text,module text,action text) returns boolean language sql stable
   as $$select exists(select 1 from public.profiles p where p.email=$1 and p.active and p.role='admin') and not($2='productos' and $3='create')$$;`);
  await denied(()=>intake('start',id(800),{token:id(801)}),/PRODUCT_FORBIDDEN/);check((await intake('get',id(800),{},productReadScope)).status,'ready');
+ await denied(()=>category('start',id(1050),{token:id(1051)}),/PRODUCT_FORBIDDEN/);check((await category('get',id(1050),{},productReadScope)).status,'ready');
  await denied(()=>db.query('delete from private.totus_tpv_product_intakes'),/permission denied/);
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);

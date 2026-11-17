@@ -5,10 +5,10 @@ import {boundedText} from './transport.js';
 // Create against native resources only. Existing customers are never used as a
 // template; passwords are generated only on the server and never returned.
 export async function createDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url,same}){
- const parent=q.resource==='addresses'?({clientes:'id_customer',proveedores:'id_supplier',marcas:'id_manufacturer'}[q.kind]):q.resource==='product_option_values'?'id_attribute_group':q.resource==='product_feature_values'?'id_feature':null;
+ const parent=q.resource==='categories'?'id_parent':q.resource==='addresses'?({clientes:'id_customer',proveedores:'id_supplier',marcas:'id_manufacturer'}[q.kind]):q.resource==='product_option_values'?'id_attribute_group':q.resource==='product_feature_values'?'id_feature':null;
  const identityField=q.resource==='customers'?'email':q.resource==='addresses'?'alias':q.resource==='product_feature_values'?'value':'name';
  const identity=q.fields[identityField];
- const scopeHash=await sha256Text(JSON.stringify([q.resource,parent?q.fields[parent]:null,identity.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es')]));
+ const scopeHash=await sha256Text(JSON.stringify([q.resource,parent?q.fields[parent]:null,identity.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es'),...(q.resource==='categories'?[q.fields.id_shop_default]:[])]));
  let languageRows=[];
  if(Object.keys(q.fields).some(field=>directoryLocalized(q.resource,field))){languageRows=await list('languages',{display:'[id,iso_code,active]'});if(!languageRows.length||languageRows.length>=100||!languageRows.some(l=>String(l.active)==='1'))throw Error('No hay un inventario de idiomas completo.');}
  const defaultLanguage=String((languageRows.find(l=>l.iso_code==='es'&&String(l.active)==='1')||languageRows.find(l=>String(l.active)==='1'))?.id||'');
@@ -42,7 +42,7 @@ export async function createDirectoryRecord({q,commit,signature,previous,journal
  }
  if(matches.length&&q.resource!=='addresses')throw Error('Ya existe un registro con ese correo o nombre (ID '+matches[0].id+'). Abre su ficha para editarlo.');
  if(q.resource==='addresses')for(const candidate of matches){try{await verify(candidate.id);throw Error('DUPLICATE:'+candidate.id);}catch(error){if(error.code==='FIELDS_DIFFER')continue;if(error.message.startsWith('DUPLICATE:'))throw Error('Ya existe esta dirección (ID '+candidate.id+'). Abre su ficha para editarla.');throw error;}}
- for(const [field,resource]of Object.entries({id_default_group:'groups',id_lang:'languages',id_country:'countries',id_state:'states',id_customer:'customers',id_supplier:'suppliers',id_manufacturer:'manufacturers',id_attribute_group:'product_options',id_feature:'product_features'}))if(Number(q.fields[field])>0){const found=await list(resource,{'filter[id]':'['+q.fields[field]+']'});if(found.length!==1||String(found[0].id)!==q.fields[field])throw Error('Falta el registro de destino para '+field+'.');}
+ for(const [field,resource]of Object.entries({id_default_group:'groups',id_lang:'languages',id_country:'countries',id_state:'states',id_customer:'customers',id_supplier:'suppliers',id_manufacturer:'manufacturers',id_attribute_group:'product_options',id_feature:'product_features',id_parent:'categories'}))if(Number(q.fields[field])>0){const found=await list(resource,{'filter[id]':'['+q.fields[field]+']'});if(found.length!==1||String(found[0].id)!==q.fields[field])throw Error('Falta el registro de destino para '+field+'.');}
  const fingerprint=await sha256Text(JSON.stringify({fields,scopeHash,baselineIds}));
  if(!commit)return {ok:true,store:q.store,kind:q.kind,resource:q.resource,fingerprint,persisted:false,can_commit:true};
  if(fingerprint!==q.fingerprint)throw Error('Los datos de destino cambiaron desde la revisión. Actualiza antes de crear.');

@@ -8,7 +8,7 @@ try{
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('../src/totustpv/workspace.js');
-  window.productFixture={saved:[],steps:0,loseReply:true,canCreate:true};
+  window.productFixture={saved:[],steps:0,loseReply:true,canCreate:true,category:null,loseCategoryReply:true,categoryWrites:0};
   const lists={categories:[{id:'2',name:'Accesorios',active:'1'},{id:'3',name:'Bebidas',active:'1'},{id:'4',name:'Ropa',active:'1'}],
    manufacturers:[{id:'1',name:'Marca',active:'1'}],suppliers:[{id:'1',name:'Proveedor',active:'1'}],tax_rule_groups:[{id:'1',name:'IVA general',active:'1',deleted:'0'}],
    product_options:[{id:'1',name:'Color',public_name:'Color'}],product_option_values:[{id:'1',id_attribute_group:'1',name:'Azul'},{id:'2',id_attribute_group:'1',name:'Rojo'}],
@@ -18,6 +18,11 @@ try{
    productProfile:async()=>({ok:true,language_ids:['1']}),productMetadata:async resource=>({rows:lists[resource],possibly_more:false}),
    quote:async()=>({id:'quote',totalCents:300,paymentMethods:['cash','card']}),discardQuote:async()=>{},
    productIntakes:async()=>structuredClone(productFixture.saved),
+   categoryIntakes:async()=>productFixture.category?[structuredClone(productFixture.category)]:[],
+   prepareCategoryIntake:async payload=>{if(!productFixture.category)productFixture.category={id:'category-request',name:payload.name,parentId:payload.parentId,status:'ready'};
+    if(productFixture.loseCategoryReply){productFixture.loseCategoryReply=false;throw Error('Respuesta perdida de categoría');}return structuredClone(productFixture.category);},
+   getCategoryIntake:async()=>structuredClone(productFixture.category),
+   advanceCategoryIntake:async()=>{if(productFixture.category.status!=='completed'){productFixture.categoryWrites++;productFixture.category.status='completed';productFixture.category.recordId='7';lists.categories.push({id:'7',name:productFixture.category.name,active:'1'});}return structuredClone(productFixture.category);},
    prepareProductIntake:async draft=>{
     if(!productFixture.saved.length)productFixture.saved.push({id:'request',name:draft.name,reference:draft.reference,status:'ready',currentStep:0,
      steps:[{key:'base',kind:'base',label:'Ficha del producto',status:'pending'},{key:'stock',kind:'stock',label:'Unidades del producto',status:'pending'},{key:'finish',kind:'finish',label:'Disponibilidad del producto',status:'pending'}]});
@@ -35,6 +40,14 @@ try{
  await dialog.getByLabel('Nombre del artículo',{exact:true}).fill('Camiseta azul');await dialog.getByLabel('Referencia',{exact:true}).fill('CAMISETA-001');
  await dialog.getByLabel('Precio de venta sin impuestos (€)',{exact:true}).fill('12,50');
  await dialog.getByLabel('Categoría',{exact:true}).selectOption('4');await dialog.getByLabel('Impuestos',{exact:true}).selectOption('1');
+ await dialog.getByRole('button',{name:'+ Crear categoría',exact:true}).click();
+ await dialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Ropa nueva');await dialog.getByLabel('Dentro de',{exact:true}).selectOption('4');
+ await dialog.getByRole('button',{name:'Revisar categoría',exact:true}).click();await dialog.getByRole('alert').filter({hasText:'Respuesta perdida de categoría'}).waitFor();
+ assert.equal(await dialog.getByLabel('Nombre de la categoría',{exact:true}).isDisabled(),true);
+ await dialog.getByRole('button',{name:'Comprobar envío',exact:true}).click();await dialog.getByRole('button',{name:'Confirmar y comprobar categoría',exact:true}).click();
+ await dialog.getByRole('button',{name:'Usar en este producto',exact:true}).click();
+ assert.equal(await dialog.getByLabel('Referencia',{exact:true}).inputValue(),'CAMISETA-001');assert.equal(await dialog.getByLabel('Categoría',{exact:true}).inputValue(),'7');
+ assert.equal(await page.evaluate(()=>productFixture.categoryWrites),1);
  assert.match(await dialog.locator('[data-tpv-product-price]').innerText(),/15,125/);
  await dialog.getByLabel('Precio de venta con impuestos (€)',{exact:true}).fill('15,13');
  assert.equal(await dialog.getByLabel('Precio de venta sin impuestos (€)',{exact:true}).inputValue(),'12.504132');

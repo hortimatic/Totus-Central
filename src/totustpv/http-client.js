@@ -1,4 +1,8 @@
 const messages={
+ TPV_CATALOGUE_INTENT_BOUND:'Esta solicitud pertenece a otra categoría. Consulta las categorías guardadas.',
+ TPV_CATALOGUE_INTENT_LIMIT:'Hay cien categorías pendientes. Revisa las anteriores antes de preparar otra.',
+ TPV_CATALOGUE_INTENT_REVIEW_REQUIRED:'La categoría puede estar creada. Comprueba esta solicitud antes de continuar.',
+ TPV_CATALOGUE_INTENT_NOT_FOUND:'No se encuentra esta solicitud. Actualiza las categorías guardadas.',
  TPV_PRODUCT_FORBIDDEN:'Necesitas permiso de consulta y creación de Productos para dar de alta artículos en esta caja.',
  TPV_PRODUCT_WRITE_UNAVAILABLE:'El alta de productos no está habilitada para esta conexión. Un responsable debe revisar sus permisos.',
  TPV_PRODUCT_SCOPE_INVALID:'La tienda del alta no coincide con la caja seleccionada. Vuelve a abrir el mostrador.',
@@ -54,7 +58,7 @@ export function createTpvHttpClient({auth,owner,currentActor,url,key,request=fet
   const response=await request(base.origin+'/functions/v1/totus-tpv',{method:'POST',headers:{'Content-Type':'application/json',
    apikey:key,Authorization:'Bearer '+session.access_token},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(60000)});
   const result=await response.json();guard();if(!response.ok||result?.error){const code=result?.error||'TPV_REQUEST_FAILED',
-   failure=new Error(code==='TPV_CUSTOMER_FIELDS_REJECTED'&&typeof result.detail==='string'?result.detail:
+   failure=new Error(['TPV_CUSTOMER_FIELDS_REJECTED','TPV_CATALOGUE_FIELDS_REJECTED'].includes(code)&&typeof result.detail==='string'?result.detail:
     messages[code]||'No se pudo confirmar la operación. Conserva sus datos y consulta el resultado antes de repetirla.');failure.code=code;throw failure;}
   return result;
  };

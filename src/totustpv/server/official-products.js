@@ -1,6 +1,8 @@
 import {readPrestashopPage,readPrestashopProductItem} from '../../../supabase/functions/totus-connections/prestashop.js';
 import {readPrestashopProductCreateProfile,runPrestashopProductCreate} from '../../../supabase/functions/totus-connections/prestashop-create.js';
 import {runPrestashopProductStage,validateProductStage} from '../../../supabase/functions/totus-connections/prestashop-product-stage.js';
+import {createContactCategory,directoryMutationSignature} from '../../../supabase/functions/totus-connections/contact-directory-write.js';
+import {categoryCreateRequest} from '../../category-create-contract.js';
 import {TOTUS_QA_POLICY} from './deployment-qa-policy.js';
 const need=(ok,code)=>{if(!ok)throw Error(code);};
 const resources=new Set(['categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','product_options','product_option_values','languages','currencies']);
@@ -54,6 +56,14 @@ export function createOfficialProductWriter({connection,scope,websiteKey,website
   return runPrestashopProductStage(bound,{...input,...context(),action:'prestashop_product_step_'+(commit?'commit':'prepare'),parent_request_id:parentId,product_id:String(productId),
    ...(commit?{expected_fingerprint:fingerprint,confirmed:true}:{})},{...options,journal:stageJournal(parentId,productId)});
  };
+ const categoryInput=(id,payload,commit=false,fingerprint)=>({...context(),action:'prestashop_directory_'+(commit?'commit':'prepare'),request_id:id,payload,
+  ...(commit?{confirmed:true,fingerprint}:{})});
+ const categoryJournal=id=>{
+  const operation=(action,signature,recordId,metadata={})=>call('totus_directory_operation',{p_action:action,p_request_id:id,
+   p_data:{...shared,resource:'categories',operation:'create',signature,...metadata,...(recordId?{record_id:String(recordId)}:{})}});
+  return {lookup:signature=>operation('lookup',signature),claim:(signature,id,metadata)=>operation('claim',signature,id,metadata),
+   complete:(signature,id)=>operation('complete',signature,id),uncertain:(signature,id)=>operation('uncertain',signature,id)};
+ };
  return Object.freeze({
   profile:()=>readPrestashopProductCreateProfile(bound,{...context(),action:'prestashop_product_create_profile'},options),
   list:(resource,page=0,recordId)=>{need(resources.has(resource)&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
@@ -63,6 +73,11 @@ export function createOfficialProductWriter({connection,scope,websiteKey,website
    const response=await readPrestashopProductItem(bound,{...context(),action:'prestashop_item_read',resource:'product_option_values',record_id:String(id)},options);
    need(String(response.item?.id)===String(id),'TPV_PRODUCT_METADATA_INVALID');return response.item;},
   parent:id=>baseJournal.lookup(id),
+  categoryClaimed:async(id,payload)=>{const q=categoryCreateRequest(categoryInput(id,payload),scope.shopId);return categoryJournal(id).lookup(await directoryMutationSignature(q));},
+  prepareCategory:(id,payload)=>{need(env?.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1','TPV_PRODUCT_WRITE_UNAVAILABLE');
+   return createContactCategory(bound,categoryInput(id,payload),{...options,journal:categoryJournal(id),nativeShopId:scope.shopId});},
+  commitCategory:(id,payload,fingerprint)=>{need(env?.get('TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED')==='1','TPV_PRODUCT_WRITE_UNAVAILABLE');
+   return createContactCategory(bound,categoryInput(id,payload,true,fingerprint),{...options,journal:categoryJournal(id),nativeShopId:scope.shopId});},
   prepareBase:payload=>runPrestashopProductCreate(bound,{...payload,...context(),action:'prestashop_product_create_prepare'},{...options,journal:baseJournal}),
   commitBase:(id,payload,fingerprint)=>runPrestashopProductCreate(bound,{...payload,...context(),action:'prestashop_product_create_commit',request_id:id,
    expected_fingerprint:fingerprint,confirmed:true},{...options,journal:baseJournal}),

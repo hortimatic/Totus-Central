@@ -202,6 +202,18 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async productProfile(){return call('product-profile');},
   async productMetadata(resource,page=0,recordId){return call('product-metadata',{resource,page,...(recordId?{recordId}:{})});},
   async productIntakes(){return call('product-intakes');},
+  async categoryIntakes(){return call('product-categories');},
+  async prepareCategoryIntake(payload){const id=await operation('category-intake',payload);
+   try{const result=await call('product-category-prepare',{payload},id);forget('category-intake',id);return result;}
+   catch(error){if(['TPV_CATALOGUE_FIELDS_REJECTED','TPV_PRODUCT_WRITE_UNAVAILABLE'].includes(error.code))forget('category-intake',id);throw error;}},
+  async getCategoryIntake(id){const result=await call('product-category-get',{},id);forget('category-intake',id);return result;},
+  async advanceCategoryIntake(id){return call('product-category-step',{},id);},
+  async cancelCategoryIntake(id){return call('product-category-cancel',{},id);},
+  async recoverCategoryPreparation(){const pending=saved()['category-intake'];if(!pending)return null;
+   let prior;try{prior=JSON.parse(pending.scope);}catch{throw Error('Revisa el registro de solicitudes de esta cuenta.');}
+   if(JSON.stringify(prior.slice(0,3))!==JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId]))return null;
+   try{const result=await call('product-category-get',{},pending.id);forget('category-intake',pending.id);return result;}
+   catch(error){if(error.code!=='TPV_CATALOGUE_INTENT_NOT_FOUND')throw error;forget('category-intake',pending.id);return null;}},
   async recoverProductPreparation(){const pending=saved()['product-intake'];if(!pending)return null;
    let prior;try{prior=JSON.parse(pending.scope);}catch{throw Error('Revisa el registro de solicitudes de esta cuenta.');}
    if(JSON.stringify(prior.slice(0,3))!==JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId]))return null;

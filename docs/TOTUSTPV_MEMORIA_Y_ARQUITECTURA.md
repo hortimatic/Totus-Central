@@ -201,8 +201,12 @@ No se retira POSTPV de una tienda operativa como parte de redactar este document
 
 ## 10. Pendientes explícitos y criterio de finalización
 
-Pendientes vigentes: activación coordinada y aceptación de la interfaz ampliada, cobertura de las configuraciones todavía abiertas, creación de categorías, traspasos, presupuestos, crédito, vales, restantes variantes de cobro/devolución y documentación final privada. La incidencia QA inicial sin pedido ya tiene cierre auditado. La venta, documentos, devoluciones, stock y autorización cuentan con pruebas de alcance concreto; esas pruebas no certifican todos los recorridos concurrentes ni hardware. Siguen pendientes el contraste de impresora/cajón/lector, venta por peso, fidelización, almacenes avanzados y certificaciones fiscales aplicables.
+Pendientes vigentes: activación coordinada y aceptación de la interfaz ampliada, cobertura de las configuraciones todavía abiertas, aceptación remota de categorías, traspasos, presupuestos, crédito, vales, restantes variantes de cobro/devolución y documentación final privada. La incidencia QA inicial sin pedido ya tiene cierre auditado. La venta, documentos, devoluciones, stock y autorización cuentan con pruebas de alcance concreto; esas pruebas no certifican todos los recorridos concurrentes ni hardware. Siguen pendientes el contraste de impresora/cajón/lector, venta por peso, fidelización, almacenes avanzados y certificaciones fiscales aplicables.
 
 Una función se considera terminada cuando tiene recorrido de usuario, permisos de servidor, efectos remotos comprobados, recuperación de fallos, historial y evidencia de prueba. «Botón visible», «respuesta HTTP correcta» y «prueba simulada pasada» no equivalen a función comercial completa.
 
 El objetivo de estabilidad se consigue con estos controles y evidencias. No se declara que sea imposible cualquier fallo; se exige que los fallos previsibles no pierdan ventas, dupliquen cobros o obliguen a reparaciones manuales sin trazabilidad.
+
+### Alta auxiliar de categorías · 17/11/2026, 11:36 CET
+
+El formulario de producto conserva su ficha mientras revisa y crea una categoría mediante el escritor común de directorios y su diario existente. `catalogue-intake-service.js` y la migración `20261117100653_totustpv_catalogue_helpers.sql` conservan la preparación, propiedad y reserva contra concurrencia; la selección solo se actualiza tras releer el catálogo nativo. La tienda procede de la asignación autorizada. Los recorridos SQL y nativo aislado pasan; esta sexta migración no está aplicada remotamente. Detalle de estructura y mantenimiento: `TOTUSTPV_CATEGORIAS_20261117.md`.

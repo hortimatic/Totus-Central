@@ -36,6 +36,16 @@ export async function exerciseNativeProductBrowser({handle,actor,fixture}){
   await dialog.getByLabel('Nombre del artículo',{exact:true}).fill('Artículo desde el mostrador');await dialog.getByLabel('Referencia',{exact:true}).fill(reference);
   await dialog.getByLabel('Precio de venta sin impuestos (€)',{exact:true}).fill('3,250001');await dialog.getByLabel('Precio de compra sin impuestos (€)',{exact:true}).fill('1,125001');
   await dialog.getByLabel('Categoría',{exact:true}).selectOption(fixture.productSetup.categoryId);await dialog.getByLabel('Proveedor',{exact:true}).selectOption(fixture.productSetup.supplierId);
+  await dialog.getByRole('button',{name:'+ Crear categoría',exact:true}).click();
+  await dialog.getByLabel('Nombre de la categoría',{exact:true}).fill('Familia desde el mostrador '+reference);
+  await dialog.getByLabel('Dentro de',{exact:true}).selectOption(fixture.productSetup.categoryId);
+  await dialog.getByRole('button',{name:'Revisar categoría',exact:true}).click();
+  await dialog.getByRole('button',{name:'Confirmar y comprobar categoría',exact:true}).waitFor();
+  for(const width of [1440,390]){await page.setViewportSize({width,height:950});await page.screenshot({path:`artifacts/totustpv-product-intake/native-category-${width}.png`,fullPage:true});assert.equal(await dialog.evaluate(el=>el.scrollWidth>el.clientWidth+2),false);}
+  await dialog.getByRole('button',{name:'Confirmar y comprobar categoría',exact:true}).click();
+  await dialog.getByRole('button',{name:'Usar en este producto',exact:true}).click();
+  assert.equal(await dialog.getByLabel('Referencia',{exact:true}).inputValue(),reference);
+  assert.notEqual(await dialog.getByLabel('Categoría',{exact:true}).inputValue(),fixture.productSetup.categoryId);
   await dialog.getByLabel('Unidades disponibles',{exact:true}).fill('2');
   await mkdir('artifacts/totustpv-product-intake',{recursive:true});
   for(const width of [1440,390]){await page.setViewportSize({width,height:950});await page.screenshot({path:`artifacts/totustpv-product-intake/native-form-${width}.png`,fullPage:true});assert.equal(await dialog.evaluate(el=>el.scrollWidth>el.clientWidth+2),false);}

@@ -11,6 +11,7 @@ import {createRefundService} from '../../../src/totustpv/server/refund-service.j
 import {createStockReceiptService} from '../../../src/totustpv/server/stock-receipt-service.js';
 import {createOfficialProductWriter} from '../../../src/totustpv/server/official-products.js';
 import {createProductIntakeService} from '../../../src/totustpv/server/product-intake-service.js';
+import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 const positive=value=>Number.isSafeInteger(value)&&value>0;
@@ -56,6 +57,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     ['context','configure','workstations','update-workstation-access','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
+     'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
      'returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
@@ -82,6 +84,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'product-intakes':['action','selection','operationId'],'product-intake-prepare':['action','selection','operationId','payload'],
     'product-intake-get':['action','selection','operationId'],'product-intake-step':['action','selection','operationId'],
     'product-intake-cancel':['action','selection','operationId'],
+    'product-categories':['action','selection','operationId'],'product-category-prepare':['action','selection','operationId','payload'],
+    'product-category-get':['action','selection','operationId'],'product-category-step':['action','selection','operationId'],
+    'product-category-cancel':['action','selection','operationId'],
     returnable:['action','selection','operationId','saleId'],'prepare-refund':['action','selection','operationId','saleId','items','payments','reason'],
     'submit-refund':['action','selection','operationId','confirmation'],'recover-refund':['action','selection','operationId'],
     'cancel-refund':['action','selection','operationId']};
@@ -156,7 +161,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
     const readWithoutCash=['cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
-     'product-profile','product-metadata','product-intakes','product-intake-get'].includes(input.action);
+     'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
     const historicalCash=['cash-summary','cash-movement','close'].includes(input.action);
@@ -213,7 +218,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
    if(input.action!=='categories')await authorize({action:['orders','catalogue','customers','customer-metadata','document',
-    'product-profile','product-metadata','product-intakes','product-intake-get'].includes(input.action)?'read':
+    'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action)?'read':
     ['resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
    if(['customers','customer-metadata','customer-write'].includes(input.action)||
@@ -222,7 +227,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      (input.operation==='create'?'create':'edit'):'view'}));
     need(directory.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_CUSTOMER_CONTEXT_INVALID');
    }
-   const productAction=input.action.startsWith('product-'),productWrite=['product-intake-prepare','product-intake-step','product-intake-cancel'].includes(input.action);
+   const productAction=input.action.startsWith('product-'),productWrite=['product-intake-prepare','product-intake-step','product-intake-cancel',
+    'product-category-prepare','product-category-step','product-category-cancel'].includes(input.action);
    async function productContext(){
     const result=check(await scoped.rpc('totus_products_context',{p_action:productWrite?'create':'view'}));
     need(result.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_PRODUCT_FORBIDDEN');
@@ -237,6 +243,11 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      request:async(target,init)=>{await authorize({action:productWrite?'sell':'read'});await productContext();return request(target,init);}});
     if(input.action==='product-profile')return respond(await products.profile());
     if(input.action==='product-metadata')return respond(await products.list(input.resource,input.page??0,input.recordId));
+    if(input.action==='product-categories'||input.action.startsWith('product-category-')){
+     const categories=createCatalogueIntakeService({rpc,products,scope,onStepError:error=>onError(error,{stage:'category-intake-step'})});
+     return respond(input.action==='product-categories'?await categories.list():input.action==='product-category-prepare'?await categories.prepare(input.operationId,input.payload):
+      input.action==='product-category-step'?await categories.advance(input.operationId):input.action==='product-category-cancel'?await categories.cancel(input.operationId):await categories.get(input.operationId));
+    }
     const service=createProductIntakeService({rpc,products,scope,onStepError:error=>onError(error,{stage:'product-intake-step'})});
     return respond(input.action==='product-intakes'?await service.list():input.action==='product-intake-prepare'?await service.prepare(input.operationId,input.payload):
      input.action==='product-intake-step'?await service.advance(input.operationId):input.action==='product-intake-cancel'?await service.cancel(input.operationId):await service.get(input.operationId));
@@ -391,6 +402,6 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const command={operationId:input.operationId,selection:input.selection,payments:input.payments};
    return respond(input.action==='recover'?await checkout.reconcile(command):await checkout.submit(command));
   }catch(error){try{onError(error,{stage});}catch{}return respond({error:/^TPV_[A-Z0-9_]{1,90}$/.test(error?.message||'')?error.message:'TPV_REQUEST_FAILED',
-   ...(error?.message==='TPV_CUSTOMER_FIELDS_REJECTED'&&typeof error.detail==='string'?{detail:error.detail}:{})},400);}
+   ...(['TPV_CUSTOMER_FIELDS_REJECTED','TPV_CATALOGUE_FIELDS_REJECTED'].includes(error?.message)&&typeof error.detail==='string'?{detail:error.detail}:{})},400);}
  };
 }

@@ -29,6 +29,10 @@ Ampliación comprobada en laboratorio, pendiente de activación remota.
 
 Si se interrumpe el guardado de la revisión, pulsa **Comprobar envío** manteniendo la misma ficha. Si ya comenzó el alta, utiliza **Comprobar y continuar alta**; los pasos verificados se conservan. Para encontrarla después de volver a entrar, abre **Más acciones → Altas de productos**. La consulta funciona también sin caja abierta; continuar requiere una sesión y permisos vigentes. No prepares otra alta para sustituir una que tenga resultado incierto.
 
+## Crear una categoría al preparar un producto
+
+Pulsa **+ Crear categoría** junto al selector del artículo. Escribe su nombre, elige **Dentro de** y pulsa **Revisar categoría**. Confirma su creación y, cuando aparezca **Categoría creada**, pulsa **Usar en este producto**. La ficha y el ticket se conservan. Las solicitudes permanecen en **Categorías guardadas**; una respuesta pendiente se consulta con la misma solicitud antes de volver a crear nada.
+
 ## Contar el efectivo
 
 Ampliación comprobada en laboratorio, pendiente de activación remota.

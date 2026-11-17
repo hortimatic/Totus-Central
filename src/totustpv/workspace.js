@@ -272,7 +272,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(!session){const storeId=host.querySelector('[data-tpv-store]').value,drawerId=host.querySelector('[data-tpv-drawer]').value;await adapter.selectWorkstation({storeId,drawerId});}
    await productIntake.open();
   });
-  if(Object.keys(target.dataset).some(key=>key.startsWith('tpvProduct')))return work(async()=>{
+  if(Object.keys(target.dataset).some(key=>key.startsWith('tpvProduct')||key==='tpvCategoryId'))return work(async()=>{
    await productIntake.click(target);if(!productIntake.isOpen()&&session)await reloadProducts();
   });
   if(action==='customer-display'){try{customerScreen.open();failure='';}catch(error){failure=error.message;}render();return;}
@@ -430,6 +430,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   }
   const customerForm=event.target.closest('[data-tpv-client-form]');if(customerForm&&host?.contains(customerForm)){
    event.preventDefault();if(!busy)return work(()=>customers.submit(customerForm));return;}
+  const categoryForm=event.target.closest('[data-tpv-category-form]');if(categoryForm&&host?.contains(categoryForm)){
+   event.preventDefault();if(!busy)return work(()=>productIntake.prepareCategory());return;}
   const productForm=event.target.closest('[data-tpv-product-form]');if(productForm&&host?.contains(productForm)){
    event.preventDefault();if(!busy)return work(()=>productIntake.prepare());return;}
   const form=event.target.closest('[data-tpv-form]');if(!form||!host.contains(form))return;event.preventDefault();

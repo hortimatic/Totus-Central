@@ -5,8 +5,18 @@ function png(){const chunk=(name,data)=>{const result=Buffer.alloc(data.length+1
  const header=Buffer.alloc(13);header.writeUInt32BE(2);header.writeUInt32BE(1,4);header[8]=8;header[9]=6;
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(Buffer.from([0,30,120,70,0,40,130,80,255]))),chunk('IEND',Buffer.alloc(0))]).toString('base64');}
 export async function exerciseProductIntake({call,db,scope,fixture,paths,nativeRead,loseBaseReply,loseStageAck}){
+ const categoryId=randomUUID(),categoryName='Familia QA '+categoryId.slice(0,8);
+ const categoryPrepared=await call('product-category-prepare',{payload:{name:categoryName,parentId:fixture.categoryId}},categoryId);
+ assert.equal(categoryPrepared.status,'ready');
+ const categoryResult=await call('product-category-step',{},categoryId);assert.equal(categoryResult.status,'completed',JSON.stringify(categoryResult));
+ assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/categories').length,1);
+ assert.equal((await call('product-category-step',{},categoryId)).recordId,categoryResult.recordId);
+ assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/categories').length,1);
+ const categoryNative=await nativeRead('categories/'+categoryResult.recordId),createdCategory=categoryNative.category??categoryNative.categories?.[0];
+ assert.equal(String(createdCategory.id_parent),fixture.categoryId);assert.equal(String(createdCategory.id_shop_default),String(scope.shopId));
+ assert.equal((await call('product-categories',{},randomUUID())).some(row=>row.id===categoryId&&row.status==='completed'),true);
  const id=randomUUID(),draft={name:'Camiseta TPV QA '+id.slice(0,8),reference:'QA-INTAKE-'+id.slice(0,8),price:'12.500001',cost:'5.250001',
-  categoryId:fixture.categoryId,manufacturerId:fixture.manufacturerId,supplierId:fixture.supplierId,taxRulesGroupId:'0',quantity:0,visibility:'none',
+  categoryId:categoryResult.recordId,manufacturerId:fixture.manufacturerId,supplierId:fixture.supplierId,taxRulesGroupId:'0',quantity:0,visibility:'none',
   images:[{name:'camiseta.png',mime:'image/png',base64:png()}],variants:fixture.attributeValueIds.map((value,index)=>({attributeValueIds:[value],price:index?'14.750002':'9.500001',cost:index?'6.125001':'4.250001',quantity:index?7:3,supplierReference:'SUP-'+index,imageIndexes:[0]}))};
  const prepared=await call('product-intake-prepare',{payload:draft},id);assert.equal(prepared.status,'ready');
  assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/products').length,0,'Preparing does not create a native product');

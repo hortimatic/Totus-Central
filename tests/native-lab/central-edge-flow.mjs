@@ -41,6 +41,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql','20261117052454_totustpv_product_intake.sql','20261117093928_totustpv_cash_counting.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -53,6 +54,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data'],
    totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data'],
    totus_tpv_product_intake:['p_action','p_id','p_scope','p_data'],
+   totus_tpv_catalogue_intake:['p_action','p_id','p_scope','p_data'],
    totus_prestashop_product_create_journal:['p_action','p_request_id','p_data'],
    totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
    totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};

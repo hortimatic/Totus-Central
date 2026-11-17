@@ -4,6 +4,7 @@ $key=new WebserviceKey((int)($argv[1]??0));
 nativeLabCheck(Validate::isLoadedObject($key)&&$key->description==='Disposable Totus native HTTP QA','Synthetic API account required.');
 $permissions=[];foreach(WebserviceKey::getPermissionForAccount($key->key) as $resource=>$methods)foreach($methods as $method)$permissions[$resource][$method]=true;
 foreach(['categories','manufacturers','suppliers','tax_rule_groups','tax_rules','taxes','countries','product_options','product_option_values','languages','currencies'] as $resource)$permissions[$resource]['GET']=true;
+$permissions['categories']['POST']=true;
 foreach(['products','combinations','stock_availables','product_suppliers','images'] as $resource)foreach(['GET','POST','PUT'] as $method)$permissions[$resource][$method]=true;
 nativeLabCheck(WebserviceKey::setPermissionForAccount((int)$key->id,$permissions),'Cannot configure fictional product writer.');
 $suffix=bin2hex(random_bytes(5));$lang=(int)$context->language->id;

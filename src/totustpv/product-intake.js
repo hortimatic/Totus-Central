@@ -1,18 +1,22 @@
 import {productIntakeDraft,productIntakeTaxPrice} from './product-intake-contract.js';
+import {categoryCreationDraft} from '../category-create-contract.js';
 import {normalizeProductImage} from '../productos-image-editor.js';
 import {productCountryTaxRate,productDisplayAmounts} from '../productos-tax.js';
 import {directoryText} from '../contact-directory-core.js';
 import {enhanceSearchableSelects} from '../productos-controls.js';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statuses={ready:'Lista para continuar',processing:'Comprobando resultado',attention:'Necesita comprobar el resultado',completed:'Alta terminada',cancelled:'Cancelada'};
+const categoryStatus=status=>status==='completed'?'Categoría creada':statuses[status]||status;
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:6}).format(value);
 const empty=()=>({name:'',reference:'',price:'',cost:'0',categoryId:'',manufacturerId:'0',supplierId:'0',taxRulesGroupId:'0',visibility:'none',quantity:0,ean13:'',supplierReference:'',description:'',images:[],variants:[]});
 /** UI state belongs to the current workspace generation. The server owns every
  * reviewed workflow; no image or native credential is stored in localStorage. */
 export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,confirmDiscard=async()=>false,onProgress=()=>{}}){
  let shown=false,loaded=false,dirty=false,attempted=false,draft=empty(),catalogues={},active=null,history=[],revision=0,scroll=0,focusName='',grossText=null;
+ let categoryEditor=false,categoryDraft={name:'',parentId:''},categoryActive=null,categoryAttempted=false,categoryHistory=[];
  const ensure=()=>{if(!canCreate())throw Error('No tienes permiso para crear productos en esta caja.');};
- const reset=()=>{revision++;shown=false;loaded=false;dirty=false;attempted=false;draft=empty();catalogues={};active=null;history=[];scroll=0;focusName='';grossText=null;};
+ const reset=()=>{revision++;shown=false;loaded=false;dirty=false;attempted=false;draft=empty();catalogues={};active=null;history=[];scroll=0;focusName='';grossText=null;
+  categoryEditor=false;categoryDraft={name:'',parentId:''};categoryActive=null;categoryAttempted=false;categoryHistory=[];};
  const options=(resource,value,blank)=>`${blank?`<option value="${blank[0]}">${blank[1]}</option>`:''}${(catalogues[resource]||[]).map(row=>`<option value="${esc(row.id)}" ${String(row.id)===String(value)?'selected':''}>${esc(directoryText(row.name)||'#'+row.id)}</option>`).join('')}`;
  const field=(key,label,type='text',extra='')=>`<label>${label}<input data-tpv-product-field="${key}" name="${key}" type="${type}" value="${esc(draft[key])}" ${extra}></label>`;
  const select=(key,label,resource,blank)=>`<label>${label}<select name="${key}" aria-label="${esc(label)}" data-tpv-product-field="${key}">${options(resource,draft[key],blank)}</select></label>`;
@@ -36,6 +40,8 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
  }
  async function refresh(){const run=revision,result=await adapter().productIntakes();if(run===revision)history=result;}
  async function open(){if(!canRead())throw Error('No tienes permiso para consultar productos de esta caja.');shown=true;const run=revision;
+  if(adapter().categoryIntakes){categoryHistory=await adapter().categoryIntakes();if(run!==revision)return;}
+  if(!categoryActive&&adapter().recoverCategoryPreparation){const recovered=await adapter().recoverCategoryPreparation();if(run!==revision)return;if(recovered){categoryActive=recovered;categoryEditor=true;}}
   if(!dirty&&!active&&adapter().recoverProductPreparation){const recovered=await adapter().recoverProductPreparation();if(run!==revision)return;if(recovered)active=recovered;}
   if(!canCreate()){await refresh();return;}
   if(!loaded){await adapter().productProfile();const data={};
@@ -53,7 +59,8 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
  }
  function html(error=''){if(!shown)return '';return `<dialog class="tpv-product-dialog" aria-labelledby="tpv-product-heading">
   <header class="tpv-product-heading"><div><span class="tpv-product-eyebrow">CATÁLOGO · ESTA TIENDA</span><h3 id="tpv-product-heading" tabindex="-1">${active?'Alta de producto':'Nuevo producto'}</h3><p>${active?'El progreso queda guardado. Puedes consultarlo de nuevo desde esta caja.':'Crea un artículo sin perder el ticket que estás preparando.'}</p></div><button type="button" class="btn secondary" data-tpv-product-action="close" aria-label="Cerrar alta de producto">Cerrar</button></header>
-  <div class="tpv-product-content">${error?`<p class="note bad" role="alert">${esc(error)}</p>`:''}${active?reviewHtml():!canCreate()?'<p>Consulta las altas guardadas. Para crear o continuar un alta necesitas una caja abierta y permiso de creación de Productos.</p>':!loaded?'<p role="status">Consultando categorías y datos de la tienda…</p>':formHtml()}
+  <div class="tpv-product-content">${error?`<p class="note bad" role="alert">${esc(error)}</p>`:''}${categoryEditor?categoryHtml():active?reviewHtml():!canCreate()?'<p>Consulta las altas guardadas. Para crear o continuar un alta necesitas una caja abierta y permiso de creación de Productos.</p>':!loaded?'<p role="status">Consultando categorías y datos de la tienda…</p>':formHtml()}
+  ${categoryHistory.length?`<details class="tpv-product-history"><summary>Categorías guardadas · ${categoryHistory.length}</summary>${categoryHistory.map(row=>`<button type="button" class="btn secondary tpv-product-history-item" data-tpv-category-id="${esc(row.id)}"><strong>${esc(row.name)}</strong><span>${esc(categoryStatus(row.status))}</span></button>`).join('')}</details>`:''}
   <details class="tpv-product-history"><summary>Altas guardadas en esta caja${history.length?' · '+history.length:''}</summary><button type="button" class="btn secondary" data-tpv-product-action="refresh">Actualizar altas</button>
   ${history.map(row=>`<button type="button" class="tpv-product-history-item btn secondary" data-tpv-product-id="${esc(row.id)}"><strong>${esc(row.name)}</strong><span>${esc(row.reference)} · ${esc(statuses[row.status]||row.status)}</span></button>`).join('')||'<p>Todavía no hay altas guardadas.</p>'}</details></div></dialog>`;}
  function formHtml(){return `<form data-tpv-product-form>${attempted?'<p class="note" role="alert">El envío está pendiente de comprobar. Conservamos la misma ficha; pulsa Comprobar envío para recuperar su resultado.</p>':''}<fieldset class="tpv-product-editor" ${attempted?'disabled':''}><div class="tpv-product-fields">
@@ -66,6 +73,7 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
   ${field('cost','Precio de compra sin impuestos (€)','text','inputmode="decimal" required')}
   ${field('ean13','Código de barras EAN','text','inputmode="numeric" maxlength="13" placeholder="Opcional"')}
   ${select('categoryId','Categoría','categories',['','Selecciona categoría'])}
+  ${adapter().prepareCategoryIntake?'<div class="inline-actions"><button type="button" class="btn secondary" data-tpv-product-action="category-new">+ Crear categoría</button></div>':''}
   ${select('manufacturerId','Marca','manufacturers',['0','Sin marca'])}
   ${select('supplierId','Proveedor','suppliers',['0','Sin proveedor'])}
   ${field('supplierReference','Referencia del proveedor','text','maxlength="64"')}
@@ -88,7 +96,19 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
   ${canCreate()&&active.currentStep===0&&['ready','attention'].includes(active.status)?'<button type="button" class="btn secondary" data-tpv-product-action="cancel">Cancelar alta sin crear</button>':''}
   ${canCreate()&&['completed','cancelled'].includes(active.status)?'<button type="button" class="btn secondary" data-tpv-product-action="new">Preparar otro artículo</button>':''}</div>
   ${active.status==='completed'?'<p class="note">Producto guardado y verificado. Cierra esta ventana para buscarlo y añadirlo al ticket.</p>':''}</section>`;}
- return Object.freeze({html,open,reset,isOpen:()=>shown,hasDraft:()=>dirty&&!active,
+ function categoryHtml(){return `<section class="tpv-product-category"><h4>Crear categoría</h4><p>Tu ficha de producto se conserva. La categoría se crea en esta tienda después de confirmar.</p>
+  ${categoryActive?`<p role="status"><strong>${esc(categoryActive.name)}</strong> · ${esc(categoryStatus(categoryActive.status))}</p>
+   ${categoryActive.recordId?`<p>Categoría verificada en la tienda · #${esc(categoryActive.recordId)}</p>`:''}
+   ${categoryActive.status==='attention'?'<p class="note">No se ha confirmado la respuesta. Comprueba esta misma solicitud para evitar duplicados.</p>':''}
+   <div class="inline-actions">${canCreate()&&['ready','attention','processing'].includes(categoryActive.status)?'<button type="button" class="btn primary" data-tpv-product-action="category-run">Confirmar y comprobar categoría</button>':''}
+   ${canCreate()&&['ready','attention'].includes(categoryActive.status)?'<button type="button" class="btn secondary" data-tpv-product-action="category-cancel">Cancelar solicitud</button>':''}
+   ${canCreate()&&!active&&!attempted&&categoryActive.status==='completed'?'<button type="button" class="btn primary" data-tpv-product-action="category-use">Usar en este producto</button>':''}
+   ${canCreate()&&['completed','cancelled'].includes(categoryActive.status)?'<button type="button" class="btn secondary" data-tpv-product-action="category-another">Preparar otra categoría</button>':''}</div>`:
+   `<form data-tpv-category-form><fieldset class="tpv-product-editor" ${categoryAttempted||!canCreate()?'disabled':''}><div class="tpv-product-fields"><label>Nombre de la categoría<input name="categoryName" data-tpv-category-field="name" required maxlength="128" value="${esc(categoryDraft.name)}"></label><label>Dentro de<select name="categoryParent" aria-label="Dentro de" data-tpv-category-field="parentId" required>${options('categories',categoryDraft.parentId,['','Selecciona categoría principal'])}</select></label></div></fieldset>
+    ${categoryAttempted?'<p class="note" role="status">Comprueba el envío antes de cambiar los datos.</p>':''}
+    ${canCreate()?`<button type="submit" class="btn primary">${categoryAttempted?'Comprobar envío':'Revisar categoría'}</button>`:''}</form>`}
+  <button type="button" class="btn secondary" data-tpv-product-action="category-back">Volver al producto</button></section>`;}
+ return Object.freeze({html,open,reset,isOpen:()=>shown,hasDraft:()=>dirty&&!active||!categoryActive&&(categoryAttempted||!!categoryDraft.name),
   snapshot:()=>structuredClone({shown,loaded,dirty,attempted,draft,active,history}),
   capture(root){const dialog=root.querySelector('.tpv-product-dialog');if(dialog){scroll=dialog.scrollTop;focusName=dialog.contains(document.activeElement)?document.activeElement.name||'':'';}},
   mount(root){const dialog=root.querySelector('.tpv-product-dialog');if(!dialog)return;
@@ -96,7 +116,8 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
    if(focusName)dialog.querySelector(`[name="${CSS.escape(focusName)}"]`)?.focus({preventScroll:true});dialog.scrollTop=scroll;
    dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.querySelector('[data-tpv-product-action="close"]').click();});
   },
-  input(target){if(!target.closest('[data-tpv-product-form]')||active||target.type==='file')return false;ensure();
+  input(target){if(target.dataset.tpvCategoryField){ensure();if(categoryActive||categoryAttempted)throw Error('Comprueba el envío de la categoría antes de cambiar sus datos.');categoryDraft[target.dataset.tpvCategoryField]=target.value;return true;}
+   if(!target.closest('[data-tpv-product-form]')||active||target.type==='file')return false;ensure();
    if(attempted)throw Error('Comprueba el resultado del alta con la misma ficha antes de cambiar sus datos.');
    const key=target.dataset.tpvProductField,index=target.dataset.tpvProductVariant,property=target.dataset.tpvProductProperty;
    if(target.hasAttribute('data-tpv-product-gross')){
@@ -125,10 +146,30 @@ export function createProductIntakePanel({adapter,canCreate,canRead=canCreate,co
   async prepare(){ensure();const payload=productIntakeDraft(draft);attempted=true;
    try{active=await adapter().prepareProductIntake(payload);dirty=false;draft=empty();grossText=null;attempted=false;await refresh();}
    catch(error){if(['TPV_PRODUCT_ATTRIBUTE_GROUP_REPEATED','TPV_PRODUCT_METADATA_INVALID','TPV_PRODUCT_CURRENCY_INVALID','TPV_PRODUCT_WRITE_UNAVAILABLE'].includes(error.code))attempted=false;throw error;}},
+  async prepareCategory(){ensure();const payload=categoryCreationDraft(categoryDraft);categoryAttempted=true;
+   try{categoryActive=await adapter().prepareCategoryIntake(payload);categoryAttempted=false;categoryHistory=await adapter().categoryIntakes();}
+   catch(error){if(error.code==='TPV_CATALOGUE_FIELDS_REJECTED'||error.code==='TPV_PRODUCT_WRITE_UNAVAILABLE')categoryAttempted=false;throw error;}},
   async click(target){const action=target.dataset.tpvProductAction;
-   if(action==='close'){if(dirty&&!active&&!await confirmDiscard(attempted?'El envío puede estar guardado. ¿Cerrar y consultar después las altas guardadas?':'¿Cerrar y descartar la ficha sin guardar?'))return;
+   if(action==='close'){if((dirty&&!active||categoryEditor&&!categoryActive&&(categoryAttempted||categoryDraft.name))&&!await confirmDiscard(attempted||categoryAttempted?'El envío puede estar guardado. ¿Cerrar y consultar después las altas guardadas?':'¿Cerrar y descartar la ficha sin guardar?'))return;
     shown=false;if(!active&&!attempted){draft=empty();dirty=false;grossText=null;}return;}
    if(!canRead())throw Error('No tienes permiso para consultar estas altas.');
+   if(target.dataset.tpvCategoryId){categoryActive=await adapter().getCategoryIntake(target.dataset.tpvCategoryId);categoryEditor=true;categoryAttempted=false;return;}
+   if(action==='category-back'){categoryEditor=false;return;}
+   if(action==='category-another'){ensure();if(!['completed','cancelled'].includes(categoryActive?.status))throw Error('Termina o comprueba esta categoría antes de preparar otra.');categoryActive=null;categoryAttempted=false;categoryDraft={name:'',parentId:draft.categoryId};return;}
+   if(action==='category-new'){ensure();categoryEditor=true;if(!categoryActive&&!categoryAttempted)categoryDraft.parentId=draft.categoryId;return;}
+   if(action==='category-run'||action==='category-cancel'||action==='category-use'){
+    ensure();if(!categoryActive)throw Error('Selecciona una categoría guardada.');const run=revision;
+    if(action==='category-run')categoryActive=await adapter().advanceCategoryIntake(categoryActive.id);
+    if(action==='category-cancel')categoryActive=await adapter().cancelCategoryIntake(categoryActive.id);
+    if(run!==revision)return;
+    if(action==='category-use'){
+     if(active||attempted)throw Error('Termina el alta de producto antes de cambiar su categoría.');
+     categoryActive=await adapter().getCategoryIntake(categoryActive.id);if(categoryActive.status!=='completed'||!categoryActive.recordId)throw Error('Comprueba primero que la categoría se haya creado.');
+     const rows=await readAll('categories',run);if(!rows.some(row=>String(row.id)===categoryActive.recordId))throw Error('La categoría todavía no aparece en el catálogo de esta tienda. Vuelve a comprobarla.');
+     catalogues.categories=rows.filter(row=>String(row.active)==='1');draft.categoryId=categoryActive.recordId;dirty=true;categoryEditor=false;categoryActive=null;categoryDraft={name:'',parentId:''};
+    }
+    categoryHistory=await adapter().categoryIntakes();return;
+   }
    if(action==='refresh'){await refresh();return;}
    if(target.dataset.tpvProductId){if(dirty&&!await confirmDiscard('¿Descartar la ficha sin guardar y consultar esta alta?'))return;
     active=await adapter().getProductIntake(target.dataset.tpvProductId);draft=empty();grossText=null;dirty=false;attempted=false;return;}
