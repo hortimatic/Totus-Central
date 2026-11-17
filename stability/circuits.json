@@ -451,7 +451,11 @@
         "tests/totustpv-product-intake-browser-qa.mjs",
         "tests/native-lab/product-",
         "tests/native-lab/central-edge-flow.mjs",
-        "tests/totustpv-native-http-qa.mjs"
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-cash-counting-qa.mjs",
+        "tests/totustpv-cash-counting-browser-qa.mjs",
+        "supabase/migrations/20261117093928_totustpv_cash_counting.sql",
+        "tests/native-lab/cash-counting-browser.mjs"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -491,7 +495,9 @@
         "tests/totustpv-product-intake-contract-qa.mjs",
         "tests/totustpv-product-intake-service-qa.mjs",
         "tests/totustpv-product-intake-edge-qa.mjs",
-        "tests/totustpv-product-intake-browser-qa.mjs"
+        "tests/totustpv-product-intake-browser-qa.mjs",
+        "tests/totustpv-cash-counting-qa.mjs",
+        "tests/totustpv-cash-counting-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

@@ -67,6 +67,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117021112_totustpv_workstation_access.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117031559_totustpv_customer_display.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117052454_totustpv_product_intake.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261117093928_totustpv_cash_counting.sql',import.meta.url),'utf8'));
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
  for(const role of ['anon','authenticated']) {
@@ -333,12 +334,18 @@ try {
  await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
  check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
  check((await prefs()).customerDisplay,{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23});
+ check((await prefs()).cash.denominations,[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1]);
+ check((await prefs(qaScope,{cash:{denominations:[2000,500,100,1]}})).cash.denominations,[2000,500,100,1]);
+ for(const cash of [null,[],true,{denominations:[]},{denominations:'all'},{denominations:[2000,2000]},{denominations:['2000']},{denominations:[0]},{denominations:[-1]},{denominations:[300]},{denominations:[1.5]},{denominations:[100000000000]},{currency:'USD'},{denominations:[100],allowNegative:true}])
+  await denied(()=>prefs(qaScope,{cash}),/INVALID/);
+ check((await prefs(qaScope,{cash:{}})).cash.denominations,[2000,500,100,1]);
  check((await prefs(qaScope,{customerDisplay:{enabled:true,showPrices:false,color:'#112233',fontSize:40}})).customerDisplay,
   {enabled:true,showPrices:false,showCustomer:false,color:'#112233',fontSize:40});
  check((await prefs(qaScope,{customerDisplay:{showCustomer:true}})).customerDisplay.color,'#112233');
  for(const customerDisplay of [null,[],true,{enabled:'true'},{showPrices:0},{showCustomer:'false'},{color:'red'},{color:'#fff'},{color:'url(https://evil.invalid)'},{fontSize:13},{fontSize:41},{fontSize:23.5},{customerEmail:true}])
   await denied(()=>prefs(qaScope,{customerDisplay}),/INVALID/);
  check((await prefs(qaScope,{viewMode:'list'})).customerDisplay.enabled,true);
+ check((await prefs()).cash.denominations,[2000,500,100,1]);
  check((await prefs()).viewMode,'list');await denied(()=>prefs({...qaScope,drawerId:id(999)}),/FORBIDDEN/);
  check((await prefs(qaScope,{columns:['name','photo','stock'],sortField:'stock',sortDirection:'desc'})).sortField,'stock');
  check((await prefs()).columns,['name','photo','stock']);check((await prefs()).viewMode,'list');

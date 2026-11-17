@@ -10,6 +10,7 @@ import {exerciseCentralBrowser} from './central-browser-flow.mjs';
 import {loadProductJournal} from './product-journal.mjs';
 import {exerciseProductIntake} from './product-intake-flow.mjs';
 import {exerciseNativeProductBrowser} from './product-intake-browser.mjs';
+import {exerciseNativeCashCountBrowser} from './cash-counting-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete'}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
@@ -37,7 +38,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   for(const file of ['20261115182617_totustpv_durable_checkout.sql','20261116110935_totustpv_cash_sessions.sql',
    '20261116111537_totustpv_qa_workstation.sql','20261116112315_totustpv_native_command_journal.sql','20261116114831_totustpv_refund_ledger.sql','20261116123633_totustpv_session_history.sql','20261116135126_totustpv_parked_tickets.sql','20261116142221_totustpv_order_lookup.sql','20261116150203_totustpv_cash_reports.sql','20261116172741_totustpv_server_permission_helper.sql',
    '20261116175354_totustpv_failed_sale_review.sql','20261116180903_totustpv_workspace_preferences.sql',
-   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql','20261117052454_totustpv_product_intake.sql'])
+   '20261116192744_totustpv_stock_receipts.sql','20261116205052_totustpv_catalogue_layout.sql','20261117021112_totustpv_workstation_access.sql','20261117031559_totustpv_customer_display.sql','20261117052454_totustpv_product_intake.sql','20261117093928_totustpv_cash_counting.sql'])
    await db.exec(await readFile(new URL('../../supabase/migrations/'+file,import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('directory-journal.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
@@ -132,6 +133,9 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   assert.equal((await call({action:'submit',selection,operationId:saleId,payments})).orderId,sold.orderId);
   assert.equal((await call({action:'recover',selection,operationId:saleId})).orderId,sold.orderId);assert.equal(nativePosts,before);
   const cash=await call({action:'cash-summary',selection,operationId:randomUUID()});assert.equal(cash.expectedCashCents,10801);
+  if(focus==='cash-counting'){
+   await exerciseNativeCashCountBrowser({handle,actor,preferences,db,session});return {focus,saleId,orderId:sold.orderId,remoteShopTouched:false};
+  }
   const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId});
   const refundId=randomUUID(),preparedRefund=await call({action:'prepare-refund',selection,operationId:refundId,saleId,
    items:[{detailId:available.items[0].detail_id,qty:1,restock:true}],payments:[{method:'cash',amountCents:801}]});

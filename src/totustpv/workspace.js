@@ -8,6 +8,7 @@ import {createTpvCustomerPanel} from './customers.js';
 import {createCashReportsPanel} from './cash-reports.js';
 import {createStockIntake} from './stock-intake.js';
 import {createProductIntakePanel} from './product-intake.js';
+import {cashOptions,cashOptionsHtml,cashOptionsFromForm,cashCountHtml,updateCashCount,clearCashCount,mountCashOptions} from './cash-counting.js';
 import {createWorkstationAccessPanel} from './workstation-access.js';
 import {createCustomerDisplay,customerDisplayOptions,customerDisplayOptionsHtml,customerDisplayOptionsFromForm} from './customer-display.js';
 import {createCatalogueTable,priceBuildHtml} from './catalogue-table.js';
@@ -33,6 +34,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  let catalogueSort={field:'name',direction:'asc'},catalogueRefreshTimer=null;
  let displayOptions=displayPreferences(),audioFeedback=null;
  let receiptStyle=receiptOptions();
+ let cashStyle=cashOptions();
  let customerScreenOptions=customerDisplayOptions();
  let orderLookup='',focusOrderLookup=false;
  let host=null,adapter=null,context=null,session=null,products=[],lines=[],search='',tab='sale',notice='',failure='',
@@ -108,10 +110,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(scanInputState){const next=host.querySelector('[data-tpv-search]');if(next){next.value=scanInputState.value;if(scanInputState.focused){next.focus();next.setSelectionRange(scanInputState.start,scanInputState.end);}}}
   catalogueTable.mount(host);
   productIntake.mount(host);
+  mountCashOptions(host);
   if(!busy&&tab==='history'&&focusOrderLookup){const field=host.querySelector('[data-tpv-order-search] [name=orderId]');if(field){field.focus();field.select();focusOrderLookup=false;}}
  }
- function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><button class="btn primary" type="submit">Guardar mostrador</button><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?displayPreferencesFromForm(new Map(Object.entries(formValues.preferences))):displayOptions)}</fieldset>${receiptOptionsHtml(receiptSettingsDraft())}${customerDisplayOptionsHtml(formValues.preferences?customerDisplayOptionsFromForm(new Map(Object.entries(formValues.preferences))):customerScreenOptions)}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
+ function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><button class="btn primary" type="submit">Guardar mostrador</button><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?displayPreferencesFromForm(new Map(Object.entries(formValues.preferences))):displayOptions)}</fieldset>${receiptOptionsHtml(receiptSettingsDraft())}${cashOptionsHtml(cashSettingsDraft())}${customerDisplayOptionsHtml(formValues.preferences?customerDisplayOptionsFromForm(new Map(Object.entries(formValues.preferences))):customerScreenOptions)}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p></form>${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
  function receiptSettingsDraft(){return formValues.preferences?receiptOptionsFromForm(new Map(Object.entries(formValues.preferences))):receiptStyle;}
+ function cashSettingsDraft(){const selected=formValues.preferences?.cashDenominations;return selected===undefined?cashStyle:{denominations:(Array.isArray(selected)?selected:[selected]).map(Number)};}
  function updateReceiptPreview(target){if(!target.name?.startsWith('receipt-'))return;
   const preview=host?.querySelector('[data-tpv-receipt-preview]');if(preview)preview.innerHTML=receiptPreviewHtml(receiptOptionsFromForm(new FormData(target.form)));}
  function configurationHtml(){if(accessPanel.isEditing())return accessPanel.html();const c=configuration,store=formValues.configure?.store||c.stores[0]?.id,
@@ -133,7 +137,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    <small>${row.storeId?(row.drawers.length?row.drawers.map(drawer=>esc(drawer.name)).join(' · '):'Sin cajas activas'):'Asigna primero su establecimiento en Conexiones.'}</small></div></article>`).join('')||'<p>No hay webs registradas disponibles para tu cuenta.</p>'}
   <p class="small muted">Esta consulta no habilita ventas. La asignación del operador, el circuito de pedido y la sesión de caja siguen pendientes de comprobar.</p></section>`;}
  function openingHtml(){if(live()&&!canManageCash())return `<section class="card card-pad tpv-opening"><h3>Caja sin abrir</h3><p>Tu acceso no permite abrir esta caja. Puedes revisar pedidos e informes y actualizar las cajas para comprobar si una persona autorizada ya la ha abierto.</p>${button('refresh-workstation','Actualizar cajas')}</section>`;return `<section class="card card-pad tpv-opening"><h3>${wording('Abrir caja de práctica','Abrir caja')}</h3><p>${wording('Indica el efectivo ficticio con el que empieza la sesión.','Indica el fondo inicial de efectivo de este puesto de pruebas.')}</p>
-  <form data-tpv-form="open"><label>Fondo inicial · €<input name="opening" inputmode="decimal" value="${esc(formValues.open?.opening??'100,00')}" required></label>
+  <form data-tpv-form="open"><label>Fondo inicial · €<input name="opening" inputmode="decimal" value="${esc(formValues.open?.opening??'100,00')}" required></label>${cashCountHtml('opening',cashStyle,formValues.open)}
   <button class="btn primary" type="submit" ${canManageCash()?'':'disabled'}>${wording('Abrir caja de práctica','Abrir caja')}</button></form></section>`;}
  function shownLines(){if(!live()||!payment?.lines?.length)return displayOptions.ticketNewestFirst?[...lines].reverse():lines;
   const rows=payment.lines.map(row=>{const key=row.productId+':'+row.attributeId,source=lines.find(line=>line.productId===key);
@@ -162,10 +166,10 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   <label>Forma de pago<select name="method" data-tpv-method>${[...(payment.paymentMethods||['cash','card']),'mixed'].map(key=>`<option value="${key}" ${paymentValues.method===key?'selected':''}>${esc(paymentLabel(key))}${!live()?' · práctica':''}</option>`).join('')}</select></label>
   <label data-tpv-external-method hidden>Segundo medio de pago<select name="externalMethod">${(payment.paymentMethods||['cash','card']).filter(method=>method!=='cash').map(method=>`<option value="${method}" ${paymentValues.externalMethod===method?'selected':''}>${esc(paymentLabel(method))}</option>`).join('')}</select></label>
   <label data-tpv-cash-part hidden>Parte en efectivo · €<input name="cashPart" inputmode="decimal" value="${esc(paymentValues.cashPart??'0,00')}"></label>
-  <label data-tpv-received>Efectivo recibido · €<input name="received" inputmode="decimal" placeholder="0,00" value="${esc(paymentValues.received??'')}" autocomplete="off"></label>
+  <label data-tpv-received>Efectivo recibido · €<input name="received" inputmode="decimal" placeholder="0,00" value="${esc(paymentValues.received??'')}" autocomplete="off"></label>${cashCountHtml('received',cashStyle,paymentValues)}
   <div class="tpv-denominations" data-tpv-denominations role="group" aria-label="Efectivo entregado">
    <button type="button" class="btn secondary" data-tpv-tender-exact>Importe exacto</button>
-   ${[5,10,20,50,100,200].map(value=>`<button type="button" class="btn secondary" data-tpv-tender="${value*100}" aria-label="Entregado ${value} euros">${value} €</button>`).join('')}
+   ${cashStyle.denominations.filter(face=>face>=500).map(face=>`<button type="button" class="btn secondary" data-tpv-tender="${face}" aria-label="Entregado ${face/100} euros">${face/100} €</button>`).join('')}
   </div>
   <output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Cambio del cobro" aria-live="polite"></output>
   <label class="tpv-check" data-tpv-card-accept hidden><input type="checkbox" name="cardAccepted" ${paymentValues.cardAccepted==='on'?'checked':''}> ${wording('Acepto el pago externo ficticio','He comprobado que el cobro externo está recibido. TotusTPV registra el cobro; no opera el datáfono ni el banco.')}</label>
@@ -197,7 +201,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  function sessionHtml(){return `<section class="card card-pad tpv-session"><h3>${wording('Caja de práctica','Caja y arqueo')}</h3>${summary?`<dl><div><dt>Fondo inicial</dt><dd>${money(summary.openingCents)}</dd></div><div><dt>${wording('Ventas de práctica','Ventas registradas')}</dt><dd>${money(summary.salesCents)}</dd></div>
   <div><dt>Ventas en efectivo</dt><dd>${money(summary.cashCents)}</dd></div><div><dt>Reintegros en efectivo</dt><dd>${money(summary.refundCashCents||0)}</dd></div><div><dt>Efectivo esperado</dt><dd>${money(summary.expectedCashCents)}</dd></div>${['card','bizum','transfer'].filter(method=>summary.payments?.[method]||summary.refunds?.[method]).map(method=>`<div><dt>${esc(paymentLabel(method))} · cobros / reintegros</dt><dd>${money(summary.payments?.[method]||0)} / ${money(summary.refunds?.[method]||0)}</dd></div>`).join('')}</dl>
   ${live()&&canManageCash()?`<form data-tpv-form="movement"><h4>Movimiento de efectivo</h4><label>Tipo<select name="kind"><option value="cash-in">Entrada de efectivo</option><option value="cash-out" ${formValues.movement?.kind==='cash-out'?'selected':''}>Retirada de efectivo</option></select></label><label>Importe · €<input name="amount" inputmode="decimal" required value="${esc(formValues.movement?.amount??'')}"></label><label>Motivo<input name="reason" required maxlength="500" value="${esc(formValues.movement?.reason??'')}"></label><button class="btn secondary" type="submit">Registrar movimiento</button></form>`:''}
-  ${summary.unresolved?'<p role="status">Recupera las ventas o devoluciones pendientes en el historial antes de cerrar.</p>':''}<form data-tpv-form="close"><fieldset class="tpv-cash-fields" ${canManageCash()?'':'disabled'}><label>Efectivo contado · €<input name="counted" inputmode="decimal" required value="${esc(formValues.close?.counted??(summary.expectedCashCents/100).toFixed(2).replace('.',','))}"></label>${live()?`<label>Observaciones del arqueo<input name="note" maxlength="500" value="${esc(formValues.close?.note??'')}"></label>`:''}<button class="btn primary" type="submit" ${summary.unresolved||!canManageCash()?'disabled':''}>${wording('Cerrar caja de práctica','Cerrar caja')}</button></fieldset>${canManageCash()?'':'<p class="small muted">Tu acceso permite consultar esta caja. Los movimientos y el cierre corresponden a una persona autorizada para gestionar efectivo.</p>'}</form>`:''}</section>`;}
+  ${summary.unresolved?'<p role="status">Recupera las ventas o devoluciones pendientes en el historial antes de cerrar.</p>':''}<form data-tpv-form="close"><fieldset class="tpv-cash-fields" ${canManageCash()?'':'disabled'}><label>Efectivo contado · €<input name="counted" inputmode="decimal" required value="${esc(formValues.close?.counted??(summary.expectedCashCents/100).toFixed(2).replace('.',','))}"></label>${cashCountHtml('counted',cashStyle,formValues.close)}${live()?`<label>Observaciones del arqueo<input name="note" maxlength="500" value="${esc(formValues.close?.note??'')}"></label>`:''}<button class="btn primary" type="submit" ${summary.unresolved||!canManageCash()?'disabled':''}>${wording('Cerrar caja de práctica','Cerrar caja')}</button></fieldset>${canManageCash()?'':'<p class="small muted">Tu acceso permite consultar esta caja. Los movimientos y el cierre corresponden a una persona autorizada para gestionar efectivo.</p>'}</form>`:''}</section>`;}
  function stockHtml(){return `<section class="card card-pad tpv-stock"><h3>Entrada de mercancía</h3><p>Registra unidades recibidas. La entrada se suma al stock nativo de la tienda seleccionada.</p>
   <label>Buscar producto o referencia<input type="search" data-tpv-search value="${esc(search)}"></label>
   ${catalogueControlsHtml()}${catalogueItemsHtml(true)}
@@ -205,6 +209,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   ${stockIntake.html()}</section>`;}
  function rememberForm(target){const form=target.closest('[data-tpv-form]');if(!form||!host?.contains(form))return;
   const values=Object.fromEntries(new FormData(form));formValues[form.dataset.tpvForm]=values;
+  if(form.dataset.tpvForm==='preferences')values.cashDenominations=new FormData(form).getAll('cashDenominations');
   if(form.dataset.tpvForm==='pay')paymentValues=values;formDirty=true;}
  const hasDraft=()=>!!host&&(lines.length>0||!!draftInfo||!!payment||!!returnForm||formDirty||receipt?.status==='uncertain'||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft());
  async function askCurrent(message,options){const run=generation,owner=identity();const accepted=await confirm(message,options);
@@ -316,7 +321,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(action==='close-document'){documentPreview=null;render();return;}
   if(action==='print-document'&&documentPreview){const run=generation,operator=identity();printReceipt(documentPreview,receiptStyle,{current:()=>run===generation&&operator===identity()&&allowed()});return;}
   if(action==='assign'&&canAssign()&&readConfiguration)return work(async()=>{
-   if(lines.length||payment||returnForm||customers.hasDraft()||stockIntake.hasDraft()||accessPanel.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
+   if(lines.length||payment||returnForm||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
    configuration=await readConfiguration();accessPanel.load(configuration);configurationId=crypto.randomUUID();if(adapter&&context)tab='configuration';});
   if(action==='cancel-configuration'){configuration=null;configurationId=null;delete formValues.configure;tab='sale';render();return;}
   if(target.dataset.tpvStock)return work(async()=>{const p=products.find(p=>p.id===target.dataset.tpvStock);if(!p)return;
@@ -325,7 +330,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(!payment||!canSell())return;const form=host.querySelector('[data-tpv-form="pay"]');if(!form||!['cash','mixed'].includes(form.elements.method.value))return;
    try{const value=target.hasAttribute('data-tpv-tender')?Number(target.dataset.tpvTender):form.elements.method.value==='mixed'?inputCents(form.elements.cashPart.value):payment.totalCents;
     if(!Number.isSafeInteger(value)||value<0)throw new Error('Importe no válido.');
-    form.elements.received.value=(value/100).toFixed(2).replace('.',',');rememberForm(form);reflectTender();
+    clearCashCount(form,'received');form.elements.received.value=(value/100).toFixed(2).replace('.',',');rememberForm(form);reflectTender();
    }catch{reflectTender();}return;
   }
   if(target.dataset.tpvAdd){if(!canSell()||payment||receipt)return;const p=products.find(p=>p.id===target.dataset.tpvAdd);
@@ -395,6 +400,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const saved=workspacePreferences&&drawer?await workspacePreferences(drawer):null;
   displayOptions=displayPreferences(saved?.display);
   receiptStyle=receiptOptions(saved?.receipt);
+  cashStyle=cashOptions(saved?.cash);
   customerScreenOptions=customerDisplayOptions(saved?.customerDisplay);
   catalogueView=['grid','compact','list','table'].includes(saved?.viewMode)?saved.viewMode:'grid';
   catalogueTable.setColumns(saved?.columns);
@@ -448,7 +454,9 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     const display=displayPreferencesFromForm(fields);
     const receipt=receiptOptionsFromForm(fields);
     const customerDisplay=customerDisplayOptionsFromForm(fields);
-    await workspacePreferences(drawer,{viewMode,initialCategoryId:initial,display,receipt,customerDisplay});receiptStyle=receipt;displayOptions=display;customerScreenOptions=customerDisplay;catalogueView=viewMode;initialCategoryId=initial;notice='Mostrador guardado en tu cuenta.';
+    const cash=cashOptionsFromForm(fields),persisted=await workspacePreferences(drawer,{viewMode,initialCategoryId:initial,display,receipt,customerDisplay,cash});
+    if(!persisted?.cash||JSON.stringify(cashOptions(persisted.cash))!==JSON.stringify(cash))throw Error('No se han confirmado los billetes y monedas guardados. Vuelve a consultar la configuración.');
+    receiptStyle=receipt;displayOptions=display;customerScreenOptions=customerDisplay;cashStyle=cash;catalogueView=viewMode;initialCategoryId=initial;notice='Mostrador guardado en tu cuenta.';
    }else if(kind==='configure'){
     if(!canAssign()||!configureWorkstation||!configuration||fields.get('accepted')!=='on')throw new Error('Revisa la configuración del puesto.');
     const result=await configureWorkstation({action:'configure',operationId:configurationId,revision:configuration.revision,
@@ -488,7 +496,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     summary=await adapter.cashMovement({kind:fields.get('kind'),amountCents:inputCents(fields.get('amount')),reason:fields.get('reason')});notice='Movimiento de caja registrado.';
    } else if(kind==='close'){
     if(stockIntake.hasDraft()||stockIntake.pending())throw Error('Termina, guarda o cancela la entrada de mercancía antes de cerrar la caja.');
-    if(lines.length||draftInfo||payment||returnForm||customers.hasDraft())throw new Error('Termina, aparca o descarta el ticket o la devolución pendientes antes de cerrar la caja.');
+    if(lines.length||draftInfo||payment||returnForm||customers.hasDraft()||productIntake.hasDraft())throw new Error('Termina, aparca o descarta el ticket o la devolución pendientes antes de cerrar la caja.');
     const closed=await adapter.closeSession({sessionId:session.id,countedCents:inputCents(fields.get('counted')),note:fields.get('note')||''});
     notice=wording('Caja de práctica cerrada. Diferencia: ','Caja cerrada. Diferencia: ')+money(closed.differenceCents);selectedStore=session.storeId;selectedDrawer=session.drawerId;session=null;receipt=null;payment=null;lines=[];tab='sale';formValues={};
    }
@@ -497,7 +505,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  }
  function reflectPaymentMethod(){const form=host?.querySelector('[data-tpv-form="pay"]');if(!form)return;
   const method=form.querySelector('[data-tpv-method]').value;
-  form.querySelector('[data-tpv-cash-part]').hidden=method!=='mixed';form.querySelector('[data-tpv-received]').hidden=!['cash','mixed'].includes(method);
+  form.querySelector('[data-tpv-cash-part]').hidden=method!=='mixed';for(const element of form.querySelectorAll('[data-tpv-received]'))element.hidden=!['cash','mixed'].includes(method);
+  for(const input of form.querySelectorAll('[data-tpv-count="received"] input'))input.disabled=!['cash','mixed'].includes(method);
   form.querySelector('[data-tpv-external-method]').hidden=method!=='mixed';
   form.querySelector('[data-tpv-denominations]').hidden=!['cash','mixed'].includes(method);
   form.querySelector('[data-tpv-card-accept]').hidden=method==='cash';reflectTender();}
@@ -512,6 +521,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   }catch(error){output.textContent=error.message||'Revisa los importes del cobro.';output.dataset.state='invalid';confirm.disabled=true;}}
  function change(event){
   if(!host||busy||!allowed()||mountedActor!==identity())return;
+  if(updateCashCount(event.target)){rememberForm(event.target);reflectTender();return;}
+  if(['opening','received','counted'].includes(event.target.name))clearCashCount(event.target.form,event.target.name);
   if(event.target.hasAttribute('data-tpv-product-images')){const files=[...event.target.files];return work(()=>productIntake.images(files));}
   if(productIntake.input(event.target))return;
   if(event.target.matches('[data-tpv-order-search] [name=orderId]')){orderLookup=event.target.value;return;}
@@ -538,6 +549,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    else {failure='La cantidad debe ser entera y no superar las existencias disponibles.';event.target.reportValidity();}}
  }
  function input(event){if(!host||busy||!allowed()||mountedActor!==identity())return;
+  if(updateCashCount(event.target)){rememberForm(event.target);reflectTender();return;}
+  if(['opening','received','counted'].includes(event.target.name))clearCashCount(event.target.form,event.target.name);
   if(productIntake.input(event.target))return;
   updateReceiptPreview(event.target);
   if(catalogueTable.input(event.target))return;
@@ -567,7 +580,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  return {mount(root){dispose();host=root;mountedActor=identity();
    stockIntake.reset();
    catalogueTable.setColumns();catalogueSort={field:'name',direction:'asc'};
-   orderLookup='';focusOrderLookup=false;displayOptions=displayPreferences();receiptStyle=receiptOptions();customerScreenOptions=customerDisplayOptions();incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
+   orderLookup='';focusOrderLookup=false;displayOptions=displayPreferences();receiptStyle=receiptOptions();cashStyle=cashOptions();customerScreenOptions=customerDisplayOptions();incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
    formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;productPage=0;variantProduct=0;stockProduct=null;configuration=null;configurationId=null;documentPreview=null;selectedCustomer=null;customers.reset();reports.reset();parked=[];draftInfo=null;
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}
    abort=new AbortController();for(const [type,handler] of [['click',click],['submit',submit],['change',change],['input',input],['keydown',keydown]])

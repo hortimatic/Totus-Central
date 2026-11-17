@@ -29,6 +29,15 @@ Ampliación comprobada en laboratorio, pendiente de activación remota.
 
 Si se interrumpe el guardado de la revisión, pulsa **Comprobar envío** manteniendo la misma ficha. Si ya comenzó el alta, utiliza **Comprobar y continuar alta**; los pasos verificados se conservan. Para encontrarla después de volver a entrar, abre **Más acciones → Altas de productos**. La consulta funciona también sin caja abierta; continuar requiere una sesión y permisos vigentes. No prepares otra alta para sustituir una que tenga resultado incierto.
 
+## Contar el efectivo
+
+Ampliación comprobada en laboratorio, pendiente de activación remota.
+
+1. En **Más acciones → Configuración → Efectivo · billetes y monedas**, elige los valores que utilizas y pulsa **Guardar mostrador**. Se recuperan en tu cuenta y esa caja desde otros ordenadores.
+2. Al abrir caja, recibir efectivo o contar el cierre, abre **Contar billetes y monedas**. Introduce cuántas unidades tienes de cada valor. El importe total se actualiza sin hacer la suma a mano.
+3. Revisa el importe aplicado. Puedes introducir un total manual; al hacerlo se limpia el desglose anterior. En un cobro, comprueba también el cambio mostrado.
+4. Para cerrar, pulsa **Cerrar caja**. El registro conserva el total contado. Si se pierde la respuesta, mantén los datos y vuelve a consultar el mismo cierre; las cantidades de la vista se conservan.
+
 En **Accesos a las cajas → Cambiar acceso**, el responsable puede cambiar venta/consulta, gestión de efectivo y activación por separado. Retirar el acceso conserva el historial y no cierra la caja. Si otra persona cambió el acceso mientras se editaba, actualiza y revisa su configuración antes de guardar de nuevo. Si se pierde la respuesta, reintenta los mismos cambios o actualiza para comprobar el resultado. Cambiar tu propio acceso te devuelve a la entrada para recuperarlo con los permisos actuales.
 
 ## Vender
