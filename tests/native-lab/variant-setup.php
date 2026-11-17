@@ -14,8 +14,8 @@ foreach(['A','B'] as $index=>$name){$attribute=new ProductAttribute();$attribute
  $combination=new Combination();$combination->id_product=(int)$product->id;$combination->reference='QA-'.$run.'-'.$name;
  $combination->price=$index;$combination->minimal_quantity=1;$combination->default_on=$index===0?1:null;
  nativeLabCheck($combination->add()&&$combination->setAttributes([(int)$attribute->id]),'Cannot create fixture combination.');
- StockAvailable::setQuantity((int)$product->id,(int)$combination->id,5,1);
+ StockAvailable::setQuantity((int)$product->id,(int)$combination->id,($argv[2]??'')==='zero-parent'&&$index===0?-5:5,1);
  $variants[]=['attributeId'=>(int)$combination->id,'reference'=>$combination->reference];
 }
 Product::updateDefaultAttribute((int)$product->id);
-echo json_encode(['productId'=>(int)$product->id,'variants'=>$variants],JSON_THROW_ON_ERROR)."\n";
+echo json_encode(['productId'=>(int)$product->id,'reference'=>$product->reference,'variants'=>$variants],JSON_THROW_ON_ERROR)."\n";

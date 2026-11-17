@@ -59,7 +59,15 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--catalogue-only')){
+ if(process.argv.includes('--variants-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const parent=await api('totus_tpv_catalogue?search='+encodeURIComponent(variant.reference));assert.equal(parent.status,200);
+  assert.equal(parent.result.items.length,1);assert.equal(parent.result.items[0].choose_variant,true);assert.equal(parent.result.items[0].stock,0);
+  const choices=await api('totus_tpv_catalogue?product_id='+variant.productId);assert.equal(choices.status,200);
+  assert.deepEqual(choices.result.items.map(row=>row.stock).sort((a,b)=>a-b),[-5,5]);
+  assert.ok(choices.result.items.every(row=>row.choose_variant===false));
+  console.log('PASS native variant catalogue: zero aggregate, negative unavailable variant, positive available variant. Fictional local product; no sale or remote shop.');
+ }else if(process.argv.includes('--catalogue-only')){
   await exerciseNativeCatalogue({api,php,ini,env});
  }else if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:process.argv.includes('--customers-only')?'customers':'browser'});

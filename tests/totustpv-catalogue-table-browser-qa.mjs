@@ -17,6 +17,7 @@ try{
     merchant:{name:'Tienda ficticia',address:'Dirección oculta de ejemplo',registration:'Datos fiscales',phone:'Teléfono de ejemplo'},
     lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:1,line_cents:150}],payments:{cash:150},total_cents:150,discount_cents:0}),
    searchProducts:async q=>{tableFixture.queries.push(q);
+    if(tableFixture.variantMode)return q.productId?[{id:'999:1',nativeProductId:999,name:'Variante disponible',stock:4,priceCents:150},{id:'999:2',nativeProductId:999,name:'Variante agotada',stock:0,priceCents:150}]:[{id:'999:0',nativeProductId:999,name:'Producto con variantes',stock:0,chooseVariant:true,priceCents:150},{id:'1000:0',nativeProductId:1000,name:'Artículo agotado',stock:0,priceCents:150}];
     if(q.sortField==='price'&&tableFixture.priceBuilds>0){tableFixture.priceBuilds--;const result=[];Object.defineProperty(result,'building',{value:{done:50-tableFixture.priceBuilds*10,total:50}});return result;}
     const key={name:'name',stock:'stock',price:'priceCents',reference:'reference',id:'nativeProductId'}[q.sortField]||'name';
     const ordered=[...items].sort((a,b)=>(typeof a[key]==='number'?a[key]-b[key]:String(a[key]).localeCompare(String(b[key]),'es',{numeric:true}))*(q.sortDirection==='desc'?-1:1));
@@ -116,5 +117,12 @@ try{
  await page.locator('[data-tpv-add="1:0"]').click();
  assert.equal(await page.locator('.tpv-ticket-line strong').first().innerText(),'Artículo 01','Adding another unit moves that product to the newest position');
  assert.equal(await page.locator('[data-tpv-quantity="1:0"]').inputValue(),'2');
+ for(const view of ['grid','table']){
+  await page.evaluate(view=>{tableFixture.variantMode=true;tableFixture.prefs.viewMode=view;tableFixture.workspace.mount(document.querySelector('#tpv'));},view);
+  const parent=page.locator('[data-tpv-add="999:0"]');await parent.waitFor();assert.equal(await parent.isEnabled(),true,'The parent can open variants even when its aggregate stock is zero');
+  assert.equal(await page.locator('[data-tpv-add="1000:0"]').isDisabled(),true,'An out-of-stock simple article stays blocked');
+  await parent.click();await page.locator('[data-tpv-add="999:1"]').waitFor();assert.equal(await page.locator('[data-tpv-add="999:2"]').isDisabled(),true,'An out-of-stock variant stays blocked');
+  await page.locator('[data-tpv-add="999:1"]').click();assert.equal(await page.locator('[data-tpv-quantity="999:1"]').inputValue(),'1');
+ }
  assert.deepEqual(errors,[]);console.log('PASS catalogue table/display: common column editor, role-limited costs, saved columns and card preferences, whole-result sort/page and progress cancellation, ticket ordering and three viewport sizes. Synthetic catalogue source; no audible-device claim.');
 }finally{await page.close();await browser.close();if(server)await new Promise(r=>server.close(r));}
