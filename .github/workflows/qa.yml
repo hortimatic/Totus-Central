@@ -38,9 +38,15 @@ jobs:
       - run: node --test tests/totustpv-setup-qa.mjs tests/totustpv-qa-policy-qa.mjs
       - run: node tests/totustpv-php-boundary-qa.mjs
       - run: node tests/totustpv-package-qa.mjs
-      - run: node --test tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs
+      - run: node --test tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs tests/totustpv-receipt-vouchers-qa.mjs
+      - run: node --test tests/totustpv-offline-edge-qa.mjs tests/totustpv-offline-price-comparison-qa.mjs tests/totustpv-offline-sync-qa.mjs tests/totustpv-offline-catalogue-adapter-qa.mjs tests/totustpv-catalogue-background-qa.mjs tests/totustpv-offline-rounding-qa.mjs tests/totustpv-native-subtotal-qa.mjs tests/totustpv-offline-basket-prices-qa.mjs
       - run: npx playwright install --with-deps chromium
+      - run: node tests/totustpv-offline-journal-browser-qa.mjs
+      - run: node tests/totustpv-offline-panel-browser-qa.mjs
+      - run: node tests/totustpv-offline-catalogue-browser-qa.mjs
       - run: node tests/totustpv-workspace-browser-qa.mjs
+      - run: node tests/totustpv-basket-preview-browser-qa.mjs
+      - run: node tests/totustpv-offline-prepared-browser-qa.mjs
       - run: node tests/totustpv-payment-settings-browser-qa.mjs
       - run: node tests/totustpv-barcode-panel-browser-qa.mjs
       - run: node tests/totustpv-billing-browser-qa.mjs

@@ -20,6 +20,11 @@ try{
  });
  await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
  const form=page.locator('[data-tpv-form="payment-settings"]'),label=form.locator('[name="label:cash"]');
+ const navigation=page.getByRole('navigation',{name:'Apartados de configuración'});
+ await page.locator('[name="receipt-footer"]').fill('Texto pendiente sin guardar');
+ await navigation.getByRole('button',{name:'Cómo se cobra en esta caja',exact:true}).click();
+ assert.equal(await page.locator('[name="receipt-footer"]').inputValue(),'Texto pendiente sin guardar');
+ assert.equal(await page.locator('.tpv-settings>h3').last().evaluate(el=>document.activeElement===el),true);
  await label.fill('Borrador solo caja uno');const boxes=await page.evaluate(()=>paymentBoxes);
  await page.locator('[data-tpv-drawer]').selectOption(boxes[1]);
  await page.waitForFunction(()=>paymentPrompts.length===1);
@@ -30,6 +35,9 @@ try{
  await form.getByRole('button',{name:'Guardar medios de cobro'}).click();await page.getByText('Medios de cobro guardados para esta caja.',{exact:true}).waitFor();
  const saved=await page.evaluate(()=>paymentSaved);assert.equal(saved.length,1);assert.equal(saved[0].id,boxes[1]);assert.equal(saved[0].settings.labels.cash,'Efectivo caja 2');
  await mkdir('artifacts/totustpv-payment-settings',{recursive:true});
- for(const width of [1440,390]){await page.setViewportSize({width,height:950});await form.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await form.screenshot({path:`artifacts/totustpv-payment-settings/drawer-form-${width}.png`});}
+ for(const width of [1440,390]){await page.setViewportSize({width,height:950});
+  if(width===390){await navigation.getByLabel('Ir a un apartado').selectOption({label:'Cómo se cobra en esta caja'});assert.equal(await page.locator('.tpv-settings>h3').last().evaluate(el=>document.activeElement===el),true);}
+  await navigation.screenshot({path:`artifacts/totustpv-payment-settings/navigation-${width}.png`});
+  await form.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await form.screenshot({path:`artifacts/totustpv-payment-settings/drawer-form-${width}.png`});}
  assert.deepEqual(errors,[]);console.log('PASS drawer payment settings UI: cancelled switch retains draft and drawer; accepted switch discards only old drawer draft; save targets new drawer, desktop/mobile form. Synthetic fixtures only.');
 }finally{await page.close();await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

@@ -3,6 +3,7 @@
  * never a browser-provided quote/profile/stock snapshot. A SHA-256 fingerprint
  * detects changed content; it is not authentication or a replacement for TLS/ACL.
  */
+import {reconcileNativeTaxedSubtotal} from './native-subtotal.js';
 import {lineName} from '../line-name.js';
 import {nativeCents,nativeMicros} from './native-adapter.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
@@ -59,7 +60,7 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
    'TPV_QUOTE_STOCK_UNAVAILABLE');usedStock.add(stock.id);
   const result={productId:line.product_id,attributeId:line.attribute_id,qty:line.quantity,
    unitTaxInclMicros:nativeMicros(line.unit_tax_incl),unitTaxExclMicros:nativeMicros(line.unit_tax_excl),
-   lineTaxInclCents:nativeCents(line.line_tax_incl),lineTaxExclCents:nativeCents(line.line_tax_excl),
+   ...(quote.round_type===3?{lineTaxInclMicros:nativeMicros(line.line_tax_incl),lineTaxExclMicros:nativeMicros(line.line_tax_excl),lineTaxInclCents:0,lineTaxExclCents:0}:{lineTaxInclCents:nativeCents(line.line_tax_incl),lineTaxExclCents:nativeCents(line.line_tax_excl)}),
    stockRecordId:stock.id,stockBefore:stock.quantity,...(line.catalogue_name!==undefined?{catalogueName:line.catalogue_name}:{}),...((line.display_name??line.catalogue_name)!==undefined?{name:line.display_name??line.catalogue_name}:{})};
   need(result.unitTaxExclMicros<=result.unitTaxInclMicros&&result.lineTaxExclCents<=result.lineTaxInclCents,
    'TPV_NATIVE_QUOTE_TAX_INVALID');return result;
@@ -67,6 +68,11 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
  const totalCents=nativeCents(quote.total_tax_incl),totalTaxExclCents=nativeCents(quote.total_tax_excl),
   productsTaxInclCents=nativeCents(quote.products_tax_incl),productsTaxExclCents=nativeCents(quote.products_tax_excl),
   shippingCents=nativeCents(quote.shipping_tax_incl),discountCents=nativeCents(quote.discounts_tax_incl);
+ if(quote.round_type===3){
+  const balanced=reconcileNativeTaxedSubtotal(lines.map(line=>({key:`${line.productId}:${line.attributeId}`,netMicros:line.lineTaxExclMicros,grossMicros:line.lineTaxInclMicros})),{netCents:productsTaxExclCents,grossCents:productsTaxInclCents,mode:quote.round_mode});
+  const byKey=new Map(balanced.map(line=>[line.key,line]));
+  for(const line of lines){const amount=byKey.get(`${line.productId}:${line.attributeId}`);line.lineTaxInclCents=amount.grossCents;line.lineTaxExclCents=amount.netCents;}
+ }
  need(totalCents>0&&totalCents===quote.total_cents&&totalTaxExclCents<=totalCents&&
   productsTaxExclCents<=productsTaxInclCents&&lines.reduce((sum,line)=>sum+line.lineTaxInclCents,0)===productsTaxInclCents&&
   productsTaxInclCents+shippingCents-discountCents===totalCents,'TPV_NATIVE_QUOTE_TOTAL_INVALID');

@@ -221,11 +221,16 @@
         "src/totustpv/payment-options.js",
         "src/totustpv/payment-reference.js",
         "src/totustpv/sale-note.js",
+        "src/totustpv/sale-modifiers.js",
+        "src/totustpv/offline-commercial.js",
         "src/totustpv/line-name.js",
         "src/totustpv/budget-contract.js",
         "src/totustpv/server/commercial-budget-service.js",
         "src/totustpv/server/billing-service.js",
-        "src/totustpv/server/commercial-quote-contract.js"
+        "src/totustpv/server/commercial-quote-contract.js",
+        "src/totustpv/server/offline-price-comparison.js",
+        "src/totustpv/server/native-subtotal.js",
+        "src/totustpv/offline-rounding.js"
       ]
     }
   ]

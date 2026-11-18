@@ -3,27 +3,164 @@
   "circuits": [
     {
       "id": "totustpv-barcodes",
-      "paths": ["src/totustpv/", "supabase/functions/totus-tpv/", "connectors/prestashop/src/", "connectors/prestashop/module/", "supabase/migrations/20261118034019_totustpv_barcode_settings.sql", "supabase/migrations/20261118035905_totustpv_barcode_capture.sql", "supabase/migrations/20261118044052_totustpv_barcode_execution.sql", "supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql", "tests/totustpv-barcode", "tests/totustpv-package-qa.mjs", "tools/package-totus-native.mjs", "tests/native-lab/barcode", "tests/native-lab/central-edge-flow.mjs"],
-      "tests": ["tests/totustpv-package-qa.mjs", "tests/totustpv-barcode-options-qa.mjs", "tests/totustpv-barcode-capture-qa.mjs", "tests/totustpv-barcode-receipt-qa.mjs", "tests/totustpv-barcode-service-qa.mjs", "tests/totustpv-barcode-edge-qa.mjs", "tests/totustpv-barcode-panel-qa.mjs", "tests/totustpv-barcode-labels-qa.mjs", "tests/totustpv-barcode-panel-browser-qa.mjs", "tests/totustpv-barcode-native-qa.mjs", "tests/totustpv-barcode-label-print-native-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-native-http-qa.mjs", "tests/totustpv-php-boundary-qa.mjs"],
-      "invariants": ["the complete captured target membership is reviewed once before any assignment and native pages are not a functional catalogue limit", "current Products permissions and exact account connection shop drawer scope precede native credential access", "every target operation and native intent is persisted before its one dispatch; uncertain outcomes recover only by GET", "pausing or cancelling forbids new claims while previously sent operations remain recoverable", "existing codes and unrelated product price stock and reference fields are preserved", "label preparation reads current native identifiers instead of historical assignment receipts", "only bounded binary native encoder modules become local SVG and physical paper cannot silently shrink a wide code", "account or view changes prevent late preparation and printing results from reaching another user"]
+      "paths": [
+        "src/totustpv/",
+        "supabase/functions/totus-tpv/",
+        "connectors/prestashop/src/",
+        "connectors/prestashop/module/",
+        "supabase/migrations/20261118034019_totustpv_barcode_settings.sql",
+        "supabase/migrations/20261118035905_totustpv_barcode_capture.sql",
+        "supabase/migrations/20261118044052_totustpv_barcode_execution.sql",
+        "supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql",
+        "tests/totustpv-barcode",
+        "tests/totustpv-package-qa.mjs",
+        "tools/package-totus-native.mjs",
+        "tests/native-lab/barcode",
+        "tests/native-lab/central-edge-flow.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-package-qa.mjs",
+        "tests/totustpv-barcode-options-qa.mjs",
+        "tests/totustpv-barcode-capture-qa.mjs",
+        "tests/totustpv-barcode-receipt-qa.mjs",
+        "tests/totustpv-barcode-service-qa.mjs",
+        "tests/totustpv-barcode-edge-qa.mjs",
+        "tests/totustpv-barcode-panel-qa.mjs",
+        "tests/totustpv-barcode-labels-qa.mjs",
+        "tests/totustpv-barcode-panel-browser-qa.mjs",
+        "tests/totustpv-barcode-native-qa.mjs",
+        "tests/totustpv-barcode-label-print-native-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-php-boundary-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs"
+      ],
+      "invariants": [
+        "the complete captured target membership is reviewed once before any assignment and native pages are not a functional catalogue limit",
+        "current Products permissions and exact account connection shop drawer scope precede native credential access",
+        "every target operation and native intent is persisted before its one dispatch; uncertain outcomes recover only by GET",
+        "pausing or cancelling forbids new claims while previously sent operations remain recoverable",
+        "existing codes and unrelated product price stock and reference fields are preserved",
+        "label preparation reads current native identifiers instead of historical assignment receipts",
+        "only bounded binary native encoder modules become local SVG and physical paper cannot silently shrink a wide code",
+        "account or view changes prevent late preparation and printing results from reaching another user"
+      ]
     },
     {
       "id": "totustpv-disabled-stock",
-      "paths": ["src/totustpv/", "supabase/functions/totus-tpv/", "connectors/prestashop/src/", "connectors/prestashop/module/Webservice.php", "supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql", "tests/totustpv-disabled-stock", "tests/native-lab/disabled-stock", "tests/native-lab/central-edge-flow.mjs", "tests/totustpv-native-http-qa.mjs"],
-      "tests": ["tests/totustpv-disabled-stock-qa.mjs", "tests/totustpv-disabled-stock-browser-qa.mjs", "tests/totustpv-product-intake-edge-qa.mjs", "tests/totustpv-search-preferences-qa.mjs", "tests/totustpv-central-adapter-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-stock-intake-browser-qa.mjs", "tests/totustpv-workspace-browser-qa.mjs", "tests/totustpv-native-http-qa.mjs", "tests/totustpv-php-boundary-qa.mjs"],
-      "invariants": ["disabled and unavailable-for-order articles can be replenished without activating them or enabling counter sales", "inventory-only catalogue reads require current Products view permission and exact native acknowledgement", "inventory and sale price indexes cannot share scoped results", "saved search settings belong to the current Central account and drawer", "late inventory results and selected inventory variants cannot cross into the sale catalogue", "native cart preparation rejects products disabled for sale before constructing a cart and native paid sale still rechecks availability", "native inventory recovery never dispatches a second additive stock movement"]
+      "paths": [
+        "src/totustpv/",
+        "supabase/functions/totus-tpv/",
+        "connectors/prestashop/src/",
+        "connectors/prestashop/module/Webservice.php",
+        "supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql",
+        "tests/totustpv-disabled-stock",
+        "tests/native-lab/disabled-stock",
+        "tests/native-lab/central-edge-flow.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-disabled-stock-qa.mjs",
+        "tests/totustpv-disabled-stock-browser-qa.mjs",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-search-preferences-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-transport-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-php-boundary-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs"
+      ],
+      "invariants": [
+        "disabled and unavailable-for-order articles can be replenished without activating them or enabling counter sales",
+        "inventory-only catalogue reads require current Products view permission and exact native acknowledgement",
+        "inventory and sale price indexes cannot share scoped results",
+        "saved search settings belong to the current Central account and drawer",
+        "late inventory results and selected inventory variants cannot cross into the sale catalogue",
+        "native cart preparation rejects products disabled for sale before constructing a cart and native paid sale still rechecks availability",
+        "native inventory recovery never dispatches a second additive stock movement"
+      ]
     },
     {
       "id": "totustpv-central-cash",
-      "paths": ["src/app.js", "src/pages/main.js", "src/styles.css", "src/utils.js", "tests/csv-cell-qa.mjs", "src/totustpv/central-cash", "src/totustpv/cash-reports.js", "src/totustpv/workspace.js", "supabase/functions/totus-tpv/", "supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql", "tests/totustpv-central-cash", "tests/native-lab/central-cash"],
-      "tests": ["tests/totustpv-journal-db-qa.mjs", "tests/totustpv-central-cash-qa.mjs", "tests/totustpv-central-cash-browser-qa.mjs", "tests/totustpv-central-cash-app-browser-qa.mjs", "tests/totustpv-printed-documents-qa.mjs", "tests/csv-cell-qa.mjs", "tests/agent-delivery-qa.mjs", "tests/stitch-design-browser-qa.mjs"],
-      "invariants": ["Cajas reads the existing Central cash, payment and refund journals without creating duplicate daily closings or income", "current Cajas view permission and immutable source/store/drawer/session scope are required without a cashier assignment", "disabled website connections do not erase authorized Central cash history or cause native shop requests", "unconfirmed financial operations are visible for review but excluded from settled balances", "session and detail pagination and CSV exports do not silently truncate records", "QA cash sessions remain excluded from commercial fiscal totals and late responses cannot cross accounts"]
+      "paths": [
+        "src/app.js",
+        "src/pages/main.js",
+        "src/styles.css",
+        "src/utils.js",
+        "tests/csv-cell-qa.mjs",
+        "src/totustpv/central-cash",
+        "src/totustpv/cash-reports.js",
+        "src/totustpv/workspace.js",
+        "supabase/functions/totus-tpv/",
+        "supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql",
+        "tests/totustpv-central-cash",
+        "tests/native-lab/central-cash"
+      ],
+      "tests": [
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-central-cash-qa.mjs",
+        "tests/totustpv-central-cash-browser-qa.mjs",
+        "tests/totustpv-central-cash-app-browser-qa.mjs",
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/csv-cell-qa.mjs",
+        "tests/agent-delivery-qa.mjs",
+        "tests/stitch-design-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Cajas reads the existing Central cash, payment and refund journals without creating duplicate daily closings or income",
+        "current Cajas view permission and immutable source/store/drawer/session scope are required without a cashier assignment",
+        "disabled website connections do not erase authorized Central cash history or cause native shop requests",
+        "unconfirmed financial operations are visible for review but excluded from settled balances",
+        "session and detail pagination and CSV exports do not silently truncate records",
+        "QA cash sessions remain excluded from commercial fiscal totals and late responses cannot cross accounts"
+      ]
     },
     {
       "id": "totustpv-billing-bridge",
-      "paths": ["src/app.js", "src/pages/main.js", "src/totustpv/billing-ui.js", "src/totustpv/billing.css", "src/totustpv/server/billing-service.js", "src/totustpv/server/native-transport.js", "supabase/functions/totus-tpv/", "supabase/migrations/20261117234736_totustpv_billing_bridge.sql", "tests/totustpv-billing-", "connectors/prestashop/src/NativeBilling.php"],
-      "tests": ["tests/totustpv-billing-db-qa.mjs", "tests/totustpv-billing-service-qa.mjs", "tests/totustpv-billing-edge-qa.mjs", "tests/totustpv-billing-browser-qa.mjs", "tests/totustpv-billing-app-browser-qa.mjs", "tests/billing-submenus-qa.mjs"],
-      "invariants": ["Facturación uses its own current read permission without a cashier assignment or cash session", "native invoice identity and historical amounts must match a confirmed scoped Central sale", "existing invoice and confirmed credit-note reads never issue documents, allocate numbers or duplicate revenue", "QA commercial documents remain outside business fiscal totals", "late responses cannot cross account or disposed page boundaries"]
+      "paths": [
+        "src/app.js",
+        "src/pages/main.js",
+        "src/totustpv/billing-ui.js",
+        "src/totustpv/billing.css",
+        "src/totustpv/server/billing-service.js",
+        "src/totustpv/server/native-transport.js",
+        "supabase/functions/totus-tpv/",
+        "supabase/migrations/20261117234736_totustpv_billing_bridge.sql",
+        "tests/totustpv-billing-",
+        "connectors/prestashop/src/NativeBilling.php"
+      ],
+      "tests": [
+        "tests/totustpv-billing-db-qa.mjs",
+        "tests/totustpv-billing-service-qa.mjs",
+        "tests/totustpv-billing-edge-qa.mjs",
+        "tests/totustpv-billing-browser-qa.mjs",
+        "tests/totustpv-billing-app-browser-qa.mjs",
+        "tests/billing-submenus-qa.mjs"
+      ],
+      "invariants": [
+        "Facturación uses its own current read permission without a cashier assignment or cash session",
+        "native invoice identity and historical amounts must match a confirmed scoped Central sale",
+        "existing invoice and confirmed credit-note reads never issue documents, allocate numbers or duplicate revenue",
+        "QA commercial documents remain outside business fiscal totals",
+        "late responses cannot cross account or disposed page boundaries"
+      ]
     },
     {
       "id": "access",
@@ -618,7 +755,15 @@
         "tests/totustpv-budget-contract-qa.mjs",
         "tests/totustpv-budget-adapter-qa.mjs",
         "tests/totustpv-budget-document-qa.mjs",
-        "tests/totustpv-budget-browser-qa.mjs"
+        "tests/totustpv-budget-browser-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

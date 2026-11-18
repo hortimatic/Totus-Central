@@ -1,3 +1,4 @@
+import {exerciseOfflineCheckout} from './offline-checkout-flow.mjs';
 import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
 import {exerciseReceiptVariants} from './receipt-variants-flow.mjs';
 import {exercisePaymentReference} from './payment-reference-flow.mjs';
@@ -91,15 +92,18 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118110124_totustpv_payment_reference_options.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118110722_totustpv_payment_reference_ledger.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118112532_totustpv_receipt_payment_references.sql',import.meta.url),'utf8'));
-  if(focus==='products')await loadProductJournal(db);
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
+ if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
    [actor,connection,store,drawer,'qa-shop',JSON.stringify(profile),JSON.stringify({sell:true,open:true,reconcile:true})]);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
-  const argsByRpc={totus_tpv_barcode_options:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_barcode_jobs:['p_action','p_id','p_scope','p_data'],totus_tpv_barcode_execution:['p_action','p_id','p_scope','p_data'],totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
+  const argsByRpc={totus_tpv_refresh_quote:['p_scope','p_operation_id','p_revision','p_expected','p_expires_at'],totus_tpv_barcode_options:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_barcode_jobs:['p_action','p_id','p_scope','p_data'],totus_tpv_barcode_execution:['p_action','p_id','p_scope','p_data'],totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
    totus_tpv_journal:['p_action','p_operation_id','p_scope','p_data'],totus_tpv_cash:['p_action','p_request_id','p_scope','p_data'],
    totus_tpv_budgets:['p_action','p_scope','p_id','p_data'],totus_tpv_commercial_options:['p_scope'],totus_tpv_budget_checkout:['p_scope','p_id','p_version','p_action'],
-   totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],
+   totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],totus_tpv_offline_inbox:['p_action','p_id','p_scope','p_data'],
    totus_tpv_refund_journal:['p_action','p_id','p_scope','p_data'],totus_directory_operation:['p_action','p_request_id','p_data'],
    totus_tpv_drafts:['p_action','p_id','p_request_id','p_scope','p_data'],
    totus_tpv_stock_receipts:['p_action','p_id','p_scope','p_data'],
@@ -168,7 +172,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    return response;
   }});
   if(['customers','browser'].includes(focus)){
-   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,focus,preferences,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
+   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,focus,preferences,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
    if(focus==='customers')assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,0);
    return {focus,remoteShopTouched:false};
   }
@@ -181,6 +185,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='offline')return await exerciseOfflineCheckout({call,handle,selection,fixture,paths,actor,db,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
   if(focus==='payment-reference'){
    const result=await exercisePaymentReference({call,handle,selection,fixture,db,paths,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
    await exercisePaymentReferenceBrowser({handle,actor,preferences,fixture,paths});return result;
@@ -219,7 +224,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     return await exerciseNativeLineName({call,raw,selection,fixture,preferences,nativeRead,paths,numbering});
    }
    if(focus==='sale-note'){const backend=await exerciseNativeSaleNote({call,raw,selection,fixture,preferences,nativeRead,paths});const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,note:'Nota interna del equipo 🙂',salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});return {...backend,screen};}
-   if(focus==='line-price'){const backend=await exerciseNativeLinePrice({call,raw,selection,fixture,preferences,nativeRead,paths,changeCataloguePrice:simulateCataloguePriceChange}),before=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);
+   if(focus==='line-price'){const backend=process.argv.includes('--line-price-browser-only')?{}:await exerciseNativeLinePrice({call,raw,selection,fixture,preferences,nativeRead,paths,changeCataloguePrice:simulateCataloguePriceChange}),before=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);
     const screen=await exerciseNativeLinePriceBrowser({handle,actor,fixture,preferences,selection,salesCount:()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length});
     const after=await nativeRead(`products?filter[id]=[${fixture.linePriceSetup.items.normal.id}]`);assert.equal(after.products[0].price,before.products[0].price);return {...backend,screen};}
    const backend=await exerciseNativeStockPolicy({call,raw,selection,fixture,preferences,nativeRead,paths,actor,simulateCartAckLoss});

@@ -83,3 +83,33 @@ test('checkout revalidation recalculates owned native cart; changed prices/polic
  currentQuote.products_tax_incl='9.010000';currentQuote.lines[0].unit_tax_incl='9.012100';currentQuote.lines[0].line_tax_incl='9.010000';
  await assert.rejects(verifier.verifyPrepared({scope,record}),/QUOTE_CHANGED/);
 });
+
+test('total rounding preserves mixed-tax micros from quote through verified native order',async()=>{
+ const {createNativeSaleAdapter}=await import('../src/totustpv/server/native-adapter.js');
+ const {verifyRemoteSale}=await import('../src/totustpv/model.js');
+ const q={...quote,round_type:3,total_cents:222,total_tax_incl:'2.220000',total_tax_excl:'2.010000',products_tax_incl:'2.220000',products_tax_excl:'2.010000',lines:[
+  {product_id:101,attribute_id:0,quantity:1,unit_tax_incl:'1.005000',unit_tax_excl:'1.005000',line_tax_incl:'1.005000',line_tax_excl:'1.005000'},
+  {product_id:102,attribute_id:0,quantity:1,unit_tax_incl:'1.216050',unit_tax_excl:'1.005000',line_tax_incl:'1.216050',line_tax_excl:'1.005000'}]};
+ const stocks=q.lines.map((line,i)=>({...stockRecords[0],id:801+i,productId:line.product_id,attributeId:0}));
+ const {expected}=await run({stockRecords:stocks,response:{verified:true,native_reference:701,quoted_at:99900,quote:q,quote_fingerprint:await nativeQuoteFingerprint(q)}});
+ assert.equal(expected.lines.reduce((sum,line)=>sum+line.lineTaxInclCents,0),222);
+ assert.equal(expected.lines.reduce((sum,line)=>sum+line.lineTaxExclCents,0),201);
+ assert.equal(expected.lines[0].lineTaxInclCents,expected.lines[0].lineTaxExclCents);
+ const order={id:901,id_shop:1,id_cart:701,id_customer:501,id_address_invoice:601,id_address_delivery:602,id_currency:2,current_state:11,reference:'ROUNDTEST',module:'totustpv',total_paid_tax_incl:'2.220000',total_paid_real:'2.220000',total_shipping_tax_incl:'0.000000',total_discounts_tax_incl:'0.000000',total_products:'2.010000',total_products_wt:'2.220000',round_type:3,round_mode:2};
+ const details=q.lines.map(line=>({id_order:901,product_id:line.product_id,product_attribute_id:0,product_quantity:1,unit_price_tax_incl:line.unit_tax_incl,unit_price_tax_excl:line.unit_tax_excl,total_price_tax_incl:line.line_tax_incl,total_price_tax_excl:line.line_tax_excl}));
+ order.total_paid_tax_excl='2.010000';
+ const data={'orders/901':{order},'order_states/11':{order_state:{id:11,paid:1}},'currencies/2':{currency:{id:2,iso_code:'EUR'}},order_details:{order_details:details},order_payments:{order_payments:[{id:1,order_reference:'ROUNDTEST',id_currency:2,amount:'2.220000',payment_method:'Efectivo'}]}};
+ const adapter=createNativeSaleAdapter({scope,transport:{read:async resource=>structuredClone(data[resource]),createOrderOnce:async()=>{throw Error('No writes');}},verifyPrepared:async()=>({unchanged:true}),readInventoryEvidence:async()=>expected.lines.map(line=>({mode:'isolated-fixture',productId:line.productId,attributeId:0,before:5,after:4,ambiguous:false}))});
+ const observed=await adapter.readSale({scope,orderId:901,expected});
+ assert.equal(verifyRemoteSale(expected,observed).status,'confirmed');
+ assert.equal(observed.totalTaxExclCents,201);
+ order.total_paid_tax_excl='2.020000';
+ const changedTax=await adapter.readSale({scope,orderId:901,expected});
+ assert.equal(verifyRemoteSale(expected,changedTax).status,'uncertain');
+ assert.equal(verifyRemoteSale(expected,{...observed,totalTaxExclCents:undefined}).status,'uncertain');
+ order.total_paid_tax_excl='2.010000';
+ observed.lines[0].lineTaxInclMicros++;
+ assert.equal(verifyRemoteSale(expected,observed).status,'uncertain');
+ order.round_type=2;
+ await assert.rejects(adapter.readSale({scope,orderId:901,expected}),/ROUNDING_MISMATCH/);
+});

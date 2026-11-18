@@ -48,6 +48,8 @@ final class NativeCatalogue
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
+        $pricingQuantity=self::integer((string)($query['pricing_quantity']??'1'),1,10000);
+        Protocol::ensure($pricingQuantity===1||$productId>0&&($query['sort_field']??'name')==='name','CATALOGUE_QUERY_INVALID');
         $policyOnly=self::integer((string)($query['stock_policy_only']??'0'),0,1)===1;Protocol::ensure(!$policyOnly||$productId>0,'CATALOGUE_QUERY_INVALID');
         $capabilitiesOnly=self::integer((string)($query['product_capabilities_only']??'0'),0,1)===1;Protocol::ensure(!$capabilitiesOnly||$productId>0&&!$policyOnly,'CATALOGUE_QUERY_INVALID');
         Protocol::ensure(!$inventoryOnly||!$policyOnly&&!$capabilitiesOnly&&!$hideUnavailable&&!$catalogueFilters['excludedCategories'],'CATALOGUE_INVENTORY_QUERY_INVALID');
@@ -74,6 +76,9 @@ final class NativeCatalogue
             $manager->setLanguage(new \Language($language));$manager->setCountry(new \Country((int)$address->id_country));
             $preview=new \Cart();$preview->id_customer=$customerId;$preview->id_currency=(int)$profile['currency_id'];
             $preview->id_address_invoice=(int)$address->id;$preview->id_address_delivery=(int)$address->id;$manager->setCart($preview);
+            $pricingContext=['customerId'=>$customerId,'addressId'=>(int)$address->id,'shopId'=>$shop,'currency'=>$context->currency->iso_code,
+                'roundMode'=>(int)\Configuration::get('PS_PRICE_ROUND_MODE'),'roundType'=>(int)\Configuration::get('PS_ROUND_TYPE'),
+                'computingPrecision'=>$context->getComputingPrecision(),'quantity'=>$pricingQuantity];
             $parameters=[$shop,$shop,$language];
             $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,p.isbn,ps.active,ps.available_for_order,ps.cache_default_attribute,ps.wholesale_price,
                 COALESCE(m.name,\'\') manufacturer_name,COALESCE(supplier.name,\'\') supplier_name
@@ -142,6 +147,15 @@ final class NativeCatalogue
             }
             if($productId>0){
                 Protocol::ensure(count($products)===1,'CATALOGUE_PRODUCT_UNAVAILABLE');$parent=$products[0];
+                [, $hasVariants]=self::selection($parent,'',$shop,$searchFields,false);
+                if(!$hasVariants){
+                    Protocol::ensure($sortGroupId===0,'CATALOGUE_VARIANT_GROUP_INVALID');
+                    return ['items'=>$page===0?[self::item($parent,0,false,null,$profile,$context,(int)$address->id,$customerId,$pricingQuantity)]:[],
+                        'page'=>$page,'page_size'=>$size,'has_more'=>false,'total_count'=>1,'currency'=>$context->currency->iso_code,
+                        'variant_groups'=>[],'variant_group_id'=>0,'pricing_context'=>$pricingContext,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,
+                        'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly];
+                }
+
                 $groups=$db->prepare('SELECT DISTINCT ag.id_attribute_group,COALESCE(NULLIF(agl.public_name,\'\'),agl.name) name,ag.position FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop=? JOIN `'._DB_PREFIX_.'product_attribute_combination` pac ON pac.id_product_attribute=pa.id_product_attribute JOIN `'._DB_PREFIX_.'attribute` a ON a.id_attribute=pac.id_attribute JOIN `'._DB_PREFIX_.'attribute_group` ag ON ag.id_attribute_group=a.id_attribute_group JOIN `'._DB_PREFIX_.'attribute_group_lang` agl ON agl.id_attribute_group=ag.id_attribute_group AND agl.id_lang=? WHERE pa.id_product=? ORDER BY ag.position,ag.id_attribute_group LIMIT 65');
                 $groups->execute([$shop,$language,$productId]);$nativeGroups=$groups->fetchAll(\PDO::FETCH_ASSOC);Protocol::ensure(count($nativeGroups)<=64,'CATALOGUE_VARIANT_ATTRIBUTES_LIMIT');
                 $variantGroups=array_map(static fn($row)=>['id'=>(int)$row['id_attribute_group'],'name'=>(string)$row['name']],$nativeGroups);
@@ -168,7 +182,7 @@ final class NativeCatalogue
                 }
                 $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
                 foreach(array_slice($variants,0,$size) as $variant){$item=self::item($parent,(int)$variant['id_product_attribute'],false,
-                    $variant,$profile,$context,(int)$address->id,$customerId);if($pricePage)$item['preview_cents']=$priceValues[$item['id']];$rows[]=$item;}
+                    $variant,$profile,$context,(int)$address->id,$customerId,$pricingQuantity);if($pricePage)$item['preview_cents']=$priceValues[$item['id']];$rows[]=$item;}
             }else{
                 $more=$pricePage?$pricePage['has_more']:count($products)>$size;
                 foreach(array_slice($products,0,$size) as $product){
@@ -178,7 +192,7 @@ final class NativeCatalogue
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly,
+                'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId,'pricing_context'=>$pricingContext,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly,
                 ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
     }
@@ -248,11 +262,42 @@ final class NativeCatalogue
         return ['categories'=>array_map(static fn($r)=>['id'=>(int)$r['id_category'],'name'=>(string)$r['name'],
             'parentId'=>(int)$r['id_parent'],'treeLeft'=>(int)$r['nleft'],'treeRight'=>(int)$r['nright'],'parentName'=>$r['id_parent']>2?(string)$r['parent_name']:''],$rows),'has_more'=>false];
     }
-    private static function item(array $product,int $attribute,bool $choose,?array $variant,array $profile,$context,int $address,int $customer): array
+    private static function priceLifetime(int $product,int $shop,int $started): int
     {
-        $id=(int)$product['id_product'];$specific=null;
-        $incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
-        $excl=\Product::getPriceStatic($id,false,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
+        // SpecificPrice compares local dates at minute precision. Include all
+        // customer/variant scopes conservatively, without exporting rule details.
+        $minute=date('Y-m-d H:i:00',$started);
+        $query=\Db::getInstance()->getLink()->prepare('SELECT MIN(CASE WHEN `from` > ? THEN `from` END) starts,MIN(CASE WHEN `to` >= ? THEN `to` END) ends FROM `'._DB_PREFIX_.'specific_price` WHERE id_product IN (0,?) AND id_shop IN (0,?) AND id_cart=0');
+        $query->execute([$minute,$minute,$product,$shop]);$dates=$query->fetch(\PDO::FETCH_ASSOC);
+        $until=$started+86400;
+        foreach(['starts','ends'] as $kind){
+            if(empty($dates[$kind]))continue;
+            $date=\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$dates[$kind]);
+            Protocol::ensure($date!==false&&$date->format('Y-m-d H:i:s')===$dates[$kind],'CATALOGUE_PRICE_DATE_INVALID');
+            $seconds=(int)$date->format('s');$boundary=$date->getTimestamp()-$seconds;
+            if($kind==='ends'||$seconds>0)$boundary+=60;
+            $until=min($until,$boundary);
+        }
+        if($until<=$started)return 0;
+        // Offset transitions can alter local string-based rule applicability.
+        $zone=new \DateTimeZone(date_default_timezone_get());
+        foreach($zone->getTransitions($started,$until)?:[] as $transition)if($transition['ts']>$started)$until=min($until,$transition['ts']);
+        return max(0,($until-time()-1)*1000);
+    }
+    private static function quantityBreaks(int $product,int $shop): array
+    {
+        // Include all customer/variant/date scopes: extra reads are preferable
+        // to silently missing a native quantity threshold. These are not rules.
+        $query=\Db::getInstance()->getLink()->prepare('SELECT DISTINCT from_quantity FROM `'._DB_PREFIX_.'specific_price` WHERE id_product IN (0,?) AND id_shop IN (0,?) AND id_cart=0 AND from_quantity BETWEEN 2 AND 10000 ORDER BY from_quantity LIMIT 1001');
+        $query->execute([$product,$shop]);$values=$query->fetchAll(\PDO::FETCH_COLUMN);
+        Protocol::ensure(count($values)<=1000,'CATALOGUE_QUANTITY_THRESHOLDS_LIMIT');
+        return array_merge([1],array_map('intval',$values));
+    }
+    private static function item(array $product,int $attribute,bool $choose,?array $variant,array $profile,$context,int $address,int $customer,int $pricingQuantity=1): array
+    {
+        $started=time();$id=(int)$product['id_product'];$specific=null;
+        $incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,$pricingQuantity,false,$customer,null,$address,$specific,true,true,$context,true);
+        $excl=\Product::getPriceStatic($id,false,$attribute,6,null,false,true,$pricingQuantity,false,$customer,null,$address,$specific,true,true,$context,true);
         Protocol::ensure(is_numeric($incl)&&is_numeric($excl)&&$incl>=0&&$excl>=0,'CATALOGUE_PRICE_INVALID');
         $label='';$minimum=1;$attributes=[];
         if($attribute>0){$combination=new \Combination($attribute);Protocol::ensure(\Validate::isLoadedObject($combination)&&(int)$combination->id_product===$id,'CATALOGUE_VARIANT_INVALID');
@@ -270,6 +315,7 @@ final class NativeCatalogue
             'variant_name'=>$label,'variant_attributes'=>$attributes,'reference'=>(string)($variant['reference']??$product['reference']),
             'ean'=>(string)($variant['ean13']??$product['ean13']),'upc'=>(string)($variant['upc']??$product['upc']),'isbn'=>(string)($variant['isbn']??$product['isbn']),'choose_variant'=>$choose,
             'minimum_quantity'=>max(1,$minimum),'allow_out_of_stock'=>self::counterStockOverride(),'unit_price_override'=>self::counterPriceOverride(),'temporary_line_names'=>self::counterLineNames((int)$profile['shop_id']),'stock'=>(int)\StockAvailable::getQuantityAvailableByProduct($id,$choose?0:$attribute,(int)$profile['shop_id']),
+            'quantity_breaks'=>self::quantityBreaks($id,(int)$profile['shop_id']),'price_valid_for_ms'=>self::priceLifetime($id,(int)$profile['shop_id'],$started),
             'unit_tax_incl'=>number_format((float)$incl,6,'.',''),'unit_tax_excl'=>number_format((float)$excl,6,'.',''),
             'preview_cents'=>(int)round(100*\Tools::ps_round((float)$incl,2)),
             'preview_tax_excl_cents'=>(int)round(100*\Tools::ps_round((float)$excl,2)),

@@ -124,8 +124,8 @@ export function createTpvHttpClient({auth,owner,currentActor,url,key,request=fet
  const guard=()=>{if(!owner||owner!==currentActor())throw Error('La sesión ha cambiado. Vuelve a abrir TotusTPV.');};
  return async body=>{guard();const {data,error}=await auth.getSession();guard();const session=data?.session;
   if(error||session?.user?.id!==owner||!session.access_token)throw Error(messages.TPV_AUTH_REQUIRED);
-  const response=await request(base.origin+'/functions/v1/totus-tpv',{method:'POST',headers:{'Content-Type':'application/json',
-   apikey:key,Authorization:'Bearer '+session.access_token},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(60000)});
+  let response;try{response=await request(base.origin+'/functions/v1/totus-tpv',{method:'POST',headers:{'Content-Type':'application/json',
+   apikey:key,Authorization:'Bearer '+session.access_token},body:JSON.stringify(body),credentials:'omit',redirect:'error',signal:AbortSignal.timeout(60000)});}catch(error){guard();if(error instanceof TypeError||error?.name==='TimeoutError'){const failure=new Error('No se puede conectar con Central en este momento.');failure.code='TPV_CONNECTION_UNAVAILABLE';throw failure;}throw error;}
   const result=await response.json();guard();if(!response.ok||result?.error){const code=result?.error||'TPV_REQUEST_FAILED',
    failure=new Error(['TPV_CUSTOMER_FIELDS_REJECTED','TPV_CATALOGUE_FIELDS_REJECTED'].includes(code)&&typeof result.detail==='string'?result.detail:
     messages[code]||'No se pudo confirmar la operación. Conserva sus datos y consulta el resultado antes de repetirla.');failure.code=code;throw failure;}

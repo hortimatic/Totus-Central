@@ -183,7 +183,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   const run=()=>{if(!current()||version!==prefetchVersion)return;if(pending||document.querySelector('dialog[open],.prd-select-dialog')){catalogSearchTimer=setTimeout(run,100);return;}catalogSearchTerm=term.trim();query=term;productPickerQuery=term;void work(()=>loadCatalog(false));};
   catalogSearchTimer=setTimeout(run,350);
  }
- function cacheCatalogue(){if(catalogSearchTerm)return;for(const shop of catalogScope==='both'?PRODUCT_STORES.map(s=>s.key):[catalogScope]){const c=connection(shop);catalogCache.set(shop,{revision:c?.revision,id:c?.id,rows:rows.filter(p=>(p.__store||store)===shop),meta:catalogMeta.get(shop)});}}
+ function cacheCatalogue({fresh=false}={}){if(catalogSearchTerm||hasMore)return;for(const shop of catalogScope==='both'?PRODUCT_STORES.map(s=>s.key):[catalogScope]){const c=connection(shop),prior=catalogCache.get(shop);if(!fresh&&(!prior||prior.id!==c?.id||prior.revision!==c?.revision))continue;catalogCache.set(shop,{readAt:fresh?Date.now():prior.readAt,updatedAt:Date.now(),revision:c?.revision,id:c?.id,rows:rows.filter(p=>(p.__store||store)===shop),meta:catalogMeta.get(shop)});}}
  async function prefetchCatalog(version,scope,{refresh=false}={}){
   const repaint=()=>{const active=document.activeElement,editing=root?.contains(active)&&active.matches('input,select,textarea,[data-pr-resize-column]');if(!editing&&!document.querySelector('dialog[open],.prd-select-dialog')&&!root?.querySelector('details[open]'))render();};
   const valid=()=>current()&&prefetchVersion===version&&catalogScope===scope&&!catalogSearchTerm;
@@ -194,7 +194,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
    if(data.resource!=='products'||data.page!==cursor||!Array.isArray(data.rows))throw Error('Catálogo incompleto.');
    const existing=new Set(rows.map(catalogKey));for(const item of data.rows){const key=shop+'|'+item.id;if(seen.has(key))throw Error('La tienda repitió una página.');seen.add(key);if(!existing.has(key))rows.push({...item,__store:shop});else if(refresh){const index=rows.findIndex(p=>catalogKey(p)===key);rows[index]={...item,__store:shop};}}
    repaint();if(!data.possibly_more){if(refresh)rows=rows.filter(p=>(p.__store||store)!==shop||seen.has(catalogKey(p)));break;}if(!data.rows.length)throw Error('La tienda devolvió una página vacía incompleta.');
-  }}if(valid()){hasMore=false;cacheCatalogue();repaint();}}
+  }}if(valid()){hasMore=false;cacheCatalogue({fresh:true});repaint();}}
   catch(error){if(valid()){status='Carga en segundo plano pendiente: '+error.message;repaint();}}
  }
  function productPicker(){
@@ -486,7 +486,7 @@ export function createProductosUI({rpc,invoke,actor,allowed,canEdit=()=>false,ca
   hasMore=shops.some(shop=>catalogMore.get(shop));page++;
   if(stock)try{await loadCatalogStock();}catch{/* A failed read is not zero stock. */}
   status='Catálogo de '+(catalogScope==='both'?'ambas tiendas':catalogScope)+': '+rows.length+' productos consultados'+(hasMore?' (parcial).':'.');
-  if(!catalogSearchTerm&&!hasMore)cacheCatalogue();
+  if(!catalogSearchTerm&&!hasMore)cacheCatalogue({fresh:true});
   if(!more&&!catalogSearchTerm&&hasMore){const version=prefetchVersion,scope=catalogScope;setTimeout(()=>{void prefetchCatalog(version,scope);},0);}
   const missing=[...new Set(shops.flatMap(shop=>catalogMeta.get(shop)?.warnings||[]))];if(missing.length)status+=' Lecturas auxiliares pendientes: '+missing.map(key=>({categories:'categorías',manufacturers:'marcas',suppliers:'proveedores',tax_rule_groups:'grupos de impuestos',countries:'países',tax_rules:'reglas de impuestos',taxes:'tipos de IVA'}[key]||key)).join(', ')+'. Los datos no comprobados figuran como Sin verificar; pulsa Actualizar para repetir la lectura.';
  }
@@ -884,5 +884,14 @@ if(['Enter',' '].includes(e.key)&&e.target.matches('[data-pr-action="photo-zoom"
  function isPublishing(){if(!current())return false;const wizard=createWizard.snapshot();return priceBatchBusy||attributeEditorState.publishing||pending&&(wizard.attempted?.length>0||editRequests.size>0||[...tableEditor.rows.values()].some(row=>row.request)||(wizard.stages||[]).some(([,stage])=>stage.rows?.some(row=>row.attempted)));}
  function discardDraft(){if(!offerBatch.pending())offerBatch.reset();standaloneAttributeEditor?.discard();for(const row of [...tableEditor.rows.values()])if(!row.request)tableEditor.discard(row.shop,row.id);if(record)draftsByProduct.delete(store+'|'+(record.id||record.draft_key||textValue(record.reference)||'new'));draftsByShop.delete(store);resetDraft();status='Propuesta descartada.';if(current())render();}
  function dispose(){priceBatchBusy=false;movementsUI.dispose();standaloneAttributeEditor?.discard();standaloneAttributeEditor=null;attributeEditorState={dirty:false,publishing:false};attributesUI.dispose();++prefetchVersion;clearTimeout(catalogSearchTimer);controlsCleanup();photoCleanup();layoutCleanup();persistDraft();storageReady=false;if(root){root.onclick=null;root.ondblclick=null;root.onchange=null;root.oninput=null;root.onkeydown=null;root.ondragover=null;root.ondrop=null;}root=null;owner=null;++epoch;pending=false;}
- return {mount,dispose,hasDraft,discardDraft,stateSnapshot,selectProduct,isPublishing};
+ // Shared read-only source for other Central modules. It remains available
+ // after leaving Products, but never crosses accounts or connection revisions.
+ function catalogueSnapshot({connectionId,revision}={}){
+  if(!actor()||cacheOwner!==actor()||!allowed()||!connectionId||revision===undefined)return null;
+  const entries=[...catalogCache.entries()].filter(([shop,saved])=>{const c=connection(shop);return saved.id===connectionId&&saved.revision===revision&&c?.id===connectionId&&c.revision===revision&&ready(shop);});
+  if(entries.length!==1)return null;
+  const [shop,saved]=entries[0];
+  return structuredClone({store:shop,connectionId,revision,readAt:saved.readAt,updatedAt:saved.updatedAt,productsComplete:true,products:saved.rows,metadata:saved.meta||null});
+ }
+ return {mount,dispose,hasDraft,discardDraft,stateSnapshot,selectProduct,isPublishing,catalogueSnapshot};
 }

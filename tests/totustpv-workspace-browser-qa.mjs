@@ -114,7 +114,7 @@ try{
   stockPolicy:{allowOutOfStock:false},lineOptions:{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false},parking:{enabled:true,ttlDays:0},
   customerDisplay:{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23},
   display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,requireQuantity:false,showTaxBreakdown:true,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
-  receipt:{showPaymentReferences:false,showAttributes:true,title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true,showOriginalPrice:true,showLineDiscount:true,includeLineDiscountsInTotal:true}});
+  receipt:{showVouchers:false,showPaymentReferences:false,showAttributes:true,title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true,showOriginalPrice:true,showLineDiscount:true,includeLineDiscountsInTotal:true}});
  await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);
  assert.equal(await page.evaluate(()=>settingsFixture.workspace.hasDraft()),false,'Presentation filters are not an edited sale');
@@ -149,5 +149,19 @@ try{
  await page.locator('[data-tpv-drawer]').waitFor();await page.locator('[data-tpv-drawer]').selectOption('b');
  await page.waitForFunction(()=>settingsFixture.reads.at(-1)==='b');
  assert.equal(await page.evaluate(()=>settingsFixture.selected.at(-1).drawerId),'b');
+ await page.evaluate(async()=>{
+  settingsFixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js');
+  const drawer={id:'a',name:'Caja',storeId:'shop',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true};
+  const w=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,
+   workspacePreferences:async()=>({stockPolicy:{allowOutOfStock:true}}),
+   createLiveAdapter:()=>({mode:'qa',context:async()=>({stores:[{id:'shop',name:'QA'}],drawers:[drawer],sessions:[{id:'session',storeId:'shop',drawerId:'a',status:'open'}]}),
+    selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[{id:'1:0',name:'Artículo limitado',reference:'LIMIT',stock:1,priceCents:150,allowOutOfStock:true}]})});
+  window.stockWarningWorkspace=w;w.mount(document.querySelector('#tpv'));
+ });
+ await page.locator('[data-tpv-add]').waitFor();await page.locator('[data-tpv-add]').click();await page.locator('[data-tpv-add]').click();
+ await page.getByRole('button',{name:/^Ticket/}).first().click();
+ await page.locator('[data-tpv-stock-warning]:visible').waitFor();assert.match(await page.locator('[data-tpv-stock-warning]').innerText(),/2 en el ticket y 1 disponibles/);
+ await page.locator('[data-tpv-quantity]').fill('1');await page.locator('[data-tpv-quantity]').dispatchEvent('input');
+ assert.equal(await page.locator('[data-tpv-stock-warning]').isVisible(),false,'The warning clears when quantity fits available stock');
  assert.deepEqual(errors,[]);console.log('PASS TotusTPV workspace: cash/change, lost response, reload/recovery, mixed payment, refund without restocking, cash close, per-user isolation and four viewport sizes. Synthetic data only.');
 }finally{await page.close();await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}

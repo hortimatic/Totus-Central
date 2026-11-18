@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
 export async function exercisePaymentReference({call,handle,selection,fixture,db,paths,loseSaleReply}){
+ const offlineId=randomUUID(),deviceId=randomUUID(),nativeBeforeOffline=paths.length;
+ const ticket={currency:'EUR',totalCents:100,lines:[{productId:fixture.productId,attributeId:0,qty:1}],payments:[{method:'cash',amountCents:100,receivedCents:100}]};
+ const pending=await call({action:'offline-receive',selection,operationId:offlineId,deviceId,ticket});assert.equal(pending.status,'received');
+ const recoveredOffline=await call({action:'offline-get',selection,operationId:offlineId});assert.deepEqual(recoveredOffline.ticket,ticket);assert.equal(paths.length,nativeBeforeOffline,'Receiving an offline intention must not contact the shop');
  await call({action:'payment-options',selection,operationId:randomUUID(),settings:{enabledMethods:['cash','card'],referencePolicy:{card:'required'}}});
  const id=randomUUID(),prepared=await call({action:'prepare',selection,operationId:id,lines:[{productId:fixture.productId,attributeId:0,qty:1}]});
  assert.equal(prepared.expected.supportsPaymentReferences,true);assert.equal(prepared.expected.operatorPaymentPolicy.referencePolicy.card,'required');

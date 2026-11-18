@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {stockPolicy,stockPolicyHtml,stockPolicyFromForm,canExceedStock} from '../src/totustpv/stock-policy.js';
+import {stockPolicy,stockPolicyHtml,stockPolicyFromForm,canExceedStock,stockWarning} from '../src/totustpv/stock-policy.js';
 import {createCatalogueTable} from '../src/totustpv/catalogue-table.js';
 test('stock policy defaults to refusal and accepts only the explicit boolean preference',()=>{
  assert.deepEqual(stockPolicy(),{allowOutOfStock:false});assert.deepEqual(stockPolicy({}),{allowOutOfStock:false});assert.deepEqual(stockPolicy({allowOutOfStock:true}),{allowOutOfStock:true});
@@ -19,3 +19,5 @@ test('table selection intersects rights, native counter capability, explicit pol
  assert.deepEqual(state(table.html(rows,{stockPolicy:{allowOutOfStock:true},canSelect:false})),[['1:0',true],['2:0',true]]);
  assert.match(stockPolicyHtml({allowOutOfStock:true},false),/checked disabled/);
 });
+
+test('ticket warns for excess quantities including negative stock, without inventing unknown stock',()=>{assert.equal(stockWarning({qty:2,stock:2}),'');assert.equal(stockWarning({qty:2,stock:null}),'');assert.match(stockWarning({qty:2,stock:1}),/2 en el ticket y 1 disponibles/);assert.match(stockWarning({qty:1,stock:-2}),/1 en el ticket y -2 disponibles/);});

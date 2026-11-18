@@ -94,7 +94,7 @@
 .tpv-sample-barcode{height:14mm;margin:0 3mm;background:repeating-linear-gradient(90deg,#111 0 2px,#fff 2px 4px,#111 4px 5px,#fff 5px 9px);opacity:.65}
 @container (max-width:600px){.tpv-settings form{grid-template-columns:1fr}.tpv-product-list{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}.tpv-product img{width:64px;height:64px}.tpv-catalogue-controls{grid-template-columns:minmax(0,1fr) 110px}.tpv-product strong{font-size:.82rem}}
 
-@media(max-width:999px){.totus-tpv .tpv-settings form>button[type=submit]{grid-column:1/-1;position:sticky;top:0;z-index:3;justify-self:stretch;box-shadow:0 4px 0 var(--panel)}}
+@media(max-width:999px){.totus-tpv .tpv-settings form>button[type=submit]{grid-column:1/-1;position:sticky;bottom:0;z-index:5;justify-self:stretch;box-shadow:0 -4px 0 var(--panel)}}
 
 @media(min-width:761px){.tpv-active .tpv-sale-grid.tpv-layout-catalogue:not(.tpv-checkout-grid){grid-template-columns:minmax(0,2fr) minmax(320px,1fr)}.tpv-active .tpv-sale-grid.tpv-layout-ticket:not(.tpv-checkout-grid){grid-template-columns:minmax(0,1fr) minmax(320px,1.4fr)}}
 
@@ -173,3 +173,8 @@
 .totus-tpv .tpv-payment-settings label{margin:8px 0;display:grid;gap:6px}
 .totus-tpv .tpv-payment-settings .tpv-check{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-weight:600}
 .totus-tpv .tpv-payment-settings > fieldset > button{grid-column:1/-1;justify-self:start;min-width:min(100%,240px)}
+.tpv-settings-navigation{position:sticky;top:8px;z-index:4;padding:12px;margin:16px 0;background:var(--panel,#fff);border:1px solid var(--line,#d9e2ee);border-radius:12px;box-shadow:0 4px 14px #12233c0a}
+.tpv-settings-links{display:flex;flex-wrap:wrap;gap:8px}.tpv-settings-links .btn{font-size:.82rem;padding:8px 12px;min-height:36px}
+.tpv-settings-navigation>label{display:none}
+@media(max-width:700px){.tpv-settings-navigation{padding:10px;top:0}.tpv-settings-links{display:none}.tpv-settings-navigation>label{display:grid;gap:6px;font-size:.85rem;font-weight:600}.tpv-settings-navigation select{width:100%;min-height:44px}}
+.tpv-ticket-line .tpv-stock-warning{color:var(--danger,#a33818);font-weight:600;white-space:normal}.tpv-ticket-line .tpv-stock-warning[hidden]{display:none}

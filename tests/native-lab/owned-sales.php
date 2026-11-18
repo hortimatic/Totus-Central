@@ -5,6 +5,9 @@ require __DIR__.'/payment-fixture.php';
 foreach(['PdoJournal','JournalSchema','PdoNativeEffect','NativeEffectHandler','CommandRunner','NativeCustomers','NativeCartAdjustments','NativeLineAdjustments','NativeOwnedCarts','NativePaidPickup','NativeSale'] as $file)
     require_once nativeLabConnector($file);
 use TotusCentralConnector\{Protocol,PdoJournal,JournalSchema,PdoNativeEffect,NativeEffectHandler,CommandRunner,NativeOwnedCarts,NativeSale};
+require_once nativeLabConnector('NativeDocuments');
+$originalRoundType=(int)Configuration::get('PS_ROUND_TYPE');
+$totalRounding=in_array('--total-rounding',$argv,true);
 $native=Db::getInstance()->getLink();$parameters=(require $nativeRoot.'/app/config/parameters.php')['parameters'];
 $journalDb=new PDO('mysql:host=127.0.0.1;port=3318;dbname=totus_tpv_lab;charset=utf8mb4',
     $parameters['database_user'],$parameters['database_password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
@@ -25,6 +28,7 @@ $index=10;$make=static function(string $name,array $payload)use($base,&$index){
         'installation_id'=>$base['installation_id'],'shop_id'=>1,'allowed_shop_ids'=>[1],'enabled_commands'=>['cart.prepare','cart.quote','sale.commit']]);
 };
 try {
+    if($totalRounding)Configuration::updateValue('PS_ROUND_TYPE',3);
     $journalDb->exec(JournalSchema::mysql($jt));$native->exec(PdoNativeEffect::mysqlSchema($et));$native->exec(NativeOwnedCarts::mysqlSchema($ct));
     $journal=new PdoJournal($journalDb,$jt,$base['installation_id']);
     $effects=new PdoNativeEffect($native,$et,$journal,static fn()=>Db::getInstance()->getLink());
@@ -57,6 +61,31 @@ try {
             'quote_fingerprint'=>$quoted['quote_fingerprint'],'payments'=>$payments]);
         $paid=$runner->execute($command);nativeLabCheck(($paid['verified']??false)===true,'Owned sale failed: '.json_encode($paid));
         nativeLabCheck(count($paid['invoice_ids'])===1,'Owned sale has no unique invoice.');
+        nativeLabCheck(($paid['order_evidence']['totalTaxExclCents']??null)===(int)round(100*(float)$quoted['quote']['total_tax_excl']),'Missing verified net amount in native evidence.');
+        if($totalRounding){
+            $line=$paid['order_evidence']['lines'][0];$nativeLine=$quoted['quote']['lines'][0];
+            nativeLabCheck(($line['lineTaxInclMicros']??null)===(int)round(1000000*(float)$nativeLine['line_tax_incl'])&&($line['lineTaxExclMicros']??null)===(int)round(1000000*(float)$nativeLine['line_tax_excl']),'Total-rounded line precision lost.');
+            nativeLabCheck($line['lineTaxInclCents']===801,'Total-rounded line does not match the charged amount.');
+        }
+        // A matching payment is insufficient when the saved taxable base differs.
+        // Change only this disposable fixture, then restore it even on failure.
+        if(count($results)===0){
+            foreach([['orders','id_order',$paid['order_id']],['order_invoice','id_order_invoice',$paid['invoice_ids'][0]]] as [$table,$idColumn,$id]){
+                $table=_DB_PREFIX_.$table;
+                $original=$native->query('SELECT total_paid_tax_excl FROM `'.$table.'` WHERE `'.$idColumn.'`='.(int)$id)->fetchColumn();
+                try{
+                    $native->exec('UPDATE `'.$table.'` SET total_paid_tax_excl=total_paid_tax_excl+0.01 WHERE `'.$idColumn.'`='.(int)$id);
+                    Cache::clean('*');
+                    $rejected=false;
+                    try{$sale->reconcile($command,[]);}catch(InvalidArgumentException $error){$rejected=$error->getMessage()===('TOTUS_'.($idColumn==='id_order'?'SALE_ORDER_READBACK_FAILED':'SALE_INVOICE_AMOUNT_READBACK_FAILED'));}
+                    nativeLabCheck($rejected,'Native readback accepted a changed taxable base.');
+                }finally{
+                    $restore=$native->prepare('UPDATE `'.$table.'` SET total_paid_tax_excl=? WHERE `'.$idColumn.'`=?');$restore->execute([$original,$id]);
+                    Cache::clean('*');
+                }
+            }
+            nativeLabCheck(($sale->reconcile($command,[])['verified']??false)===true,'Restored native fixture did not reconcile.');
+        }
         nativeLabCheck($runner->execute($command)===$paid,'Paid replay changed the receipt.');
         $copy=$command;$copy['actor_id']='00000000-0000-4000-8000-000000000099';
         $foreign=false;try{$sale->reconcile($copy,[]);}catch(InvalidArgumentException $error){$foreign=true;}
@@ -71,6 +100,7 @@ try {
     ],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR));
     echo "PASS native owned carts, persisted quotes, cash/card/mixed sales, invoices, stock, operator isolation and replay without duplicate orders. Local only.\n";
 } finally {
+    if($totalRounding)Configuration::updateValue('PS_ROUND_TYPE',$originalRoundType);
     if($native->inTransaction())$native->rollBack();
     foreach([$et,$ct,$jt] as $table)$native->exec('DROP TABLE IF EXISTS `'.$table.'`');
 }

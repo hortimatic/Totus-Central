@@ -29,6 +29,8 @@ execFileSync(php,['-c',ini,'tests/native-lab/cart-quote.php'],{encoding:'utf8',e
 const setup=execFileSync(php,['-c',ini,'tests/native-lab/http-setup.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const fixture=JSON.parse(setup.trim().split(/\r?\n/).at(-1));
 execFileSync(php,['-c',ini,'tests/native-lab/document-logo.php'],{encoding:'utf8',env,maxBuffer:1024*1024});
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/document-rounding.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/catalogue-price-lifetime.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
 process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/api-permissions.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}));
 const base='http://127.0.0.1:8771/api/',nativeHttpTrace=[];let stderr='';
 const assets=createServer(async(req,res)=>{try{
@@ -64,7 +66,10 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--payment-reference-only')){
+ if(process.argv.includes('--offline-only')){
+  execFileSync(php,['-c',ini,'tests/native-lab/offline-quantity-price.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024});
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'offline'});
+ }else if(process.argv.includes('--payment-reference-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'payment-reference'});
  }else if(process.argv.includes('--receipt-variants-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
@@ -88,7 +93,7 @@ try{
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'budgets',inspectCommercialCart:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
  }else if(process.argv.includes('--commercial-quote-only')){
   await exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
- }else if((process.argv.includes('--line-price-only')||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
+ }else if(((process.argv.includes('--line-price-only')||process.argv.includes('--line-price-browser-only'))||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const linePriceSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/line-price-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture:{...fixture,linePriceSetup},profile:configured.result,base,simulateCataloguePriceChange:(id,price)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/price-history-change.php',String(id),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),focus:process.argv.includes('--line-name-only')?'line-name':process.argv.includes('--sale-note-only')?'sale-note':'line-price'});
@@ -124,6 +129,7 @@ try{
  }else if(process.argv.includes('--catalogue-only')){
   await exerciseNativeCatalogue({api,php,ini,env});
  }else if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
+  if(process.argv.includes('--browser-only'))fixture.variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:process.argv.includes('--customers-only')?'customers':'browser'});
  }else{
  const catalogue=await api('totus_tpv_catalogue?search='+encodeURIComponent(fixture.reference)+'&page=0&page_size=50');

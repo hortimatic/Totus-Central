@@ -107,6 +107,14 @@ El administrador puede abrir Crear y gestionar cajas. Se abre Administración �
 
 ## Elegir una variante en una venta
 
-Pulsa el artículo. La ventana muestra cada combinación con sus atributos, existencias y precio. Elige un atributo para ordenar, como Color, o cambia a orden por existencias o precio. Usa Anterior y Siguiente para recorrer todas las combinaciones. En móvil se abre con tarjetas; Vista permite cambiar a Tabla y usar las columnas comunes. Pulsa una combinación con unidades para añadirla: la ventana se cierra y conserva el resto del ticket. Volver a productos o Escape cancela la selección. Ordenar las variantes no cambia el orden guardado del catálogo. Esta ampliación sigue en rama, pendiente de activación remota.
+Pulsa el artículo. La ventana muestra cada combinación con sus atributos, existencias y precio. Elige un atributo para ordenar, como Color, o cambia a orden por existencias o precio. Usa Anterior y Siguiente para recorrer todas las combinaciones. En móvil se abre con tarjetas; Vista permite cambiar a Tabla y usar las columnas comunes. Pulsa una combinación habilitada para añadirla: la ventana se cierra y conserva el resto del ticket. Volver a productos o Escape cancela la selección. Ordenar las variantes no cambia el orden guardado del catálogo. Esta ampliación sigue en rama, pendiente de activación remota.
 
 Para elegir cómo se abren siempre las combinaciones, entra en Configuración y busca Orden inicial de las variantes. Selecciona el orden y pulsa Guardar mostrador. Se conserva para tu cuenta en esa caja; el orden del catálogo permanece independiente. El selector permite cambiarlo sólo para la consulta actual sin volver a guardar.
+
+## Vender cuando faltan existencias
+
+Por defecto, los artículos sin unidades suficientes no pueden añadirse para vender. Si tu operativa permite venderlos, abre Más acciones → Configuración → Ventas y existencias, activa Permitir vender con existencias insuficientes y pulsa Guardar mostrador. Debe estar desactivada la opción Ocultar productos sin existencias para poder elegirlos. El ajuste corresponde a tu cuenta y caja y requiere permiso de venta.
+
+Los artículos y variantes habilitados muestran sus existencias reales, incluso cero o negativas, y el aviso Venta sin existencias permitida. Revisa la cantidad del ticket antes de cobrar. El pedido registra las unidades vendidas y el stock resultante; la configuración de venta online del artículo se conserva. Desactivar el ajuste después de calcular un cobro exige volver a calcularlo antes de confirmar. Si la respuesta queda pendiente, utiliza Recuperar resultado para comprobar la misma operación.
+
+Esta ampliación está verificada en laboratorio con ventas y devoluciones reales del entorno local aislado, pendientes de activación y aceptación remotas.

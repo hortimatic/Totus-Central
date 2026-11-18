@@ -12,7 +12,7 @@ export async function exerciseNativeBudgetBrowser({handle,actor,fixture,preferen
   window.nativeBudgetWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true}),can:()=>true,autoOpen:true,confirm:async()=>true,
    workspacePreferences:async(drawer,value)=>(await fetch('/__budget_preferences',{method:'POST',body:JSON.stringify({drawer,value})})).json(),
    createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async payload=>{
-    const response=await fetch('/__budget_fixture',{method:'POST',body:JSON.stringify(payload)}),data=await response.json();if(!response.ok||data.error){const error=Error(data.error);error.code=data.error;throw error;}return data;
+    const response=await fetch('/__budget_fixture',{method:'POST',body:JSON.stringify(payload)}),data=await response.json();if(!response.ok||data?.error){const error=Error(data?.error);error.code=data?.error;throw error;}return data;
    }})});nativeBudgetWorkspace.mount(document.querySelector('#tpv'));
  },actor);
  try{

@@ -181,12 +181,14 @@ final class NativeSale
     private function readback(array $command,array $payload,array $saved,int $orderId): array
     {
         $order=new \Order($orderId);$quote=$saved['quote'];
+        Protocol::ensure((int)$order->round_type===$quote['round_type']&&(int)$order->round_mode===$quote['round_mode'],'SALE_ROUNDING_READBACK_FAILED');
         Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_cart===$payload['cart_id'] &&
             (int)$order->id_shop===$command['shop_id'] && (int)$order->id_customer===$quote['customer_id'] &&
             (int)$order->id_currency===$quote['currency_id'] && (int)$order->id_address_invoice===$quote['invoice_address_id'] &&
             (int)$order->id_address_delivery===$quote['delivery_address_id'] && (int)$order->id_carrier===$quote['carrier_id'] &&
             (int)$order->id_lang===$quote['language_id'] && $order->module===$this->module->name &&
-            self::cents($order->total_paid_tax_incl)===$quote['total_cents'],'SALE_ORDER_READBACK_FAILED');
+            self::cents($order->total_paid_tax_incl)===$quote['total_cents']&&
+            self::cents($order->total_paid_tax_excl)===self::cents($quote['total_tax_excl']),'SALE_ORDER_READBACK_FAILED');
         $noteOwner=($this->ownerReader)($payload['cart_id'],$command);
         if(!empty($noteOwner['line_names'])){NativeOrderLineNames::assertQuote($noteOwner['line_names'],$quote['lines']);NativeOrderLineNames::verify($order,$noteOwner['line_names']);}
         if(isset($quote['sale_note_hash']))NativeSaleNote::verifyOrder($order,$noteOwner['sale_note']??null,$quote['sale_note_hash']);
@@ -200,8 +202,8 @@ final class NativeSale
             Protocol::ensure($quoted!==null&&
                 number_format((float)$line['unit_price_tax_incl'],6,'.','')===number_format((float)$quoted['unit_tax_incl'],6,'.','')&&
                 number_format((float)$line['unit_price_tax_excl'],6,'.','')===number_format((float)$quoted['unit_tax_excl'],6,'.','')&&
-                self::cents($line['total_price_tax_incl'])===self::cents($quoted['line_tax_incl'])&&
-                self::cents($line['total_price_tax_excl'])===self::cents($quoted['line_tax_excl']),'SALE_LINE_PRICE_READBACK_FAILED');
+                ($quote['round_type']===3?self::micros($line['total_price_tax_incl'])===self::micros($quoted['line_tax_incl']):self::cents($line['total_price_tax_incl'])===self::cents($quoted['line_tax_incl']))&&
+                ($quote['round_type']===3?self::micros($line['total_price_tax_excl'])===self::micros($quoted['line_tax_excl']):self::cents($line['total_price_tax_excl'])===self::cents($quoted['line_tax_excl'])),'SALE_LINE_PRICE_READBACK_FAILED');
         }
         ksort($expected);ksort($observed);Protocol::ensure($expected===$observed,'SALE_LINES_READBACK_FAILED');
         $payments=[];$paymentEvidence=[];$currency=new \Currency((int)$quote['currency_id']);
@@ -223,7 +225,8 @@ final class NativeSale
             self::cents($order->total_shipping_tax_incl)===self::cents($quote['shipping_tax_incl'])&&
             self::cents($order->total_discounts_tax_incl)===self::cents($quote['discounts_tax_incl']),'SALE_TOTAL_COMPONENTS_READBACK_FAILED');
         foreach($order->getInvoicesCollection() as $invoice)Protocol::ensure((int)$invoice->id_order===$orderId&&
-            self::cents($invoice->total_paid_tax_incl)===$quote['total_cents'],'SALE_INVOICE_AMOUNT_READBACK_FAILED');
+            self::cents($invoice->total_paid_tax_incl)===$quote['total_cents']&&
+            self::cents($invoice->total_paid_tax_excl)===self::cents($quote['total_tax_excl']),'SALE_INVOICE_AMOUNT_READBACK_FAILED');
         $inventory=[];$db=\Db::getInstance()->getLink();
         foreach($quote['lines'] as $line){
             $stockId=(int)\StockAvailable::getStockAvailableIdByProductId($line['product_id'],$line['attribute_id'],$command['shop_id']);
@@ -237,15 +240,18 @@ final class NativeSale
                 'recordVerified'=>true,'ambiguous'=>false];
         }
         $state=new \OrderState((int)$order->current_state);$lineEvidence=[];
-        foreach($details as $line)$lineEvidence[]=['productId'=>(int)$line['product_id'],'attributeId'=>(int)$line['product_attribute_id'],
+        $balanced=$quote['round_type']===3?NativeDocuments::reconcileTicketTotals($details,self::cents($order->total_products_wt),self::cents($order->total_products),(int)$order->round_mode):[];
+        foreach($details as $index=>$line)$lineEvidence[]=['productId'=>(int)$line['product_id'],'attributeId'=>(int)$line['product_attribute_id'],
             'qty'=>(int)$line['product_quantity'],'unitTaxInclMicros'=>self::micros($line['unit_price_tax_incl']),
-            'unitTaxExclMicros'=>self::micros($line['unit_price_tax_excl']),'lineTaxInclCents'=>self::cents($line['total_price_tax_incl']),
-            'lineTaxExclCents'=>self::cents($line['total_price_tax_excl'])];
+            'unitTaxExclMicros'=>self::micros($line['unit_price_tax_excl']),'lineTaxInclCents'=>$balanced[$index]['line_cents']??self::cents($line['total_price_tax_incl']),
+            'lineTaxExclCents'=>$balanced[$index]['tax_excl_cents']??self::cents($line['total_price_tax_excl']),
+            ...($quote['round_type']===3?['lineTaxInclMicros'=>self::micros($line['total_price_tax_incl']),'lineTaxExclMicros'=>self::micros($line['total_price_tax_excl'])]:[])];
         $evidence=['shopId'=>(int)$order->id_shop,'cartId'=>(int)$order->id_cart,'orderId'=>$orderId,
             'customerId'=>(int)$order->id_customer,'invoiceAddressId'=>(int)$order->id_address_invoice,
             'deliveryAddressId'=>(int)$order->id_address_delivery,'currencyId'=>(int)$order->id_currency,'currency'=>(string)$currency->iso_code,
             'paymentModule'=>(string)$order->module,'stateId'=>(int)$order->current_state,'statePaid'=>(bool)$state->paid,
             'totalCents'=>self::cents($order->total_paid_tax_incl),'receivedCents'=>self::cents($order->total_paid_real),
+            'totalTaxExclCents'=>self::cents($order->total_paid_tax_excl),
             'shippingCents'=>self::cents($order->total_shipping_tax_incl),'discountCents'=>self::cents($order->total_discounts_tax_incl),
             'lines'=>$lineEvidence,'payments'=>$paymentEvidence,'inventory'=>$inventory];
         return ['verified'=>true,'native_reference'=>$orderId,'order_id'=>$orderId,'reference'=>(string)$order->reference,

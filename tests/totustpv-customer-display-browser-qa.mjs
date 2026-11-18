@@ -53,7 +53,7 @@ try{for(const width of [1440,390]){
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js');
   window.workspaceScreen={preferences:{customerDisplay:{enabled:true,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23}},writes:[]};
   const adapter={mode:'qa',context:async()=>({stores:[{id:'shop',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'shop',name:'Caja ficticia',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'shop',drawerId:'drawer',status:'open'}]}),
-   selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[{id:'1:0',name:'Artículo ficticio',stock:5,priceCents:350}]};
+   selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[{id:'1:0',name:'Artículo ficticio',stock:5,priceCents:350}],localBasketPrices:async({lines})=>new Promise(resolve=>workspaceScreen.finishPrices=()=>resolve({validUntil:Date.now()+60000,pricingContext:{roundMode:2,roundType:1,computingPrecision:6},lines:lines.map(line=>({...line,unitTaxInclMicros:3500000}))}))};
   workspaceScreen.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,autoOpen:true,createLiveAdapter:()=>adapter,
    workspacePreferences:async(drawer,value)=>{if(value){workspaceScreen.writes.push(value);workspaceScreen.preferences={...workspaceScreen.preferences,...value};}return structuredClone(workspaceScreen.preferences);}});
   workspaceScreen.workspace.mount(document.querySelector('#tpv'));
@@ -61,7 +61,9 @@ try{for(const width of [1440,390]){
  await page.locator('[data-tpv-add]').waitFor();await page.getByText('Más acciones',{exact:true}).click();
  const waiting=page.waitForEvent('popup');await page.getByRole('button',{name:'Pantalla para cliente',exact:true}).click();const display=await waiting;
  await display.getByRole('heading',{name:'Bienvenido',exact:true}).waitFor();await page.getByText('Más acciones',{exact:true}).click();await page.locator('[data-tpv-add]').click();
- await display.getByText('Artículo ficticio',{exact:true}).waitFor();assert.equal(await display.locator('[data-display-amount]').innerText(),'3,50 €');
+ await display.getByText('Artículo ficticio',{exact:true}).waitFor();assert.equal(await display.locator('[data-display-total]').isVisible(),false,'Unknown basket price must not appear as a payable total');
+ await page.waitForFunction(()=>typeof workspaceScreen.finishPrices==='function');await page.evaluate(()=>workspaceScreen.finishPrices());
+ await display.waitForFunction(()=>document.querySelector('[data-display-amount]').textContent==='3,50 €');
  await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
  await page.locator('[name=customer-display-fontSize]').selectOption('30');
  await page.locator('[name=customer-display-color]').evaluate(el=>{el.value='#c58e24';el.dispatchEvent(new Event('change',{bubbles:true}));});

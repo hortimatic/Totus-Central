@@ -1,3 +1,5 @@
+import {exerciseQuoteRefresh} from './native-lab/quote-refresh-assertions.mjs';
+import {exerciseOfflineInbox} from './native-lab/offline-inbox-assertions.mjs';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
@@ -104,6 +106,10 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118110124_totustpv_payment_reference_options.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118110722_totustpv_payment_reference_ledger.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118112532_totustpv_receipt_payment_references.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
+
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showTaxBreakdown:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -117,6 +123,8 @@ try {
  }
  await db.exec('set role service_role');
  check((await journal('open',id(4),{openingCents:10000})).status,'open');
+ await exerciseQuoteRefresh({db,id,scope,expected,check,denied});
+ await exerciseOfflineInbox({db,id,scope,expected,check,denied});
  await exercisePaymentReferenceLedger({db,id,scope,expected,check,denied});
  await denied(()=>journal('open',id(45),{openingCents:10000},{...scope,environment:'production'}),/TPV_ENVIRONMENT_FORBIDDEN/);
  await denied(()=>journal('get',id(6),{},Object.fromEntries(Object.entries(scope).filter(([key])=>key!=='environment'))),/TPV_ENVIRONMENT_FORBIDDEN/);
@@ -536,6 +544,10 @@ try {
  check((await prefs(qaScope,{viewMode:'grid'})).receipt.showAttributes,false);
  for(const value of ['true',1,null])await denied(()=>prefs(qaScope,{receipt:{showAttributes:value}}),/INVALID/);
  check((await prefs(qaScope,{receipt:{showAttributes:true}})).receipt.showAttributes,true);
+ check((await prefs()).receipt.showVouchers,false);
+ check((await prefs(qaScope,{receipt:{showVouchers:true}})).receipt.showVouchers,true);
+ check((await prefs(qaScope,{viewMode:'grid'})).receipt.showVouchers,true);
+ for(const value of ['true',1,null])await denied(()=>prefs(qaScope,{receipt:{showVouchers:value}}),/INVALID/);
  check((await prefs()).receipt.showPaymentReferences,false);
  check((await prefs(qaScope,{receipt:{showPaymentReferences:true}})).receipt.showPaymentReferences,true);
  check((await prefs(qaScope,{viewMode:'grid'})).receipt.showPaymentReferences,true);

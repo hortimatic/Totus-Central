@@ -11,7 +11,7 @@ export async function exerciseDisabledStockBrowser({handle,actor,fixture,selecti
   await page.evaluate(async actor=>{fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js'),{createCentralTpvAdapter}=await import('/src/totustpv/central-adapter.js');
    window.disabledStockWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true}),can:()=>true,canStock:()=>true,autoOpen:true,confirm:async()=>true,
     workspacePreferences:async(drawer,value)=>(await fetch('/__disabled_stock_preferences',{method:'POST',body:JSON.stringify({drawer,value})})).json(),
-    createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async payload=>{const response=await fetch('/__disabled_stock_handler',{method:'POST',body:JSON.stringify(payload)}),data=await response.json();if(!response.ok||data.error)throw Error(data.error);return data;}})});disabledStockWorkspace.mount(document.querySelector('#tpv'));
+    createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async payload=>{const response=await fetch('/__disabled_stock_handler',{method:'POST',body:JSON.stringify(payload)}),data=await response.json();if(!response.ok||data?.error)throw Error(data?.error);return data;}})});disabledStockWorkspace.mount(document.querySelector('#tpv'));
   },actor);
   const sample=fixture.disabledStockSetup,item=sample.items.inactive;await page.locator('[data-tpv-search]').waitFor();await page.locator('[data-tpv-search]').fill(sample.prefix);
   await page.locator('.tpv-product-list .tpv-empty').waitFor();assert.equal(await page.locator('[data-tpv-add]').count(),0);

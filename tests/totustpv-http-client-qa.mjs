@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTpvHttpClient} from '../src/totustpv/http-client.js';
+
+test('missing offline inbox entry is a valid null response, not a transport failure',async()=>{
+ const client=createTpvHttpClient({owner:'operator-a',currentActor:()=> 'operator-a',url:'https://fixture.supabase.co',key:'fixture-public',
+  auth:{getSession:async()=>({data:{session:{user:{id:'operator-a'},access_token:'opaque-fixture'}}})},
+  request:async()=>new Response('null',{status:200})});
+ assert.equal(await client({action:'offline-get',operationId:'fixture'}),null);
+});
 test('normal session snapshot is bound to its account and no delayed request borrows another login',async()=>{
  let current='operator-a',release,requests=0;
  const client=createTpvHttpClient({owner:'operator-a',currentActor:()=>current,url:'https://fixture.supabase.co',key:'fixture-public',

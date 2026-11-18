@@ -1,3 +1,10 @@
+import {cataloguePricingContext} from './catalogue-pricing-context.js';
+import {prepareOfflineCatalogue} from './offline-catalogue-preparation.js';
+import {offlineCatalogueSearch} from './offline-catalogue-search.js';
+import {offlineBasketPrices} from './offline-basket-prices.js';
+import {createOfflineSourceStore} from './offline-source-store.js';
+import {createOfflineCatalogueCache} from './offline-catalogue-cache.js';
+import {commercialFromExpected,catalogueUnitMicros} from './offline-commercial.js';
 /** Browser adapter: only normal authenticated Central calls. No shop URL,
  * credentials, native commands or privileged client can enter this module.
  * Request IDs survive response loss; financial commands are never auto-retried.
@@ -35,9 +42,9 @@ export function catalogueImageUrl(origin,path){
   typeof path==='string'&&/^\/img\/p\/(?:[0-9]\/)+[0-9]+\.jpg$/.test(path))return base.origin+path;}catch{}
  return null;
 }
-export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID()}={}){
+export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID(),catalogueCache=createOfflineCatalogueCache,centralCatalogueSource=()=>null,canReadCentralCatalogue=()=>true,sourceStore=createOfflineSourceStore}={}){
  need(typeof invoke==='function'&&actorId&&storage,'No se puede preparar el puesto.');
- let stations=[],selected=null,session=null,prepared=new Map(),returnSources=new Map(),customer=null,activeDraft=null;
+ let stations=[],selected=null,session=null,prepared=new Map(),localSnapshots=new Map(),returnSources=new Map(),customer=null,activeDraft=null;
  const key='totus:tpv:requests:v1:'+actorId;
  function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
@@ -91,8 +98,85 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     qty:line.qty,unitCents:0,pricePending:true,stock:10000,minimumQty:1,
     ...(line.discount?{discountKind:line.discount.kind,discountValue:(line.discount.value/100).toFixed(2).replace('.',',')}:{})}))};
  }
- return Object.freeze({
+ async function catalogueSource(){
+   const chosen=selection(),revision=selected.connectionRevision,origin=canonical([chosen,revision]);
+   if(!canReadCentralCatalogue()||!Number.isSafeInteger(revision)||revision<1)return null;
+   let disk=null;try{disk=sourceStore({scope:{actorId,connectionId:chosen.connectionId,revision,shopId:chosen.shopId}});}catch{}
+   const source=await centralCatalogueSource({connectionId:chosen.connectionId,revision});
+   need(canonical([selection(),selected.connectionRevision])===origin,'El puesto ha cambiado durante la lectura del catálogo.');
+   need(canReadCentralCatalogue(),'Ya no tienes acceso al catálogo compartido.');
+   if(source===null){const cached=disk?await disk.get():null;need(canReadCentralCatalogue()&&canonical([selection(),selected.connectionRevision])===origin,'El acceso al catálogo ha cambiado.');return cached;}
+   need(source&&source.connectionId===chosen.connectionId&&source.revision===revision&&source.productsComplete===true&&Array.isArray(source.products)&&Number.isSafeInteger(source.readAt)&&source.readAt>0&&source.readAt<=Date.now(),'La copia de Productos no corresponde a esta conexión.');
+   need(typeof source.store==='string'&&source.store.length>0&&source.products.every(row=>row&&row.__store===source.store&&/^[1-9][0-9]{0,14}$/.test(String(row.id)))&&new Set(source.products.map(row=>String(row.id))).size===source.products.length,'La copia de Productos contiene artículos de otro catálogo o repetidos.');
+   // A complete product list is not a payable quote: combinations, stock,
+   // customer pricing and the workstation's tax policy have separate coverage.
+   if(disk)await disk.put(source);
+   need(canReadCentralCatalogue()&&canonical([selection(),selected.connectionRevision])===origin,'El acceso al catálogo ha cambiado.');return clone(source);
+ }
+ function catalogueStore(){return catalogueCache({scope:{actorId,connectionId:selected.connectionId,revision:selected.connectionRevision??0,drawerId:selected.drawerId,shopId:selected.shopId,customerId:customer?.id||0,addressId:customer?.addressId||0}});}
+ function catalogueRequest({pricingQuantity=1,search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){
+  return {...(pricingQuantity===1?{}:{pricingQuantity}),search,page,productId,categoryId,sortField,sortDirection,searchFields:catalogueSearchFields(searchFields),catalogueFilters:normalizeCatalogueFilters(catalogueFilters),variantGroupId,...(inventoryOnly?{inventoryOnly:true}:{}),...(customer?{customerId:customer.id,addressId:customer.addressId}:{})};
+ }
+ async function warmCatalogue(){try{await catalogueSource();}catch{/* Online checkout remains available when optional device storage is unavailable. */}}
+ const api=Object.freeze({
   mode:'qa',
+  catalogueSource,
+  async localBasketPrices({lines,pricingContext}){
+   lines=clone(lines);
+   let context=cataloguePricingContext(pricingContext);
+   need(selected&&canReadCentralCatalogue(),'No tienes acceso al catálogo de este puesto.');
+   const customerId=customer?.id??selected.nativeProfile?.counter_customer_id,addressId=customer?.addressId??selected.nativeProfile?.counter_address_id;
+   const origin=canonical([selection(),selected.connectionRevision,customer]);
+   const pages=await catalogueStore().pages({includeExpired:true});
+   need(canReadCentralCatalogue()&&canonical([selection(),selected.connectionRevision,customer])===origin,'El puesto o cliente ha cambiado durante la consulta de precios.');
+   if(!context){
+    const candidates=pages.map(page=>({context:cataloguePricingContext(page.data?.pricingContext),at:page.requestedAt})).filter(row=>row.context?.shopId===selected.shopId&&row.context.customerId===customerId&&row.context.addressId===addressId).sort((a,b)=>b.at-a.at);
+    need(candidates.length,'Falta el contexto de precios guardado para este cliente.');context={...candidates[0].context,quantity:1};
+    need(!candidates.some(row=>row.at===candidates[0].at&&Object.keys(context).some(key=>key!=='quantity'&&row.context[key]!==context[key])),'La configuración de precios guardada es contradictoria. Actualiza el catálogo.');
+   }
+   need(context.shopId===selected.shopId&&context.customerId===customerId&&context.addressId===addressId,'Los precios no corresponden al cliente de esta venta.');
+   return offlineBasketPrices({lines,pages,context});
+  },
+  async prepareOfflineCatalogue({onProgress=()=>{},signal,beforePage}={}){
+   const origin=canonical([selection(),selected.connectionRevision,customer]);
+   const isCurrent=()=>!signal?.aborted&&canReadCentralCatalogue()&&canonical([selection(),selected.connectionRevision,customer])===origin;
+   const source=await catalogueSource();need(isCurrent(),'El puesto ha cambiado.');
+   if(!source)return null;
+   let cache=null;try{cache=catalogueStore();}catch{}
+   return prepareOfflineCatalogue({source,isCurrent,onProgress,signal,beforePage,readCachedPage:async query=>{
+    const saved=cache?await cache.get(catalogueRequest(query),{maxAgeMs:300000}):null;
+    need(isCurrent(),'El puesto ha cambiado.');
+    if(saved&&saved.data.pricingContext&&saved.requestedAt>=source.readAt&&saved.data.items.every(row=>Array.isArray(row.quantityBreaks)&&Number.isSafeInteger(row.priceValidForMs)&&row.priceValidForMs>0&&Number.isSafeInteger(row.unitTaxInclMicros)&&Number.isSafeInteger(row.unitTaxExclMicros))){
+     const rows=saved.data.items;Object.defineProperties(rows,{priceReadAt:{value:saved.requestedAt},pricingContext:{value:saved.data.pricingContext},page:{value:saved.data.page},hasMore:{value:saved.data.hasMore}});return rows;
+    }
+    return null;
+   },readPage:async query=>{
+    const rows=await api.searchProducts(query);
+    need(!rows.offlineCached&&!rows.cacheUnavailable,'No se pudo completar la copia de las variantes. Vuelve a intentarlo con conexión.');
+    return rows;
+   }});
+  },
+  offlineDelivery({deviceId}){
+   need(typeof deviceId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(deviceId)&&session&&selected,'Abre la caja y prepara este dispositivo antes de sincronizar.');
+   const original=canonical(selection());
+   const guard=()=>need(canonical(selection())===original,'El puesto ha cambiado. Vuelve a las ventas pendientes de su caja original.');
+   const send=async(action,operationId,values={})=>{guard();const result=await call(action,values,operationId);guard();return result;};
+   const receive=async(operationId,ticket)=>{const saved=await send('offline-receive',operationId,{deviceId,ticket});
+    need(saved?.id===operationId&&saved.deviceId===deviceId&&canonical(saved.ticket)===canonical(ticket),'No se ha podido verificar el ticket pendiente guardado en Central.');return saved;};
+   const result=async(action,operationId)=>{const observed=await send(action,operationId);
+    need(observed?.operationId===operationId,'La respuesta no corresponde a esta venta pendiente.');if(observed.status==='confirmed'&&observed.verified===true){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}return observed;};
+   return Object.freeze({
+    async dispatch({operationId,ticket}){await receive(operationId,ticket);return result('offline-sync',operationId);},
+    async recover({operationId,ticket}){
+     let saved=await send('offline-get',operationId);
+     if(!saved)saved=await receive(operationId,ticket);
+     need(saved.id===operationId&&saved.deviceId===deviceId&&canonical(saved.ticket)===canonical(ticket),'El ticket guardado no coincide con esta venta local.');
+     // Before binding, the server resumes deterministic cart/quote steps. Once
+     // bound, recovery consults the same financial operation without a new sale.
+     return result(saved.checkoutId?'offline-recover':'offline-sync',operationId);
+    }
+   });
+  },
   async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
    stations=data.workstations;need(stations.every(row=>row.environment==='qa'),'Entorno de pruebas no válido.');
    need(stations.every(row=>['canSell','canOpen','canReconcile'].every(key=>typeof row[key]==='boolean')),'No se han podido comprobar los permisos de esta caja.');
@@ -101,17 +185,25 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
      canSell:row.canSell,canOpen:row.canOpen,canReconcile:row.canReconcile})),
     sessions:stations.filter(row=>row.session).map(row=>({...row.session,storeId:row.storeId,drawerId:row.drawerId}))};},
   async selectSession(value){selected=stations.find(row=>row.drawerId===value.drawerId&&row.storeId===value.storeId);
-   need(selected?.session?.id===value.id,'La sesión de caja ha cambiado.');session=clone(value);return clone(session);},
+   need(selected?.session?.id===value.id,'La sesión de caja ha cambiado.');session=clone(value);await warmCatalogue();need(session?.id===value.id,'La caja ha cambiado.');return clone(session);},
   async openSession({storeId,drawerId,openingCents}){selected=stations.find(row=>row.storeId===storeId&&row.drawerId===drawerId);
    need(selected?.canOpen,'No tienes permiso para abrir esta caja.');session=null;customer=null;activeDraft=null;
    const id=await operation('open',{storeId,drawerId,openingCents}),result=await call('open',{openingCents},id);
    need(result.id===id&&result.status==='open','No se ha confirmado la apertura de caja.');
-   session={id,storeId,drawerId,status:'open',openingCents};forget('open',id);return clone(session);},
+   session={id,storeId,drawerId,status:'open',openingCents};forget('open',id);await warmCatalogue();need(session?.id===id,'La caja ha cambiado.');return clone(session);},
   async categories(){const data=await call('categories');need(Array.isArray(data.categories)&&data.has_more===false,'No se han podido consultar todas las categorías de esta tienda.');
    return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
   async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
    need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);forget('submitted-sale',operationId);prepared.delete(operationId);return receipt(result);},
-  async searchProducts({search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){need(typeof inventoryOnly==='boolean'&&Number.isSafeInteger(variantGroupId)&&variantGroupId>=0&&variantGroupId<=2147483647&&(productId>0||variantGroupId===0),'Revisa el atributo de ordenación.');const fields=catalogueSearchFields(searchFields),filters=normalizeCatalogueFilters(catalogueFilters),data=await call('catalogue',{search,page,productId,categoryId,sortField,sortDirection,searchFields:fields,catalogueFilters:filters,variantGroupId,...(inventoryOnly?{inventoryOnly:true}:{}),...(customer?{customerId:customer.id,addressId:customer.addressId}:{})});
+  async searchProducts({pricingQuantity=1,search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){need(Number.isSafeInteger(pricingQuantity)&&pricingQuantity>=1&&pricingQuantity<=10000&&(pricingQuantity===1||productId>0&&sortField==='name')&&typeof inventoryOnly==='boolean'&&Number.isSafeInteger(variantGroupId)&&variantGroupId>=0&&variantGroupId<=2147483647&&(productId>0||variantGroupId===0),'Revisa el atributo de ordenación.');const fields=catalogueSearchFields(searchFields),filters=normalizeCatalogueFilters(catalogueFilters),query=catalogueRequest({pricingQuantity,search,page,productId,categoryId,sortField,sortDirection,searchFields:fields,catalogueFilters:filters,variantGroupId,inventoryOnly});
+   const origin=canonical([selection(),customer]),requestedAt=Date.now();
+   const guard=()=>need(canonical([selection(),customer])===origin,'El puesto o cliente ha cambiado. Vuelve a consultar los artículos.');
+   let cache=null;try{if(!inventoryOnly)cache=catalogueStore();}catch{}
+   let data;try{data=await call('catalogue',query);guard();}catch(error){
+    guard();if(error?.code!=='TPV_CONNECTION_UNAVAILABLE'||!cache)throw error;
+    const saved=await cache.get(query);guard();if(!saved){const source=await catalogueSource();guard();if(pricingQuantity===1&&source&&typeof cache.pages==='function'){const pages=await cache.pages();guard();return offlineCatalogueSearch(source,pages,query);}throw Error('No hay una copia reciente de estos artículos en este dispositivo. Conecta para descargarlos.');}
+    const rows=saved.data.items;Object.defineProperties(rows,Object.fromEntries(Object.entries({...saved.data,items:undefined,offlineCached:true,cachedAt:saved.savedAt}).filter(([key])=>key!=='items').map(([key,value])=>[key,{value}])));return rows;
+   }
    need((data.inventory_only??false)===inventoryOnly&&(!inventoryOnly||data.items?.every(row=>typeof row.enabled_for_sale==='boolean')),'La conexión no ha confirmado el catálogo de reposición. Pide al responsable que complete su preparación.');
    need(data.catalogue_filters?JSON.stringify(data.catalogue_filters)===JSON.stringify(filters):!filters.hideUnavailable&&!filters.excludedCategories.length,'La conexión aún no ha confirmado la visibilidad del catálogo. Pide al responsable que complete su preparación.');
    need(data.search_fields?JSON.stringify(data.search_fields)===JSON.stringify(fields):JSON.stringify(fields)===JSON.stringify(DEFAULT_SEARCH_FIELDS),'La conexión aún no ha confirmado estos criterios. Pide al responsable que complete la preparación del puesto.');
@@ -120,10 +212,14 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(Array.isArray(data.items)&&data.currency==='EUR'&&data.payable_cart_quote===false,'Catálogo nativo no válido.');
    if(sortField!=='name'||sortDirection!=='asc')need(data.sort_field===sortField&&data.sort_direction===sortDirection,'La tienda no ha confirmado esta ordenación. El responsable debe completar su preparación.');
    need(!data.building||sortField==='price'&&Number.isSafeInteger(data.building.done)&&Number.isSafeInteger(data.building.total)&&data.building.done>=0&&data.building.done<=data.building.total,'La tienda no ha confirmado el progreso de la ordenación.');
+   const pricingContext=cataloguePricingContext(data.pricing_context);
+   need(pricingQuantity===1&&!pricingContext||pricingContext?.quantity===pricingQuantity,'La tienda no ha confirmado el precio para esta cantidad.');
+   need(!pricingContext||pricingContext.shopId===selected.shopId&&(!customer||pricingContext.customerId===customer.id&&pricingContext.addressId===customer.addressId),'El contexto de precios pertenece a otro puesto o cliente.');
    const items=data.items.map(row=>({id:row.id,name:row.name+(!row.choose_variant&&row.variant_name?' · '+row.variant_name:''),reference:row.reference,saleEnabled:row.enabled_for_sale!==false,
-    stock:row.stock,temporaryLineNames:row.temporary_line_names===true,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
+    quantityBreaks:row.quantity_breaks,priceValidForMs:row.price_valid_for_ms,unitTaxInclMicros:catalogueUnitMicros(row.unit_tax_incl),unitTaxExclMicros:catalogueUnitMicros(row.unit_tax_excl),stock:row.stock,temporaryLineNames:row.temporary_line_names===true,unitPriceOverride:row.unit_price_override===true,allowOutOfStock:row.allow_out_of_stock===true,priceCents:row.preview_cents,netPriceCents:Number.isSafeInteger(row.preview_tax_excl_cents)&&row.preview_tax_excl_cents>=0?row.preview_tax_excl_cents:null,minimumQty:row.minimum_quantity,chooseVariant:row.choose_variant,nativeProductId:row.product_id,
     variantAttributes:row.choose_variant?[]:catalogueVariantAttributes(row.variant_attributes),barcode:row.ean,upc:row.upc,isbn:row.isbn,manufacturer:row.manufacturer,supplier:row.supplier,costCents:row.cost_base_cents,imageUrl:catalogueImageUrl(data.image_origin,row.image_path)}));
-   Object.defineProperties(items,{variantGroups:{value:variantGroups.map(row=>({id:row.id,name:row.name}))},variantGroupId:{value:variantGroupId},hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});return items;},
+   Object.defineProperties(items,{priceReadAt:{value:requestedAt},pricingContext:{value:pricingContext},variantGroups:{value:variantGroups.map(row=>({id:row.id,name:row.name}))},variantGroupId:{value:variantGroupId},hasMore:{value:data.has_more},page:{value:data.page},totalCount:{value:Number.isSafeInteger(data.total_count)?data.total_count:undefined},building:{value:data.building||null}});
+   if(cache&&!data.building){try{await cache.put(query,{...(pricingContext?{pricingContext}:{}),items:[...items],hasMore:items.hasMore,page:items.page,variantGroups:items.variantGroups,variantGroupId,...(items.totalCount===undefined?{}:{totalCount:items.totalCount})},{requestedAt});}catch{Object.defineProperty(items,'cacheUnavailable',{value:true});}guard();}return items;},
   async quote({lines,adjustment,coupon,note}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
    const intent={...cartIntent(lines,adjustment,coupon,false,note),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
@@ -145,10 +241,18 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     paymentLabels:clone(record.expected.operatorPaymentPolicy?.labels||{}),
     referencePolicy:clone(record.expected.operatorPaymentPolicy?.referencePolicy||{}),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
+   localSnapshots.set(id,{expected:clone(record.expected),intent:clone(intent),scope:scopeKey()});
    prepared.set(id,quote);return clone(quote);},
+  localSaleTicket({operationId,payments}){
+   const snapshot=localSnapshots.get(operationId);if(!snapshot)return null;
+   need(snapshot.scope===scopeKey()&&session,'La caja del ticket ha cambiado.');
+   need(payments.every(row=>row.method==='cash'||row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
+   const commercial=commercialFromExpected(snapshot.expected),intent=snapshot.intent;
+   return {commercial,cashSessionId:session.id,currency:commercial.currency,totalCents:commercial.totalCents,lines:clone(intent.lines),...(intent.note?{note:intent.note}:{}),...(intent.adjustment?{adjustment:clone(intent.adjustment)}:{}),...(intent.coupon?{coupon:intent.coupon}:{}),payments:payments.map(row=>({method:row.method,amountCents:row.amountCents,...(row.method==='cash'?{receivedCents:row.receivedCents}:{}),...(row.reference===undefined?{}:{reference:paymentReference(row.reference)})}))};
+  },
   async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
    const status=await call('sale-status',{},id);need(status.status==='ready','Este cobro ya se envió. Recupera su resultado antes de continuar.');}
-   await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);},
+   await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);localSnapshots.delete(id);},
   async pendingSale(){const data=saved(),scope=scopeKey();for(const kind of ['submitted-sale','prepare'])if(data[kind]?.scope===scope)return data[kind].id;
    const rows=await call('history');return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
   async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
@@ -159,7 +263,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true}};
    need(await operation('submitted-sale',request,operationId)===operationId,'Hay otro cobro pendiente de recuperar.');
    const change=payments.filter(row=>row.method==='cash').reduce((n,row)=>n+row.receivedCents-row.amountCents,0);
-   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}
+   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}
     return receipt(result,{totalCents:quote.totalCents,changeCents:change});
    }catch{ return receipt({id:operationId,status:'uncertain',totalCents:quote.totalCents},{changeCents:change}); }
   },
@@ -168,6 +272,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     taxSummary(status);
     need(status.canSubmit!==false,'Este cobro lo preparó otro operador. No vuelvas a cobrarlo.');
     if(status.draftId)activeDraft=await call('get-draft',{draftId:status.draftId});
+    if(status.localSnapshot){const expected=commercialFromExpected(status.localSnapshot.expected);need(expected.totalCents===status.totalCents&&expected.currency===status.currency,'El ticket recuperado no coincide con su cálculo.');localSnapshots.set(operationId,{expected,intent:clone(status.localSnapshot.intent),scope:scopeKey()});}
     prepared.set(operationId,status);return receipt(status,{payment:status,draft:activeDraft});}
    const result=['confirmed','cancelled'].includes(status.status)?status:await call('recover',{},operationId);
    if(['confirmed','cancelled'].includes(result.status)){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}
@@ -311,4 +416,5 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async closeSession({countedCents,note=''}){const id=await operation('close',{countedCents,note}),result=await call('close',{countedCents,note},id);
    need(result.status==='closed','No se ha confirmado el cierre.');forget('close',id);session=null;activeDraft=null;customer=null;return summary(result);}
  });
+ return api;
 }

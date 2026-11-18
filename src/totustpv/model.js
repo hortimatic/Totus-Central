@@ -126,6 +126,10 @@ export function verifyRemoteSale(expected, observed) {
       'TPV_ORDER_CUSTOMER_OR_CURRENCY_MISMATCH');
     cents(expected.totalCents, true); cents(expected.shippingCents);
     requireValue(observed.totalCents === expected.totalCents && observed.shippingCents === expected.shippingCents, 'TPV_ORDER_TOTAL_MISMATCH');
+    if(Object.hasOwn(expected,'totalTaxExclCents')){
+      cents(expected.totalTaxExclCents);
+      requireValue(expected.totalTaxExclCents<=expected.totalCents&&observed.totalTaxExclCents===expected.totalTaxExclCents,'TPV_ORDER_TAX_TOTAL_MISMATCH');
+    }
     requireValue(Array.isArray(expected.paidStateIds) && expected.paidStateIds.length > 0 && expected.paidStateIds.every(id => Number.isSafeInteger(id) && id > 0), 'TPV_STATE_MAPPING_REQUIRED');
     requireValue(Number.isSafeInteger(observed.stateId) && observed.stateId > 0, 'TPV_ORDER_STATE_MISSING');
     requireValue(expected.paidStateIds.includes(observed.stateId) && observed.statePaid === true, 'TPV_ORDER_STATE_MISMATCH');
@@ -144,6 +148,9 @@ export function verifyRemoteSale(expected, observed) {
         requireValue(line.lineTaxExclCents<=line.lineTaxInclCents,'TPV_ORDER_TAX_INVALID');
         requireValue(actual&&actual.qty===line.qty&&['unitTaxInclMicros','unitTaxExclMicros','lineTaxInclCents',
           'lineTaxExclCents'].every(key=>actual[key]===line[key]),'TPV_ORDER_LINES_MISMATCH');
+        if(expected.nativeRoundType===3){
+          requireValue(['lineTaxInclMicros','lineTaxExclMicros'].every(key=>Number.isSafeInteger(line[key])&&line[key]>=0&&line[key]<=MAX_CENTS*10000&&actual[key]===line[key])&&line.lineTaxExclMicros<=line.lineTaxInclMicros,'TPV_ORDER_LINES_MISMATCH');
+        }
         continue;
       }
       cents(line.unitTaxInclCents, true);

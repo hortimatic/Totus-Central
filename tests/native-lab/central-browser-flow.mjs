@@ -48,7 +48,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
     workspacePreferences:async(drawer,value)=>{const response=await fetch('/__tpv_preferences',{method:'POST',body:JSON.stringify({drawer,value})});return response.json();},
     confirm:async()=>true,createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,
      invoke:async body=>{const response=await fetch('/__tpv_fixture',{method:'POST',body:JSON.stringify(body)}),data=await response.json();
-      if(!response.ok||data.error)throw Error(data.error||'Fixture request failed');return data;}})});
+      if(!response.ok||data?.error)throw Error(data?.error||'Fixture request failed');return data;}})});
    window.fixtureWorkspace.mount(document.querySelector('#root'));
   },{actor});
   await mount();
@@ -170,7 +170,16 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.equal((await creditDownload).suggestedFilename(),'totus-credit-note-'+orderId+'.pdf');
   if(width===1440&&variant){
    await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
-   const target=variant.variants[1];await page.locator('[data-tpv-search]').fill(target.reference);await page.locator('[data-tpv-search]').press('Enter');
+   const target=variant.variants[1];await page.locator('[data-tpv-search]').fill(variant.reference);
+   // The native parent carries its default attribute for price preview;
+   // choose_variant still requires opening the selection dialog.
+   await page.locator(`[data-tpv-add^="${variant.productId}:"]`).click();
+   const variantDialog=page.locator('.tpv-variant-dialog');
+   await variantDialog.locator(`[data-tpv-add="${variant.productId}:${target.attributeId}"]`).waitFor();
+   assert.equal(await variantDialog.evaluate(el=>el.matches(':modal')),true);
+   await variantDialog.screenshot({path:'artifacts/native-lab/tpv-native-variant-selector.png'});
+   await variantDialog.locator(`[data-tpv-add="${variant.productId}:${target.attributeId}"]`).click();
+   await variantDialog.waitFor({state:'hidden'});
    await page.locator(`[data-tpv-quantity="${variant.productId}:${target.attributeId}"]`).waitFor();
    await page.getByRole('button',{name:'Calcular y cobrar',exact:true}).click();await page.locator('[data-tpv-form="pay"]').waitFor({timeout:60000});
    assert.match(await page.locator('.tpv-payment-amount').innerText(),/9,22/);

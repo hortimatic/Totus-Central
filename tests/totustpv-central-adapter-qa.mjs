@@ -172,3 +172,22 @@ test('an unobserved preparation can release its local pointer because it never c
  assert.equal(await adapter.recoverProductPreparation(),null);await adapter.prepareProductIntake({name:'Corrected'});
  assert.equal(f.requests.filter(row=>row.action==='product-intake-prepare').length,2);
 });
+
+
+test('offline delivery recovers a lost receipt in its original workstation and never resends a bound sale',async()=>{
+ const requests=[],values=new Map(),actor='00000000-0000-4000-8000-000000000001',device='00000000-0000-4000-8000-000000000002',operation='00000000-0000-4000-8000-000000000003';
+ const station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canOpen:true,canSell:true,canReconcile:true};let saved=null,lose=true;
+ const adapter=createCentralTpvAdapter({actorId:actor,storage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)},invoke:async body=>{
+  requests.push(body);if(body.action==='context')return {actorId:actor,workstations:[station]};if(body.action==='open')return {id:body.operationId,status:'open'};
+  if(body.action==='offline-receive'){saved={id:body.operationId,deviceId:body.deviceId,ticket:structuredClone(body.ticket),checkoutId:null};if(lose){lose=false;throw Error('Receipt response lost');}return saved;}
+  if(body.action==='offline-get')return saved;
+  if(body.action==='offline-sync'){saved.checkoutId=body.operationId;return {operationId:body.operationId,status:'confirmed',verified:true};}
+  if(body.action==='offline-recover')return {operationId:body.operationId,status:'confirmed',verified:true};throw Error('Unexpected action '+body.action);
+ }});
+ await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const delivery=adapter.offlineDelivery({deviceId:device}),ticket={currency:'EUR',totalCents:100};
+ await assert.rejects(delivery.dispatch({operationId:operation,ticket}),/Receipt response lost/);
+ assert.equal((await delivery.recover({operationId:operation,ticket})).status,'confirmed');await delivery.recover({operationId:operation,ticket});
+ assert.equal(requests.filter(r=>r.action==='offline-receive').length,1);assert.equal(requests.filter(r=>r.action==='offline-sync').length,1);assert.equal(requests.filter(r=>r.action==='offline-recover').length,1);
+ const count=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket:{...ticket,totalCents:101}}),/no coincide/);assert.equal(requests.length,count+1);
+ await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const before=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket}),/puesto ha cambiado/);assert.equal(requests.length,before);
+});

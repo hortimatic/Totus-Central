@@ -70,7 +70,7 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
                 $result=$this->barcodeRead($profile,$shopId,$account);
             } elseif($resource==='totus_tpv_catalogue' && $method==='GET'){
 
-                $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','page_size','product_id','customer_id','address_id','category_id','categories_only','sort_field','sort_direction','search_fields','hide_unavailable','excluded_categories','sort_group_id','stock_policy_only','product_capabilities_only','inventory_only']));
+                $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','page_size','product_id','customer_id','address_id','category_id','categories_only','sort_field','sort_direction','search_fields','pricing_quantity','hide_unavailable','excluded_categories','sort_group_id','stock_policy_only','product_capabilities_only','inventory_only']));
                 $result=TotusCentralConnector\NativeCatalogue::read($query,$profile);
             } elseif($resource==='totus_tpv_customers' && $method==='GET'){
                 $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','customer_id']));
