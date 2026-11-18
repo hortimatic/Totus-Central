@@ -11,8 +11,8 @@ nativeLabCheck($module->registerHook('actionEmailSendBefore'),'Cannot register s
 nativeLabCheck($module->ensureOwnStorage(),'Cannot prepare original own-table schemas.');
 $installation=Configuration::get('TOTUS_TPV_INSTALLATION_ID');
 $journalCount=(int)Db::getInstance()->getValue('SELECT COUNT(*) FROM `'._DB_PREFIX_.'totus_tpv_journal`');
-require_once $nativeRoot.'/modules/totuscentralconnector/upgrade/upgrade-0.2.0.php';
-nativeLabCheck($module->version==='0.2.0'&&upgrade_module_0_2_0($module),'Cannot apply original additive native upgrade');
+require_once $nativeRoot.'/modules/totuscentralconnector/upgrade/upgrade-0.2.1.php';
+nativeLabCheck($module->version==='0.2.1'&&upgrade_module_0_2_1($module),'Cannot apply original additive native upgrade');
 nativeLabCheck(Configuration::get('TOTUS_TPV_INSTALLATION_ID')===$installation&&(int)Db::getInstance()->getValue('SELECT COUNT(*) FROM `'._DB_PREFIX_.'totus_tpv_journal`')===$journalCount,'Upgrade reset installation identity or native journal');
 // PHP's Windows development server has one worker. Serve PDF image assets from
 // the test's separate loopback HTTP listener to avoid requesting that same busy

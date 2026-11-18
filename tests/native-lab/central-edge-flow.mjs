@@ -1,4 +1,6 @@
 import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
+import {exerciseReceiptVariants} from './receipt-variants-flow.mjs';
+import {exerciseReceiptVariantsBrowser} from './receipt-variants-browser.mjs';
 import {exercisePaymentSettingsBrowser} from './payment-settings-browser.mjs';
 import {exerciseNativeLineName} from './line-name-flow.mjs';
 import {exerciseDisabledStock} from './disabled-stock-flow.mjs';
@@ -83,6 +85,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118044052_totustpv_barcode_execution.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118100416_totustpv_payment_settings.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118103540_totustpv_receipt_variants.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -172,6 +175,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='receipt-variants'){
+   const result=await exerciseReceiptVariants({call,selection,fixture,rename:fixture.renameReceiptVariant,preferences});
+   await exerciseReceiptVariantsBrowser({handle,actor,preferences,...result});return result;
+  }
   if(focus==='payments'){
    const options=settings=>call({action:'payment-options',selection,operationId:randomUUID(),...(settings?{settings}:{})});
    await options({enabledMethods:['card'],labels:{card:'Datáfono'}});

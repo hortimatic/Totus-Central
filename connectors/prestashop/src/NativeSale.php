@@ -236,6 +236,7 @@ final class NativeSale
             'shippingCents'=>self::cents($order->total_shipping_tax_incl),'discountCents'=>self::cents($order->total_discounts_tax_incl),
             'lines'=>$lineEvidence,'payments'=>$paymentEvidence,'inventory'=>$inventory];
         return ['verified'=>true,'native_reference'=>$orderId,'order_id'=>$orderId,'reference'=>(string)$order->reference,
+            'line_presentations'=>array_values(array_map(static fn($line)=>['product_id'=>$line['product_id'],'attribute_id'=>$line['attribute_id'],'presentation'=>$line['presentation']],array_filter($quote['lines'],static fn($line)=>isset($line['presentation'])))),
             'cart_id'=>$payload['cart_id'],'total_cents'=>$quote['total_cents'],'payments'=>$payments,'lines'=>$observed,
             'quote_operation_id'=>$payload['quote_operation_id'],'quote_fingerprint'=>$payload['quote_fingerprint'],
             'payment_intent'=>$payload['payments'],'inventory'=>$inventory,'order_evidence'=>$evidence,

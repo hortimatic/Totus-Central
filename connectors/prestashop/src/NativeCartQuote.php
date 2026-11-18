@@ -8,6 +8,16 @@ namespace TotusCentralConnector;
  */
 final class NativeCartQuote
 {
+    /** Optional printable snapshot from this owned cart, never a later lookup. */
+    public static function linePresentation(array $product,?string $customName=null): ?array
+    {
+        $name=$customName??($product['name']??null);
+        $variant=$product['attributes']??'';
+        foreach([$name,$variant] as $text)if(!is_string($text)||preg_match('//u',$text)!==1||
+            preg_match_all('/./us',$text)>512||preg_match('/[\x00-\x1f\x7f]/u',$text))return null;
+        if(trim($name)==='')return null;
+        return ['base_name'=>$name,'variant_name'=>$variant];
+    }
     public static function supportsLineNames(): bool{return true;}
     public static function supportsCommercialQuotes(): bool{return true;}
     public static function supportsCommercialScope(): bool{return true;}
@@ -83,11 +93,13 @@ final class NativeCartQuote
                 Protocol::ensure((int)($product['id_product'] ?? 0)>0 &&
                     (int)($product['cart_quantity'] ?? 0)>0,'CART_LINE_INVALID');
                 $key=(int)$product['id_product'].':'.(int)($product['id_product_attribute']??0);$catalogueName=null;
+                $presentation=self::linePresentation($product,$names[$key]??null);
                 if((isset($names[$key])||($owner['commercial_only']??false)===true)&&isset($product['name'])&&is_string($product['name'])){$candidate=$product['name'].((isset($product['attributes'])&&$product['attributes']!=null)?' ('.$product['attributes'].')':'');if(preg_match('//u',$candidate)===1&&preg_match_all('/./us',$candidate)<=512&&!preg_match('/[\x00-\x1f\x7f]/u',$candidate))$catalogueName=$candidate;}
                 $lines[]=[
                     'product_id'=>(int)$product['id_product'],
                     'attribute_id'=>(int)($product['id_product_attribute'] ?? 0),
                     'quantity'=>(int)$product['cart_quantity'],
+                    ...($presentation===null?[]:['presentation'=>$presentation]),
                     ...($catalogueName===null?[]:['catalogue_name'=>$catalogueName]),...(isset($names[$key])?['display_name'=>$names[$key]]:[]),
                     'allow_out_of_stock'=>($owner['commercial_only']??false)===true||($owner['allow_out_of_stock']??false)===true,
                     'unit_tax_incl'=>self::decimal($product['price_wt'] ?? null),

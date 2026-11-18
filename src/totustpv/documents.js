@@ -8,10 +8,16 @@ const unitMoney=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:
 function linePriceDetails(line,o,gift){if(gift)return '';
  return `${o.showOriginalPrice&&Number.isSafeInteger(line.original_unit_tax_incl_micros)?`<small>Precio original: ${unitMoney(line.original_unit_tax_incl_micros)}</small>`:''}${o.showUnitPrice&&Number.isSafeInteger(line.unit_tax_incl_micros)?`<small>Precio unitario: ${unitMoney(line.unit_tax_incl_micros)}</small>`:''}${o.showLineTax&&Number.isSafeInteger(line.tax_cents)?`<small>Impuesto de línea: ${money(line.tax_cents)}</small>`:''}`;}
 const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
+export function receiptLinePresentation(line,showAttributes=true){
+ const valid=text=>typeof text==='string'&&Array.from(text).length<=512&&!/[\x00-\x1f\x7f]/.test(text);
+ if(!valid(line.base_name)||!line.base_name.trim()||!valid(line.variant_name))return {name:line.name,variant:''};
+ return {name:line.base_name,variant:showAttributes?line.variant_name:''};
+}
 function receiptLineRows(lines,o,gift){
  const discountColumn=!gift&&o.showLineDiscount;
  return lines.map((line,index)=>{
-  const name=`${o.numberLines?`${index+1}. `:''}${esc(line.name)}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}`;
+  const presentation=receiptLinePresentation(line,o.showAttributes);
+  const name=`${o.numberLines?`${index+1}. `:''}${esc(presentation.name)}${presentation.variant?`<small>Variante: ${esc(presentation.variant)}</small>`:''}${o.showReferences?`<small>${esc(line.reference)}</small>`:''}`;
   const details=linePriceDetails(line,o,gift);
   // On narrow paper the product keeps the full width; its quantity, reduction
   // and amount form a separate, readable row with actual aligned columns.
@@ -58,7 +64,7 @@ export function receiptPreviewHtml(options){return receiptHtml({kind:'receipt',c
  merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador de ejemplo',
  merchant:{name:'Tu establecimiento',address:'Dirección del establecimiento',city:'Localidad',phone:'Teléfono',registration:'Datos fiscales'},
  customer:{email:'cliente@ejemplo.invalid',invoice:{name:'Cliente de ejemplo',company:'Empresa de ejemplo',address1:'Dirección del cliente',postcode:'00000',city:'Localidad',country:'País',phone:'Teléfono del cliente',comment:'Comentario de ejemplo'},delivery:{name:'Destinatario de ejemplo',address1:'Dirección de entrega',postcode:'00000',city:'Localidad',country:'País'}},
- lines:[{name:'Artículo de ejemplo',reference:'REF-001',quantity:2,line_cents:1000,unit_tax_incl_micros:5000000,original_unit_tax_incl_micros:6000000,original_line_cents:1200,line_discount_cents:200,tax_cents:174}],payments:{cash:900},total_cents:900,total_tax_excl_cents:744,discount_cents:100,line_discount_cents:200,line_discounts_complete:true},options,{preview:true});}
+ lines:[{name:'Artículo de ejemplo · Azul · M',base_name:'Artículo de ejemplo',variant_name:'Color: Azul · Talla: M',reference:'REF-001',quantity:2,line_cents:1000,unit_tax_incl_micros:5000000,original_unit_tax_incl_micros:6000000,original_line_cents:1200,line_discount_cents:200,tax_cents:174}],payments:{cash:900},total_cents:900,total_tax_excl_cents:744,discount_cents:100,line_discount_cents:200,line_discounts_complete:true},options,{preview:true});}
 export async function downloadNativePdf(document){
  if(document?.mime!=='application/pdf'||!document.existing_document||!/^totus-(invoice|delivery|credit-note)-[1-9][0-9]*\.pdf$/.test(document.filename||'')||
   !/^[a-f0-9]{64}$/.test(document.sha256||'')||typeof document.base64!=='string'||document.base64.length>1900000)throw Error('PDF nativo no válido.');

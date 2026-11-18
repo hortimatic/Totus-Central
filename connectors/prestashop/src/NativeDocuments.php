@@ -5,6 +5,23 @@ namespace TotusCentralConnector;
  * payment, order or number, and never calls setInvoice/setDelivery. */
 final class NativeDocuments
 {
+    /** Missing legacy metadata keeps the original OrderDetail name intact. */
+    public static function historicalLinePresentation(array $sale,array $line): array
+    {
+        $found=[];
+        if(!is_array($sale['line_presentations']??[]))return [];
+        foreach(($sale['line_presentations']??[]) as $saved){
+            if(!is_array($saved)||($saved['product_id']??null)!==(int)$line['product_id']||
+                ($saved['attribute_id']??null)!==(int)$line['product_attribute_id'])continue;
+            if($found)return [];
+            $presentation=$saved['presentation']??null;
+            if(!is_array($presentation)||!is_string($presentation['base_name']??null)||trim($presentation['base_name'])===''||
+                !is_string($presentation['variant_name']??null))return [];
+            foreach($presentation as $text)if(!is_string($text)||preg_match('//u',$text)!==1||preg_match_all('/./us',$text)>512||preg_match('/[\x00-\x1f\x7f]/u',$text))return [];
+            $found=['base_name'=>$presentation['base_name'],'variant_name'=>$presentation['variant_name']];
+        }
+        return $found;
+    }
     /** Historical OrderDetail values only: never consult today's Product/Tax. */
     public static function linePricingSnapshot(array $line,int $roundMode,int $roundType): array
     {
@@ -95,6 +112,7 @@ final class NativeDocuments
             'city'=>'PS_SHOP_CITY','phone'=>'PS_SHOP_PHONE','registration'=>'PS_SHOP_REGISTRATION_NUMBER'] as $key=>$configuration)
             $merchant[$key]=(string)\Configuration::get($configuration,null,null,(int)$order->id_shop);
         $lines=[];foreach($order->getOrderDetailList() as $line)$lines[]=['name'=>(string)$line['product_name'],
+            ...self::historicalLinePresentation($sale,$line),
             'reference'=>(string)$line['product_reference'],'quantity'=>(int)$line['product_quantity'],
             ...($kind==='gift'?[]:['line_cents'=>(int)round(100*(float)$line['total_price_tax_incl']),
                 'unit_tax_incl_micros'=>(int)round(1000000*(float)$line['unit_price_tax_incl']),
