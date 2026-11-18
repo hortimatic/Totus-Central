@@ -8,9 +8,12 @@ export async function exercisePaymentSettings({db,id,scope,check,denied}){
   await db.exec('reset role;set role authenticated');await db.query("select set_config('request.jwt.claim.sub','',false)");await denied(()=>options(),/AUTH_REQUIRED/);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id(5)]);
   const initial=await options();check(initial.revision,0);check(initial.options.enabledMethods.includes('cash'),true);
-  const saved=await options({enabledMethods:['card'],labels:{card:'  Datáfono  '}});
+  check(initial.options.referencePolicy.card,'hidden');
+  const saved=await options({enabledMethods:['card'],labels:{card:'  Datáfono  '},referencePolicy:{card:'required'}});
+  check(saved.options.referencePolicy.card,'required');
   check(saved.revision,1);check(saved.options.enabledMethods,['card']);check(saved.options.labels.card,'Datáfono');
-  check((await options({enabledMethods:['card'],labels:{card:'Datáfono'}})).revision,1);
+  check((await options({enabledMethods:['card'],labels:{card:'Datáfono'},referencePolicy:{card:'required'}})).revision,1);
+  for(const referencePolicy of [null,[],{cash:'required'},{card:true},{card:'sometimes'},{cheque:'required'}])await denied(()=>options({referencePolicy}),/SETTINGS_INVALID/);
   check((await options({enabledMethods:['cash']})).revision,2);
   for(const invalid of [[],true,{enabledMethods:[]},{enabledMethods:['cash','cash']},{enabledMethods:['cheque']},{enabledMethods:[1]},{labels:[]},{labels:{cash:null}},{labels:{cash:'<x>'}},{labels:{cash:'x'.repeat(41)}},{labels:{cash:'Tarjeta',card:'tarjeta'}},{revision:2}])await denied(()=>options(invalid),/SETTINGS_INVALID/);
   await denied(()=>options({}, {...scope,drawerId:id(999)}),/FORBIDDEN/);

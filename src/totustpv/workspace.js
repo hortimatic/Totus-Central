@@ -2,6 +2,7 @@ import {lineName,createLineNameEditor} from './line-name.js';
 import {budgetDocumentHtml,budgetStatus} from './budget-document.js';
 import {saleNote} from './sale-note.js';
 import {paymentFormMethods,paymentSettingsHtml,paymentSettingsFromForm} from './payment-options.js';
+import {paymentReferenceFields,referenceForTender} from './payment-reference.js';
 import {parkingOptions,parkingOptionsHtml,parkingOptionsFromForm,parkingExpiry} from './parking-options.js';
 import {lineOptions,lineOptionsHtml,lineOptionsFromForm,lineAdjustment} from './line-options.js';
 import {stockPolicy,stockPolicyFromForm,stockPolicyHtml,canExceedStock} from './stock-policy.js';
@@ -203,7 +204,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    <button type="button" class="btn secondary" data-tpv-tender-exact>Importe exacto</button>
    ${cashStyle.denominations.filter(face=>face>=500).map(face=>`<button type="button" class="btn secondary" data-tpv-tender="${face}" aria-label="Entregado ${face/100} euros">${face/100} €</button>`).join('')}
   </div>
-  <output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Cambio del cobro" aria-live="polite"></output>
+  ${paymentReferenceFields(payment,paymentValues)}<output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Cambio del cobro" aria-live="polite"></output>
   <label class="tpv-check" data-tpv-card-accept hidden><input type="checkbox" name="cardAccepted" ${paymentValues.cardAccepted==='on'?'checked':''}> ${wording('Acepto el pago externo ficticio','He comprobado que el cobro externo está recibido. TotusTPV registra el cobro; no opera el datáfono ni el banco.')}</label>
   ${!live()?`<label>Simular resultado<select name="scenario">${[['normal','Venta correcta'],['lost-response','Respuesta perdida: recuperar sin repetir'],['rejected','Pago rechazado']].map(([key,label])=>`<option value="${key}" ${paymentValues.scenario===key?'selected':''}>${label}</option>`).join('')}</select></label>`:''}
   <div class="inline-actions">${button('cancel-payment','Volver al ticket')}<button class="btn primary" type="submit">${wording('Confirmar venta de práctica','Confirmar cobro y crear pedido')}</button></div></form>`;}
@@ -623,7 +624,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     const method=fields.get('method'),cash=method==='cash'?payment.totalCents:method==='mixed'?inputCents(fields.get('cashPart')):0;
     if(cash>payment.totalCents||method==='mixed'&&(cash===0||cash===payment.totalCents))throw new Error('El pago mixto necesita una parte de efectivo y otra en el segundo medio.');
     const payments=[];if(cash>0)payments.push({method:'cash',amountCents:cash,receivedCents:inputCents(fields.get('received'))});
-    if(method!=='cash')payments.push({method:method==='mixed'?fields.get('externalMethod'):method,amountCents:payment.totalCents-cash,simulatedAccepted:fields.get('cardAccepted')==='on'});
+    if(method!=='cash'){const external=method==='mixed'?fields.get('externalMethod'):method,reference=referenceForTender(payment.referencePolicy,external,fields.get('reference:'+external)??undefined);
+     payments.push({method:external,amountCents:payment.totalCents-cash,simulatedAccepted:fields.get('cardAccepted')==='on',...(reference===undefined?{}:{reference})});}
     const submissionGeneration=generation,operator=identity(),submitted=await adapter.submit({operationId:payment.id,payments,scenario:fields.get('scenario')});
     if(submissionGeneration!==generation||operator!==identity()||!allowed())return;
     receipt=submitted;
@@ -659,6 +661,8 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   for(const input of form.querySelectorAll('[data-tpv-count="received"] input'))input.disabled=!['cash','mixed'].includes(method);
   form.querySelector('[data-tpv-external-method]').hidden=method!=='mixed';
   form.querySelector('[data-tpv-denominations]').hidden=!['cash','mixed'].includes(method);
+  const external=method==='mixed'?form.elements.externalMethod.value:method;
+  for(const field of form.querySelectorAll('[data-tpv-reference]')){const active=field.dataset.tpvReference===external;field.hidden=!active;field.querySelector('input').required=active&&payment.referencePolicy?.[external]==='required';}
   form.querySelector('[data-tpv-card-accept]').hidden=method==='cash';reflectTender();}
  function reflectTender(){const form=host?.querySelector('[data-tpv-form="pay"]');if(!form||!payment)return;
   const output=form.querySelector('[data-tpv-tender-preview]'),confirm=form.querySelector('button[type="submit"]');
@@ -666,6 +670,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(method==='mixed'&&(cash===0||cash>=payment.totalCents))throw new Error('Indica la parte en efectivo; el resto se registra en el segundo medio.');
    const tender=cashTenderPreview({totalCents:payment.totalCents,cashPartCents:cash,receivedCents:cash===0?0:form.elements.received.value.trim()===''?0:inputCents(form.elements.received.value)});
    const external=method==='mixed'?form.elements.externalMethod.value:method;
+   referenceForTender(payment.referencePolicy,external,form.elements.namedItem('reference:'+external)?.value);
    output.innerHTML=`${cash?`<span>Entregado <b>${money(tender.receivedCents)}</b></span><span>${tender.missingCents?'Falta por entregar':'Cambio a devolver'} <strong data-tpv-change>${money(tender.missingCents||tender.changeCents)}</strong></span>`:''}
     ${tender.cardPartCents?`<span>Importe de ${esc((payment.paymentLabels?.[external]||paymentLabel(external)).toLowerCase())} <b>${money(tender.cardPartCents)}</b></span>`:''}`;
    output.dataset.state=tender.cashCovered?'ready':'pending';confirm.disabled=busy||!tender.cashCovered||method!=='cash'&&!form.elements.cardAccepted.checked;
@@ -699,6 +704,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(event.target.matches('[data-tpv-method]')){
    reflectPaymentMethod();return;
   }
+  if(event.target.name==='externalMethod'&&event.target.closest('[data-tpv-form="pay"]')){reflectPaymentMethod();return;}
   if(event.target.dataset.tpvQuantity&&!payment&&canSell()){const line=lines.find(l=>l.productId===event.target.dataset.tpvQuantity),value=Number(event.target.value),
    available=products.find(p=>p.id===line?.productId)?.stock??line?.stock;
    if(line&&event.target.value!==''&&Number.isSafeInteger(value)&&value>=(line.minimumQty||1)&&value<=10000&&(value<=available||canExceedStock(line,stockRules))){line.qty=value;failure='';}

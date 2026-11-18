@@ -527,6 +527,7 @@
         "supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql",
         "tests/totustpv-receipt-line-discounts-qa.mjs",
         "tests/totustpv-receipt-variants-qa.mjs",
+        "tests/totustpv-payment-reference-qa.mjs",
         "tests/native-lab/price-history-change.php",
         "tests/native-lab/receipt-pricing-fixture.php",
         "src/totustpv/line-name.js",

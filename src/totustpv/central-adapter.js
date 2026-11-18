@@ -8,6 +8,7 @@ import {saleNote} from './sale-note.js';
 import {taxSummary} from './tax-summary.js';
 import {parkingExpiry} from './parking-options.js';
 import {quotePaymentMethods} from './payment-options.js';
+import {paymentReference} from './payment-reference.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
@@ -142,6 +143,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
     paymentMethods:quotePaymentMethods(record.expected),
     paymentLabels:clone(record.expected.operatorPaymentPolicy?.labels||{}),
+    referencePolicy:clone(record.expected.operatorPaymentPolicy?.referencePolicy||{}),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
    prepared.set(id,quote);return clone(quote);},
   async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
@@ -152,6 +154,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
    need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
+    ...(row.reference===undefined?{}:{reference:paymentReference(row.reference)}),
     ...(row.method==='cash'?{receivedCents:row.receivedCents}:{})}));
    const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true}};
    need(await operation('submitted-sale',request,operationId)===operationId,'Hay otro cobro pendiente de recuperar.');

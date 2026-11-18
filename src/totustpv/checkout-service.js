@@ -63,7 +63,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
       requireValue(positive(orderId), 'TPV_REMOTE_ORDER_NOT_OBSERVED');
       await ledger.rememberRemote({scope,operationId:record.id,revision:record.revision,token,orderId,
         remoteKey:remoteOrderKey(scope,orderId)});
-      const observed = await native.readSale({scope,operationId:record.id,sourceActorId:record.scope.actorId,orderId,expected:copy(record.expected)});
+      const observed = await native.readSale({scope,operationId:record.id,sourceActorId:record.scope.actorId,orderId,expected:copy(record.expected),payments:copy(record.payments)});
       requireValue(observed?.connectionId === scope.connectionId && observed?.orderId === orderId,
         'TPV_REMOTE_CONNECTION_MISMATCH');
       verifyNativePaymentBreakdown(record.expected,record.payments,observed.payments);

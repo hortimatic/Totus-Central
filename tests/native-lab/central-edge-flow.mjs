@@ -1,5 +1,7 @@
 import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
 import {exerciseReceiptVariants} from './receipt-variants-flow.mjs';
+import {exercisePaymentReference} from './payment-reference-flow.mjs';
+import {exercisePaymentReferenceBrowser} from './payment-reference-browser.mjs';
 import {exerciseReceiptVariantsBrowser} from './receipt-variants-browser.mjs';
 import {exercisePaymentSettingsBrowser} from './payment-settings-browser.mjs';
 import {exerciseNativeLineName} from './line-name-flow.mjs';
@@ -33,7 +35,7 @@ import {exerciseNativeCentralCashBrowser} from './central-cash-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart,inspectDisabledStock,setExternalBarcode,changeCurrentBarcode}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
- let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false,dropBarcodeComplete=false;
+ let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false,dropBarcodeComplete=false,dropReferenceSaleReply=false;
  try{
   await db.exec(`create schema private;create schema auth;create role anon;create role authenticated;create role service_role;
    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -86,6 +88,9 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118100416_totustpv_payment_settings.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118103540_totustpv_receipt_variants.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118110124_totustpv_payment_reference_options.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118110722_totustpv_payment_reference_ledger.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118112532_totustpv_receipt_payment_references.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -148,6 +153,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     const xml=await read.text();return ['passwd','secure_key','last_passwd_gen'].map(field=>xml.match(new RegExp('<'+field+'\\b[^>]*>([^]*?)</'+field+'>'))?.[1]||'');};
    const protectedBefore=customerPatch?await protectedFields():null;
    const response=await fetch(local,{...init,signal:AbortSignal.timeout(30000)});
+   if(dropReferenceSaleReply&&init.method==='POST'&&target.pathname==='/api/totus_tpv_sales'&&response.ok){dropReferenceSaleReply=false;await response.body.cancel();throw Error('Synthetic lost external-reference sale response');}
    if(dropProductReply&&init.method==='POST'&&target.pathname==='/api/products'&&response.ok){dropProductReply=false;await response.body.cancel();throw Error('Synthetic lost native product response');}
    if(customerPatch&&response.ok){const after=await protectedFields();assert.ok(protectedBefore[1].length>0,'Fixture must have an existing customer security key');
     assert.ok(JSON.stringify(protectedBefore)===JSON.stringify(after),'Customer edit must preserve authentication fields; values never printed or stored');}
@@ -175,6 +181,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='payment-reference'){
+   const result=await exercisePaymentReference({call,handle,selection,fixture,db,paths,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
+   await exercisePaymentReferenceBrowser({handle,actor,preferences,fixture,paths});return result;
+  }
   if(focus==='receipt-variants'){
    const result=await exerciseReceiptVariants({call,selection,fixture,rename:fixture.renameReceiptVariant,preferences});
    await exerciseReceiptVariantsBrowser({handle,actor,preferences,...result});return result;

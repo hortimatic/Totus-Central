@@ -23,6 +23,17 @@ test('native quote keeps exact unit prices, authoritative rounded line totals an
  assert.equal(result.expected.lines[0].unitTaxInclMicros,8012100);assert.equal(result.expected.lines[0].lineTaxInclCents,801);
  assert.equal(result.expected.lines[0].stockRecordId,801);assert.equal(result.quoteExpiresAt,219900);
 });
+
+test('configured payment references require a typed native capability sealed in the owned quote',async()=>{
+ const configured={...profile,operatorPaymentPolicy:{...profile.operatorPaymentPolicy,referencePolicy:{card:'required'}}};
+ for(const marker of [undefined,false,'true',1]){
+  const changed=marker===undefined?quote:{...quote,payment_reference_annotations:marker};
+  await assert.rejects(run({profile:configured,response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}}),/REFERENCE_UNAVAILABLE/);
+ }
+ const changed={...quote,payment_reference_annotations:true};
+ const result=await run({profile:configured,response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}});
+ assert.equal(result.expected.supportsPaymentReferences,true);
+});
 test('insufficient stock requires explicit workstation policy and sealed native counter permission, including negative-stock bounds',async()=>{
  const withPolicy=async({enabled,native=true,quantity=0}={})=>{
   const changed={...quote,lines:[{...quote.lines[0],allow_out_of_stock:native}]};

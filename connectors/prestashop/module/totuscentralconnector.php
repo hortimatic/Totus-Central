@@ -22,7 +22,7 @@ class Totuscentralconnector extends PaymentModule
     public function getOrderShippingCostExternal($cart){return self::$nativeCommandDepth>0?0:false;}
     public function __construct()
     {
-        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.2.1';$this->author='Totus Central';
+        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.2.2';$this->author='Totus Central';
         $this->bootstrap=true;$this->need_instance=1;$this->ps_versions_compliancy=['min'=>'8.2.8','max'=>'8.2.8'];
         parent::__construct();$this->displayName='Totus Central · capacidad nativa';
         $this->description='Pedidos del mostrador de Totus Central. Sin interfaz de caja ni opción de pago en la web.';

@@ -9,6 +9,7 @@ function run(args){try{return execFileSync(binary,[...options,...args],{encoding
 const version=run(['-r','echo PHP_VERSION;']);
 process.stdout.write(run(['tests/totustpv-native-billing-qa.php']));
 process.stdout.write(run(['tests/totustpv-native-receipt-variants-qa.php']));
+process.stdout.write(run(['tests/totustpv-native-payment-reference-qa.php']));
 process.stdout.write(run(['tests/totustpv-barcode-native-contract-qa.php']));
 console.log(`Connector preparation checks on PHP ${version}; no installed PrestaShop runtime.`);
 for(const file of readdirSync('connectors/prestashop/src').filter(file=>file.endsWith('.php')))

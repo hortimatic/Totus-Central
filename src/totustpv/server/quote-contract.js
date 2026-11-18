@@ -34,6 +34,8 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
   response.quoted_at+profile.quoteLifetimeMs>now,'TPV_NATIVE_QUOTE_EXPIRED');
  const quote=response.quote;
  need(quote&&response.quote_fingerprint===await nativeQuoteFingerprint(quote),'TPV_NATIVE_QUOTE_FINGERPRINT_MISMATCH');
+ const referencesConfigured=Object.entries(profile.operatorPaymentPolicy?.referencePolicy||{}).some(([method,mode])=>Object.hasOwn(profile.operatorPaymentPolicy?.modes||{},method)&&mode!=='hidden');
+ need(!referencesConfigured||quote.payment_reference_annotations===true,'TPV_NATIVE_PAYMENT_REFERENCE_UNAVAILABLE');
  need(quote.cart_id===ownedCart.cartId&&quote.shop_id===scope.shopId&&quote.currency===scope.currency&&
   [['customer_id','customerId'],['invoice_address_id','invoiceAddressId'],['delivery_address_id','deliveryAddressId'],
    ['currency_id','currencyId'],['language_id','languageId'],['carrier_id','carrierId']].every(([key,field])=>
@@ -76,6 +78,7 @@ export async function expectedFromNativeQuote({scope,ownedCart,profile,response,
   totalCents,totalTaxExclCents,productsTaxInclCents,productsTaxExclCents,shippingCents,discountCents,lines,...(profile.allowOutOfStock===true?{allowOutOfStock:true}:{}),
   nativeRoundMode:quote.round_mode,nativeRoundType:quote.round_type,nativeQuoteFingerprint:response.quote_fingerprint,
   paymentModule:profile.paymentModule,nativePaymentLabels:structuredClone(profile.nativePaymentLabels),
+  ...(quote.payment_reference_annotations===true?{supportsPaymentReferences:true}:{}),
   operatorPaymentPolicy:structuredClone(profile.operatorPaymentPolicy),paidStateIds:[...profile.paidStateIds]},
   quoteExpiresAt:Math.min(now+profile.quoteLifetimeMs,response.quoted_at+profile.quoteLifetimeMs)};
 }

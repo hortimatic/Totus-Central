@@ -7,6 +7,10 @@ test('drawer settings preserve typed labels and chosen order; read-only controls
  const html=paymentSettingsHtml({options},false);assert.match(html,/fieldset disabled/);assert.match(html,/Caja &amp; mostrador/);
  assert.match(paymentSettingsHtml({options},true),/Guardar medios de cobro/);
  fields.set('position:cash','0');assert.throws(()=>paymentSettingsFromForm(fields,['cash','card']));
+ fields.set('position:cash','1');fields.set('reference:card','required');
+ const required=paymentSettingsFromForm(fields,['cash','card']);assert.deepEqual(required.referencePolicy,{card:'required'});
+ assert.match(paymentSettingsHtml({options:required},true),/value="required" selected/);
+ assert.doesNotMatch(paymentSettingsHtml({options:required},true),/name="reference:cash"/);
 });
 
 test('mixed tender only appears when cash and another authorized method coexist',()=>{

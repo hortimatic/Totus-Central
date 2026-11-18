@@ -112,6 +112,7 @@ final class NativeCartQuote
             $totalIncl=$cart->getOrderTotal(true,\Cart::BOTH);
             $totalExcl=$cart->getOrderTotal(false,\Cart::BOTH);
             $quote=[
+                'payment_reference_annotations'=>class_exists(NativeSale::class)&&method_exists(NativeSale::class,'supportsPaymentReferences')&&NativeSale::supportsPaymentReferences(),
                 'cart_id'=>$cartId,'shop_id'=>(int)$cart->id_shop,
                 'customer_id'=>(int)$cart->id_customer,'invoice_address_id'=>(int)$cart->id_address_invoice,
                 'delivery_address_id'=>(int)$cart->id_address_delivery,'currency_id'=>(int)$cart->id_currency,

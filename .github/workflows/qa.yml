@@ -38,7 +38,7 @@ jobs:
       - run: node --test tests/totustpv-setup-qa.mjs tests/totustpv-qa-policy-qa.mjs
       - run: node tests/totustpv-php-boundary-qa.mjs
       - run: node tests/totustpv-package-qa.mjs
-      - run: node --test tests/totustpv-receipt-variants-qa.mjs
+      - run: node --test tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: node tests/totustpv-workspace-browser-qa.mjs
       - run: node tests/totustpv-payment-settings-browser-qa.mjs

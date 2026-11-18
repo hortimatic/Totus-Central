@@ -20,6 +20,7 @@ import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
 import {lineName} from '../../../src/totustpv/line-name.js';
 import {paymentChoices,quotePaymentMethods} from '../../../src/totustpv/payment-options.js';
+import {paymentReferencePolicy} from '../../../src/totustpv/payment-reference.js';
 import {saleNote,saleNoteHash} from '../../../src/totustpv/sale-note.js';
 import {nativeMicros} from '../../../src/totustpv/server/native-adapter.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
@@ -290,7 +291,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const record=await ledger.get({scope,operationId:input.operationId});
     return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,totalTaxExclCents:record.expected.totalTaxExclCents,
      currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,lines:record.expected.lines,
-     paymentMethods:quotePaymentMethods(record.expected),paymentLabels:record.expected.operatorPaymentPolicy?.labels||{},
+     paymentMethods:quotePaymentMethods(record.expected),paymentLabels:record.expected.operatorPaymentPolicy?.labels||{},referencePolicy:record.expected.operatorPaymentPolicy?.referencePolicy||{},
      discountCents:record.expected.discountCents,
      canSubmit:record.scope.actorId===scope.actorId,draftId:record.expected.draftId,draftVersion:record.expected.draftVersion});
    }
@@ -466,7 +467,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const choices=paymentChoices(saved.options,fresh.nativeProfile.payment_labels);
     return {enabled:true,revision:fresh.profileRevision,settingsRevision:saved.revision,drawerId:scope.drawerId,
     environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
-    methodOrder:choices.map(({id})=>id),modes:Object.fromEntries(choices.map(({id})=>[id,OPERATOR_PAYMENT_MODES[id]])),labels:Object.fromEntries(choices.map(({id,label})=>[id,label]))};};
+    methodOrder:choices.map(({id})=>id),referencePolicy:paymentReferencePolicy(saved.options.referencePolicy,Object.keys(fresh.nativeProfile.payment_labels)),modes:Object.fromEntries(choices.map(({id})=>[id,OPERATOR_PAYMENT_MODES[id]])),labels:Object.fromEntries(choices.map(({id,label})=>[id,label]))};};
    async function profile(){const fresh=(await selected()).row,p=fresh.nativeProfile;
     const currentStockPolicy=stockPolicy(check(await rpc('totus_tpv_stock_policy',{p_scope:scope})));
     const currentLineOptions=lineOptions(check(await rpc('totus_tpv_line_options',{p_scope:scope})));

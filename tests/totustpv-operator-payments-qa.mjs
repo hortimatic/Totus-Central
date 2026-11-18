@@ -10,6 +10,20 @@ const requested={allocations:[{id:'card-one',method:'card',amountCents:801}],
  confirmation:{operationId:id(6),totalCents:801,currency:'EUR',accepted:true}};
 const fixture=(overrides={})=>createOperatorPaymentVerifier({authorize:async()=>({...scope}),readPolicy:async()=>structuredClone(policy),...overrides});
 
+test('external references obey current and prepared policies and remain cashier annotations',async()=>{
+ for(const mode of ['optional','required']){
+  const configured={...policy,referencePolicy:{card:mode}},prepared={...expected,operatorPaymentPolicy:{...configured}};
+  const input={...requested,allocations:[{...requested.allocations[0],reference:' OP-0042 '}]};
+  const result=await fixture({readPolicy:async()=>configured}).verify({scope,operationId:id(6),expected:prepared,requested:input});
+  assert.equal(result[0].reference,'OP-0042');assert.equal(result[0].status,'settled');assert.equal(Object.hasOwn(result[0],'providerVerified'),false);
+  if(mode==='required')await assert.rejects(fixture({readPolicy:async()=>configured}).verify({scope,operationId:id(6),expected:prepared,requested}),/REFERENCE_REQUIRED/);
+  for(const reference of ['4111 1111 1111 1111','<script>',null])await assert.rejects(fixture({readPolicy:async()=>configured}).verify({scope,operationId:id(6),expected:prepared,requested:{...input,allocations:[{...input.allocations[0],reference}]}}),/REFERENCE_INVALID/);
+  await assert.rejects(fixture().verify({scope,operationId:id(6),expected:prepared,requested:input}),/POLICY_STALE/);
+ }
+ await assert.rejects(fixture().verify({scope,operationId:id(6),expected,requested:{...requested,allocations:[{...requested.allocations[0],reference:'OP-0042'}]}}),/REFERENCE_FORBIDDEN/);
+ await assert.rejects(fixture().verify({scope,operationId:id(6),expected,requested:{...requested,allocations:[{id:'cash',method:'cash',amountCents:801,receivedCents:801,reference:'OP-0042'}]}}),/CASH_REFERENCE_FORBIDDEN/);
+});
+
 test('drawer payment changes invalidate previously prepared tender even if the method remains enabled',async()=>{
  const current={...policy,settingsRevision:2,drawerId:scope.drawerId};
  const prepared={...expected,operatorPaymentPolicy:{...current}};

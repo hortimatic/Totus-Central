@@ -219,6 +219,7 @@
         "src/totustpv/stock-policy.js",
         "src/totustpv/line-options.js",
         "src/totustpv/payment-options.js",
+        "src/totustpv/payment-reference.js",
         "src/totustpv/sale-note.js",
         "src/totustpv/line-name.js",
         "src/totustpv/budget-contract.js",

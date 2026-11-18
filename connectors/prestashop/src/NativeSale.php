@@ -7,6 +7,17 @@ namespace TotusCentralConnector;
  */
 final class NativeSale
 {
+    public static function supportsPaymentReferences(): bool{return true;}
+    public static function externalReference($value): string
+    {
+        Protocol::ensure(is_string($value)&&$value===trim($value)&&preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._:\/-]{0,63}$/D',$value)===1,'SALE_PAYMENT_REFERENCE_INVALID');
+        $digits=preg_replace('/[^0-9]/','',$value);
+        if(strlen($digits)>=13&&strlen($digits)<=19){$total=0;$twice=false;
+            for($i=strlen($digits)-1;$i>=0;$i--){$n=(int)$digits[$i];if($twice){$n*=2;if($n>9)$n-=9;}$total+=$n;$twice=!$twice;}
+            Protocol::ensure($total%10!==0,'SALE_PAYMENT_REFERENCE_INVALID');
+        }
+        return $value;
+    }
     public static function supportsLineNames(): bool{return true;}
     public static function supportsCommercialQuotes(): bool{return true;}
     private $quoteReader;
@@ -53,16 +64,18 @@ final class NativeSale
         NativeSaleNote::assertMessageCompatible($note);
         foreach ($payload['payments'] as $payment) {
             Protocol::ensure(is_array($payment) &&
-                array_diff(array_keys($payment),['method','amount_cents','received_cents'])===[] &&
+                array_diff(array_keys($payment),['method','amount_cents','received_cents','external_reference'])===[] &&
                 isset($this->profile['payment_labels'][$payment['method']??'']) &&
                 !isset($seen[$payment['method']]) && is_int($payment['amount_cents']??null) &&
                 $payment['amount_cents']>0 && $payment['amount_cents']<=100000000000,'SALE_PAYMENT_INVALID');
             if ($payment['method']==='cash') {
+                Protocol::ensure(!array_key_exists('external_reference',$payment),'SALE_CASH_REFERENCE_FORBIDDEN');
                 Protocol::ensure(is_int($payment['received_cents']??null) &&
                     $payment['received_cents']>=$payment['amount_cents'] &&
                     $payment['received_cents']<=100000000000,'SALE_CASH_INSUFFICIENT');
             } else {
                 Protocol::ensure(!array_key_exists('received_cents',$payment),'SALE_CARD_CHANGE_FORBIDDEN');
+                if(array_key_exists('external_reference',$payment))self::externalReference($payment['external_reference']);
             }
             $allocated+=$payment['amount_cents'];$seen[$payment['method']]=true;
         }
