@@ -31,9 +31,10 @@ export function catalogueForActor(data,canReadCosts){
   groups=data.variant_groups.map(row=>{need(row&&positive(row.id)&&typeof row.name==='string'&&Array.from(row.name).length<=128,'TPV_CATALOGUE_INVALID');return {id:row.id,name:row.name};});
  }
  const fields=['id','product_id','attribute_id','name','variant_name','variant_attributes','reference','ean','upc','isbn','choose_variant','minimum_quantity','allow_out_of_stock','unit_price_override','temporary_line_names',
-  'stock','unit_tax_incl','unit_tax_excl','preview_cents','preview_tax_excl_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
+  'stock','enabled_for_sale','unit_tax_incl','unit_tax_excl','preview_cents','preview_tax_excl_cents','image_path','manufacturer','supplier',...(canReadCosts===true?['cost_base_cents']:[])];
  return {...data,...(groups?{variant_groups:groups}:{}),items:data.items.map(item=>{
   const projected=Object.fromEntries(fields.filter(key=>Object.hasOwn(item,key)).map(key=>[key,item[key]]));
+  if(Object.hasOwn(projected,'enabled_for_sale'))need(typeof projected.enabled_for_sale==='boolean','TPV_CATALOGUE_INVALID');
   if(Object.hasOwn(projected,'variant_attributes')){
    need(Array.isArray(projected.variant_attributes)&&projected.variant_attributes.length<=64,'TPV_CATALOGUE_INVALID');
    projected.variant_attributes=projected.variant_attributes.map(row=>{
@@ -88,7 +89,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'billing-context':['action'],'billing-list':['action','selection','query'],
     'billing-document':['action','selection','operationId','kind','refundId'],
     'update-workstation-access':['action','selection','operationId','revision','operatorId','assignmentRevision','permissions','active'],
-    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId'],
+    open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId','inventoryOnly'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
     history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
@@ -119,6 +120,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'submit-refund':['action','selection','operationId','confirmation'],'recover-refund':['action','selection','operationId'],
     'cancel-refund':['action','selection','operationId']};
    need(Object.keys(input).every(key=>permitted[input.action].includes(key)),'TPV_REQUEST_FIELD_FORBIDDEN');
+   if(input.action==='catalogue')need(input.inventoryOnly===undefined||typeof input.inventoryOnly==='boolean','TPV_CATALOGUE_QUERY_INVALID');
    if(input.action==='budget-create')input.payload=budgetDraft(input.payload);
    if(input.action==='central-cash-context'){
     const result=check(await scoped.rpc('totus_tpv_central_cash_context'));
@@ -300,12 +302,15 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    }
    const productAction=input.action.startsWith('product-'),productWrite=['product-intake-prepare','product-intake-step','product-intake-cancel',
     'product-category-prepare','product-category-step','product-category-cancel'].includes(input.action);
-   async function productContext(){
-    const result=check(await scoped.rpc('totus_products_context',{p_action:productWrite?'create':'view'}));
-    need(result.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_PRODUCT_FORBIDDEN');
+   async function productContext(denialCode='TPV_PRODUCT_FORBIDDEN'){
+    const response=await scoped.rpc('totus_products_context',{p_action:productWrite?'create':'view'});
+    if(denialCode==='TPV_INVENTORY_FORBIDDEN')need(!response.error,denialCode);
+    const result=check(response);
+    need(result.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),denialCode);
     const website=result.websites?.find(w=>w.connection_id===scope.connectionId&&w.origin===TOTUS_QA_POLICY.origin&&w.status==='active');
     need(website&&typeof website.key==='string','TPV_PRODUCT_SCOPE_INVALID');return website;
    }
+   if(input.action==='catalogue'&&input.inventoryOnly===true)await productContext('TPV_INVENTORY_FORBIDDEN');
    const productWebsite=productAction?await productContext():null;
    const connection=check(await rpc('totus_api_server',{p_id:scope.connectionId,p_revision:scope.connectionRevision}));
    await beginAudit(admin,scope.connectionId,scope.connectionRevision);
@@ -323,7 +328,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     return respond(input.action==='product-intakes'?await service.list():input.action==='product-intake-prepare'?await service.prepare(input.operationId,input.payload):
      input.action==='product-intake-step'?await service.advance(input.operationId):input.action==='product-intake-cancel'?await service.cancel(input.operationId):await service.get(input.operationId));
    }
-   const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{request,resolve,qaPolicy:TOTUS_QA_POLICY,
+   const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{request:input.action==='catalogue'&&input.inventoryOnly?async(target,init)=>{await authorize({action:'read'});await productContext('TPV_INVENTORY_FORBIDDEN');return request(target,init);}:request,resolve,qaPolicy:TOTUS_QA_POLICY,
     nativeExtension:{verified:true,installationId:row.nativeProfile.installation_id,connectionId:scope.connectionId,
      connectionRevision:scope.connectionRevision,shopId:scope.shopId,protocol:1},
     allowNativeQuote:async()=>{await authorize({action:'sell'});return true;},
@@ -402,7 +407,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    if(input.action==='catalogue'){
     need(input.sortField!=='cost'||row.canReadCosts===true,'TPV_COST_FORBIDDEN');
     const data=await transport.readNativeCatalogue({search:input.search??'',page:input.page??0,
-     pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId,categoryId:input.categoryId??0,sortField:input.sortField??'name',sortDirection:input.sortDirection??'asc',searchFields:input.searchFields,catalogueFilters:input.catalogueFilters,variantGroupId:input.variantGroupId??0});
+     pageSize:20,productId:input.productId??0,customerId:input.customerId,addressId:input.addressId,categoryId:input.categoryId??0,sortField:input.sortField??'name',sortDirection:input.sortDirection??'asc',searchFields:input.searchFields,catalogueFilters:input.catalogueFilters,variantGroupId:input.variantGroupId??0,inventoryOnly:input.inventoryOnly??false});
+    need((data.inventory_only??false)===(input.inventoryOnly??false)&&(!input.inventoryOnly||data.items?.every(item=>typeof item.enabled_for_sale==='boolean')),'TPV_CATALOGUE_INVENTORY_UNAVAILABLE');
     return respond({...catalogueForActor(data,row.canReadCosts),image_origin:TOTUS_QA_POLICY.origin});
    }
    if(['returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action)){

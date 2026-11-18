@@ -50,6 +50,8 @@ const messages={
  TPV_CATALOGUE_INTENT_REVIEW_REQUIRED:'La categoría puede estar creada. Comprueba esta solicitud antes de continuar.',
  TPV_CATALOGUE_INTENT_NOT_FOUND:'No se encuentra esta solicitud. Actualiza las categorías guardadas.',
  TPV_PRODUCT_FORBIDDEN:'Necesitas permiso de consulta y creación de Productos para dar de alta artículos en esta caja.',
+ TPV_INVENTORY_FORBIDDEN:'Necesitas permiso de consulta de Productos de esta tienda para buscar artículos deshabilitados.',
+ TPV_CATALOGUE_INVENTORY_UNAVAILABLE:'La conexión aún no permite consultar artículos deshabilitados para reponer. Pide al responsable que complete su preparación.',
  TPV_PRODUCT_WRITE_UNAVAILABLE:'El alta de productos no está habilitada para esta conexión. Un responsable debe revisar sus permisos.',
  TPV_PRODUCT_SCOPE_INVALID:'La tienda del alta no coincide con la caja seleccionada. Vuelve a abrir el mostrador.',
  TPV_PRODUCT_METADATA_INVALID:'No se han podido comprobar las categorías, atributos o datos de esta tienda. Actualiza los datos antes de continuar.',

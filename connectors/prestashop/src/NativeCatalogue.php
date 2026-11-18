@@ -44,11 +44,13 @@ final class NativeCatalogue
         if($categoriesOnly===1)return self::categories($profile);
         $searchFields=self::searchFields($query);
         $catalogueFilters=self::catalogueFilters($query);$hideUnavailable=$catalogueFilters['hideUnavailable'];
+        $inventoryOnly=self::integer($query['inventory_only']??'0',0,1)===1;
         $categoryId=self::integer((string)($query['category_id']??'0'),0,2147483647);
         $page=self::integer((string)($query['page']??'0'),0,1000);$size=self::integer((string)($query['page_size']??'20'),1,50);
         $productId=self::integer((string)($query['product_id']??'0'),0,2147483647);
         $policyOnly=self::integer((string)($query['stock_policy_only']??'0'),0,1)===1;Protocol::ensure(!$policyOnly||$productId>0,'CATALOGUE_QUERY_INVALID');
         $capabilitiesOnly=self::integer((string)($query['product_capabilities_only']??'0'),0,1)===1;Protocol::ensure(!$capabilitiesOnly||$productId>0&&!$policyOnly,'CATALOGUE_QUERY_INVALID');
+        Protocol::ensure(!$inventoryOnly||!$policyOnly&&!$capabilitiesOnly&&!$hideUnavailable&&!$catalogueFilters['excludedCategories'],'CATALOGUE_INVENTORY_QUERY_INVALID');
         $sortGroupId=self::integer((string)($query['sort_group_id']??'0'),0,2147483647);
         Protocol::ensure($productId>0||$sortGroupId===0,'CATALOGUE_VARIANT_GROUP_INVALID');$variantGroups=[];
         $sort=$query['sort_field']??'name';$direction=$query['sort_direction']??'asc';
@@ -73,13 +75,13 @@ final class NativeCatalogue
             $preview=new \Cart();$preview->id_customer=$customerId;$preview->id_currency=(int)$profile['currency_id'];
             $preview->id_address_invoice=(int)$address->id;$preview->id_address_delivery=(int)$address->id;$manager->setCart($preview);
             $parameters=[$shop,$shop,$language];
-            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,p.isbn,ps.cache_default_attribute,ps.wholesale_price,
+            $sql='SELECT p.id_product,pl.name,p.reference,p.ean13,p.upc,p.isbn,ps.active,ps.available_for_order,ps.cache_default_attribute,ps.wholesale_price,
                 COALESCE(m.name,\'\') manufacturer_name,COALESCE(supplier.name,\'\') supplier_name
                 FROM `'._DB_PREFIX_.'product` p JOIN `'._DB_PREFIX_.'product_shop` ps ON ps.id_product=p.id_product AND ps.id_shop=?
                 JOIN `'._DB_PREFIX_.'product_lang` pl ON pl.id_product=p.id_product AND pl.id_shop=? AND pl.id_lang=?
                 LEFT JOIN `'._DB_PREFIX_.'manufacturer` m ON m.id_manufacturer=p.id_manufacturer
                 LEFT JOIN `'._DB_PREFIX_.'supplier` supplier ON supplier.id_supplier=p.id_supplier
-                WHERE ps.active=1 AND ps.available_for_order=1 AND ps.advanced_stock_management=0 AND p.is_virtual=0 AND p.cache_is_pack=0';
+                WHERE '.($inventoryOnly?'':'ps.active=1 AND ps.available_for_order=1 AND ').'ps.advanced_stock_management=0 AND p.is_virtual=0 AND p.cache_is_pack=0';
             if($hideUnavailable){
                 $variantsExist='EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute_shop` vas WHERE vas.id_product=p.id_product AND vas.id_shop='.$shop.')';
                 $sql.=' AND (EXISTS(SELECT 1 FROM `'._DB_PREFIX_.'product_attribute` pa JOIN `'._DB_PREFIX_.'product_attribute_shop` pas ON pas.id_product_attribute=pa.id_product_attribute AND pas.id_shop='.$shop.' WHERE pa.id_product=p.id_product AND '.self::stockSql('pa.id_product','pa.id_product_attribute',$shop).'>0) OR (NOT '.$variantsExist.' AND '.self::stockSql('p.id_product','0',$shop).'>0))';
@@ -134,8 +136,8 @@ final class NativeCatalogue
                 $pricePage=self::pricePage(array_keys($byId),static function($key)use($byId,$search,$shop,$profile,$context,$address,$customerId,$searchFields,$hideUnavailable){
                     [$attribute]=self::selection($byId[$key],$search,$shop,$searchFields,$hideUnavailable);
                     return self::previewPrice((int)$byId[$key]['id_product'],$attribute,$context,(int)$address->id,$customerId);
-                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction,$searchFields,$catalogueFilters);
-                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters];
+                },$profile,$context,$customer,$address,$search,$categoryId,0,$page,$size,$direction,$searchFields,$catalogueFilters,$inventoryOnly);
+                if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly];
                 $priceValues=$pricePage['prices'];$products=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
             }
             if($productId>0){
@@ -160,8 +162,8 @@ final class NativeCatalogue
                     $byId=[];foreach($variants as $variant)$byId[$productId.':'.$variant['id_product_attribute']]=$variant;ksort($byId,SORT_NATURAL);
                     $pricePage=self::pricePage(array_keys($byId),static function($key)use($productId,$byId,$context,$address,$customerId){
                         return self::previewPrice($productId,(int)$byId[$key]['id_product_attribute'],$context,(int)$address->id,$customerId);
-                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields,$catalogueFilters);
-                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId];
+                    },$profile,$context,$customer,$address,$search,$categoryId,$productId,$page,$size,$direction,$searchFields,$catalogueFilters,$inventoryOnly);
+                    if(!$pricePage['ready'])return self::building($pricePage,$page,$size,$context,$direction)+['search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly,'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId];
                     $priceValues=$pricePage['prices'];$variants=array_map(static fn($key)=>$byId[$key],$pricePage['ids']);
                 }
                 $more=$pricePage?$pricePage['has_more']:count($variants)>$size;
@@ -176,7 +178,7 @@ final class NativeCatalogue
                 }
             }
             return ['items'=>$rows,'page'=>$page,'page_size'=>$size,'has_more'=>$more,'total_count'=>$total,'currency'=>$context->currency->iso_code,
-                'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,
+                'variant_groups'=>$variantGroups,'variant_group_id'=>$sortGroupId,'payable_cart_quote'=>false,'source'=>'native-product-price','catalogue_copied'=>false,'sort_field'=>$sort,'sort_direction'=>$direction,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly,
                 ...($pricePage?['price_snapshot_at'=>$pricePage['snapshot_at']]:[])];
         }finally{$manager->restorePreviousContext();}
     }
@@ -203,7 +205,7 @@ final class NativeCatalogue
         $specific=null;$incl=\Product::getPriceStatic($id,true,$attribute,6,null,false,true,1,false,$customer,null,$address,$specific,true,true,$context,true);
         Protocol::ensure(is_numeric($incl)&&$incl>=0,'CATALOGUE_PRICE_INVALID');return (int)round(100*\Tools::ps_round((float)$incl,2));
     }
-    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction,array $searchFields,array $catalogueFilters): array
+    private static function pricePage(array $ids,callable $reader,array $profile,$context,$customer,$address,string $search,int $category,int $product,int $page,int $size,string $direction,array $searchFields,array $catalogueFilters,bool $inventoryOnly=false): array
     {
         $now=(int)floor(microtime(true)*1000);$local=date('Y-m-d H:i:s');$minute=date('Y-m-d H:i:00');$boundary=null;$db=\Db::getInstance()->getLink();
         foreach(['specific_price','specific_price_rule'] as $table){
@@ -223,7 +225,7 @@ final class NativeCatalogue
             'conversion'=>(string)$context->currency->conversion_rate,'customer'=>(int)$customer->id,'groups'=>$groups,
             'address'=>(int)$address->id,'country'=>(int)$address->id_country,'state'=>(int)$address->id_state,
             'postcode'=>(string)$address->postcode,'vat'=>(string)$address->vat_number,'settings'=>$settings,
-            'search'=>$search,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'category'=>$category,'product'=>$product];
+            'search'=>$search,'search_fields'=>$searchFields,'catalogue_filters'=>$catalogueFilters,'inventory_only'=>$inventoryOnly,'category'=>$category,'product'=>$product];
         $storage=NativeRuntime::connection();$index=new NativeCatalogueIndex($storage,_DB_PREFIX_.'totus_tpv_catalogue_index');
         $result=$index->page($identity,$ids,$reader,$page*$size,$size,$direction,$validUntil,$now);
         // Only disposable, expired presentation indexes are pruned. Native
@@ -262,6 +264,7 @@ final class NativeCatalogue
         else{$native=new \Product($id,false,(int)$profile['language_id'],(int)$profile['shop_id']);$minimum=(int)$native->minimal_quantity;}
         $cover=\Image::getCover($id);$image=(int)($cover['id_image']??0);
         return ['id'=>$id.':'.$attribute,'product_id'=>$id,'attribute_id'=>$attribute,'name'=>(string)$product['name'],
+            'enabled_for_sale'=>(bool)$product['active']&&(bool)$product['available_for_order'],
             'manufacturer'=>(string)($product['manufacturer_name']??''),'supplier'=>(string)($product['supplier_name']??''),
             'cost_base_cents'=>(int)round(100*(float)$product['wholesale_price']),
             'variant_name'=>$label,'variant_attributes'=>$attributes,'reference'=>(string)($variant['reference']??$product['reference']),

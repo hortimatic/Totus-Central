@@ -102,7 +102,7 @@ try{
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
  assert.deepEqual(await page.evaluate(()=>settingsFixture.saved.get('a')),{viewMode:'list',initialCategoryId:1,
   cash:{denominations:[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1]},
-  search:{fields:['reference','ean13','upc','name'],numericKeyboard:false},
+  search:{fields:['reference','ean13','upc','name'],numericKeyboard:false,includeDisabledStock:false},
   catalogue:{hideUnavailable:false,excludedCategories:[],extraDetails:false},
   stockPolicy:{allowOutOfStock:false},lineOptions:{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false},parking:{enabled:true,ttlDays:0},
   customerDisplay:{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23},

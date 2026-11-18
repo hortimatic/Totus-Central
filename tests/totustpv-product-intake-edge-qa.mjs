@@ -4,6 +4,12 @@ import {createCentralTpvHandler} from '../supabase/functions/totus-tpv/handler.j
 import {TOTUS_QA_POLICY} from '../src/totustpv/server/deployment-qa-policy.js';
 const actor='00000000-0000-4000-8000-000000000001',drawer='00000000-0000-4000-8000-000000000002',id='00000000-0000-4000-8000-000000000003';
 const selection={connectionId:TOTUS_QA_POLICY.connectionId,shopId:1,drawerId:drawer};
+test('inventory catalogue requires current Products view permission before privileged native credentials',async()=>{
+ const f=fixture({denied:true}),response=await f.call({action:'catalogue',selection,operationId:id,inventoryOnly:true});
+ assert.equal(response.body.error,'TPV_INVENTORY_FORBIDDEN');assert.equal(f.outbound,0);
+ assert.equal(f.calls.some(call=>call.name==='totus_api_server'),false);
+ assert.equal(f.calls.find(call=>call.name==='totus_products_context').args.p_action,'view');
+});
 function fixture({denied=false,foreignWebsite=false,session=false}={}){
  const calls=[];let outbound=0;
  const row={connectionId:selection.connectionId,connectionRevision:6,shopId:1,drawerId:drawer,storeId:actor,environment:'qa',canReconcile:true,canSell:true,

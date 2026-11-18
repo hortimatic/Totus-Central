@@ -2,6 +2,12 @@
   "version": 1,
   "circuits": [
     {
+      "id": "totustpv-disabled-stock",
+      "paths": ["src/totustpv/", "supabase/functions/totus-tpv/", "connectors/prestashop/src/", "connectors/prestashop/module/Webservice.php", "supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql", "tests/totustpv-disabled-stock", "tests/native-lab/disabled-stock", "tests/native-lab/central-edge-flow.mjs", "tests/totustpv-native-http-qa.mjs"],
+      "tests": ["tests/totustpv-disabled-stock-qa.mjs", "tests/totustpv-disabled-stock-browser-qa.mjs", "tests/totustpv-product-intake-edge-qa.mjs", "tests/totustpv-search-preferences-qa.mjs", "tests/totustpv-central-adapter-qa.mjs", "tests/totustpv-transport-qa.mjs", "tests/totustpv-journal-db-qa.mjs", "tests/totustpv-stock-intake-browser-qa.mjs", "tests/totustpv-workspace-browser-qa.mjs", "tests/totustpv-native-http-qa.mjs", "tests/totustpv-php-boundary-qa.mjs"],
+      "invariants": ["disabled and unavailable-for-order articles can be replenished without activating them or enabling counter sales", "inventory-only catalogue reads require current Products view permission and exact native acknowledgement", "inventory and sale price indexes cannot share scoped results", "saved search settings belong to the current Central account and drawer", "late inventory results and selected inventory variants cannot cross into the sale catalogue", "native cart preparation rejects products disabled for sale before constructing a cart and native paid sale still rechecks availability", "native inventory recovery never dispatches a second additive stock movement"]
+    },
+    {
       "id": "totustpv-central-cash",
       "paths": ["src/app.js", "src/pages/main.js", "src/styles.css", "src/utils.js", "tests/csv-cell-qa.mjs", "src/totustpv/central-cash", "src/totustpv/cash-reports.js", "src/totustpv/workspace.js", "supabase/functions/totus-tpv/", "supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql", "tests/totustpv-central-cash", "tests/native-lab/central-cash"],
       "tests": ["tests/totustpv-journal-db-qa.mjs", "tests/totustpv-central-cash-qa.mjs", "tests/totustpv-central-cash-browser-qa.mjs", "tests/totustpv-central-cash-app-browser-qa.mjs", "tests/totustpv-printed-documents-qa.mjs", "tests/csv-cell-qa.mjs", "tests/agent-delivery-qa.mjs", "tests/stitch-design-browser-qa.mjs"],

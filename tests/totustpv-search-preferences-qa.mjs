@@ -5,12 +5,14 @@ import {createCentralTpvAdapter} from '../src/totustpv/central-adapter.js';
 test('search criteria are a bounded unique allowlist with stable order',()=>{
  assert.deepEqual(catalogueSearchFields(),DEFAULT_SEARCH_FIELDS);assert.deepEqual(catalogueSearchFields(['name','isbn','reference']),['reference','isbn','name']);
  for(const fields of [[],['isbn','isbn'],['reference;drop'],['toString'],[null],null,'isbn'])assert.throws(()=>catalogueSearchFields(fields));
- assert.deepEqual(searchPreferences({fields:['isbn'],numericKeyboard:true}),{fields:['isbn'],numericKeyboard:true});
+ assert.deepEqual(searchPreferences({fields:['isbn'],numericKeyboard:true}),{fields:['isbn'],numericKeyboard:true,includeDisabledStock:false});
+ assert.equal(searchPreferences({includeDisabledStock:true}).includeDisabledStock,true);
+ for(const includeDisabledStock of [null,'true',1])assert.throws(()=>searchPreferences({includeDisabledStock}));
  assert.throws(()=>searchPreferences({fields:['isbn'],numericKeyboard:'true'}));assert.throws(()=>searchPreferences({actorId:'other'}));
 });
 test('multiple checkboxes survive form capture, and empty selection stays visible until corrected',()=>{
  const form=new FormData();form.append('searchFields','isbn');form.append('searchFields','name');form.set('numericKeyboard','on');
- assert.deepEqual(searchPreferencesFromForm(form),{fields:['isbn','name'],numericKeyboard:true});
+ assert.deepEqual(searchPreferencesFromForm(form),{fields:['isbn','name'],numericKeyboard:true,includeDisabledStock:false});
  assert.deepEqual(searchPreferencesFromForm(new Map([['searchFields',['isbn','name']],['numericKeyboard','on']])),searchPreferencesFromForm(form));
  assert.throws(()=>searchPreferencesFromForm(new FormData()));
  const html=searchPreferencesHtml({fields:[],numericKeyboard:true});assert.equal((html.match(/value="[a-z0-9]+" checked/g)||[]).length,0);assert.match(html,/name="numericKeyboard" checked/);

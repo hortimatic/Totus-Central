@@ -82,6 +82,11 @@ final class NativeOwnedCarts
         $note=array_key_exists('sale_note',$p)?NativeSaleNote::assertMessageCompatible($p['sale_note']):null;Protocol::ensure(!array_key_exists('sale_note',$p)||is_string($p['sale_note'])&&$note!==null&&$note===$p['sale_note'],'SALE_NOTE_INVALID');
         foreach (['customer_id','invoice_address_id','delivery_address_id'] as $key)Protocol::ensure(is_int($p[$key]??null)&&$p[$key]>0,'CART_NATIVE_IDENTITY_INVALID');
         Protocol::ensure(is_array($p['lines']??null) && array_is_list($p['lines']) && count($p['lines'])>0 && count($p['lines'])<=200,'CART_LINES_INVALID');
+        if(!$commercial)foreach($p['lines'] as $line){
+            Protocol::ensure(is_array($line)&&is_int($line['product_id']??null)&&$line['product_id']>0,'CART_LINE_INVALID');
+            $forSale=new \Product($line['product_id'],false,null,$command['shop_id']);
+            Protocol::ensure(\Validate::isLoadedObject($forSale)&&$forSale->isAssociatedToShop($command['shop_id'])&&$forSale->active&&$forSale->available_for_order,'CART_PRODUCT_DISABLED');
+        }
         $lineNames=array_filter($p['lines'],static fn($line)=>is_array($line)&&array_key_exists('display_name',$line))?NativeOrderLineNames::fromLines($p['lines']):[];
         $customer=new \Customer($p['customer_id']);$invoice=new \Address($p['invoice_address_id']);$delivery=new \Address($p['delivery_address_id']);
         Protocol::ensure(\Validate::isLoadedObject($customer) && $customer->active && !$customer->deleted &&

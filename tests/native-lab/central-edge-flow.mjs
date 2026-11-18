@@ -1,4 +1,6 @@
 import {exerciseNativeLineName} from './line-name-flow.mjs';
+import {exerciseDisabledStock} from './disabled-stock-flow.mjs';
+import {exerciseDisabledStockBrowser} from './disabled-stock-browser.mjs';
 import {exerciseCommercialBudget} from './commercial-budget-flow.mjs';
 /** Actual handler + migrated PostgreSQL + native HTTP. Auth/secret lookup and
  * DNS delivery are explicit local fixtures; no remote endpoint is contacted.
@@ -24,7 +26,7 @@ import {exerciseNativeLinePrice} from './line-price-flow.mjs';
 import {exerciseNativeLinePriceBrowser} from './line-price-browser.mjs';
 import {exerciseNativeBillingBrowser} from './billing-browser.mjs';
 import {exerciseNativeCentralCashBrowser} from './central-cash-browser.mjs';
-export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart}){
+export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart,inspectDisabledStock}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
  let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false;
@@ -72,6 +74,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117234736_totustpv_billing_bridge.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -153,6 +156,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='disabled-stock'){
+   await exerciseDisabledStock({call,handle,selection,fixture,paths,inspect:inspectDisabledStock});
+   return await exerciseDisabledStockBrowser({handle,actor,fixture,selection,preferences,inspect:inspectDisabledStock,paths});
+  }
   if(['stock-policy','line-price','sale-note','line-name'].includes(focus)){
    const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
    const nativeRead=async resource=>{const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');if(!target.searchParams.has('display'))target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();};

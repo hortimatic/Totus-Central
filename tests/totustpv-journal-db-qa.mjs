@@ -88,6 +88,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117191716_totustpv_commercial_budgets.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -482,8 +483,12 @@ try {
  await asAdmin(`update private.totus_tpv_assignments set can_reconcile=false where connection_id='${qaConnection}' and actor_id='${id(5)}'`);check(await serverStockPolicy(qaScope),{allowOutOfStock:false});
  await db.exec('reset role;set role authenticated');await denied(()=>prefs(),/WORKSPACE_PREFERENCES_FORBIDDEN/);
  await asAdmin(`update private.totus_tpv_assignments set can_reconcile=true where connection_id='${qaConnection}' and actor_id='${id(5)}'`);await db.exec('reset role;set role authenticated');
- check((await prefs()).search,{fields:['reference','ean13','upc','name'],numericKeyboard:false});
- check((await prefs(qaScope,{search:{fields:['isbn'],numericKeyboard:true}})).search,{fields:['isbn'],numericKeyboard:true});
+ check((await prefs()).search,{fields:['reference','ean13','upc','name'],numericKeyboard:false,includeDisabledStock:false});
+ check((await prefs(qaScope,{search:{fields:['isbn'],numericKeyboard:true}})).search,{fields:['isbn'],numericKeyboard:true,includeDisabledStock:false});
+ check((await prefs(qaScope,{search:{includeDisabledStock:true}})).search.includeDisabledStock,true);
+ for(const includeDisabledStock of [null,'true',4])await denied(()=>prefs(qaScope,{search:{includeDisabledStock}}),/INVALID/);
+ check((await prefs(qaScope,{search:{numericKeyboard:false}})).search.includeDisabledStock,true);
+ await prefs(qaScope,{search:{includeDisabledStock:false}});
  check((await prefs(qaScope,{search:{numericKeyboard:false}})).search.fields,['isbn']);
  for(const fields of [[],['isbn','isbn'],['title'],[null],null,'isbn'])await denied(()=>prefs(qaScope,{search:{fields}}),/INVALID/);
  for(const numericKeyboard of ['true',null,4])await denied(()=>prefs(qaScope,{search:{numericKeyboard}}),/INVALID/);

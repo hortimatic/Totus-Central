@@ -18,6 +18,7 @@ jobs:
       - run: node tests/totustpv-journal-db-qa.mjs
       - run: node tests/totustpv-billing-db-qa.mjs
       - run: node --test tests/totustpv-central-cash-qa.mjs
+      - run: node --test tests/totustpv-disabled-stock-qa.mjs
       - run: node --test tests/totustpv-billing-service-qa.mjs tests/totustpv-billing-edge-qa.mjs
       - run: node --test tests/totustpv-category-contract-qa.mjs tests/totustpv-category-service-qa.mjs tests/totustpv-product-intake-contract-qa.mjs tests/totustpv-product-intake-service-qa.mjs tests/totustpv-product-intake-edge-qa.mjs
       - run: node --test tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs tests/totustpv-search-preferences-qa.mjs tests/totustpv-catalogue-preferences-qa.mjs
@@ -41,6 +42,7 @@ jobs:
       - run: node tests/totustpv-billing-app-browser-qa.mjs
       - run: node tests/totustpv-central-cash-browser-qa.mjs
       - run: node tests/totustpv-central-cash-app-browser-qa.mjs
+      - run: node tests/totustpv-disabled-stock-browser-qa.mjs
       - run: node tests/totustpv-workstation-rights-browser-qa.mjs
       - run: node tests/totustpv-workstation-access-browser-qa.mjs
       - run: node tests/totustpv-customer-display-browser-qa.mjs

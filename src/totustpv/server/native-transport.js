@@ -90,6 +90,7 @@ export function createTpvNativeTransport(connection, scope, {
          resource==='totus_tpv_catalogue'&&key==='stock_policy_only'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='product_capabilities_only'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='hide_unavailable'&&['0','1'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='inventory_only'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
          ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
       const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note','billing'].includes(value);
@@ -172,14 +173,14 @@ export function createTpvNativeTransport(connection, scope, {
     async readNativeCategories(){extensionScope();return call('totus_tpv_catalogue','GET',{categories_only:'1'},undefined,false,true);},
     async readNativeStockPolicy(productId){extensionScope();requireValue(positive(productId)&&productId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');return call('totus_tpv_catalogue','GET',{product_id:String(productId),stock_policy_only:'1'},undefined,false,true);},
     async readNativeProductCapabilities(productId){extensionScope();requireValue(positive(productId)&&productId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');return call('totus_tpv_catalogue','GET',{product_id:String(productId),product_capabilities_only:'1'},undefined,false,true);},
-    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0}={}){
+    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){
       let fields,filters;try{fields=catalogueSearchFields(searchFields);filters=normalizeCatalogueFilters(catalogueFilters);}catch{throw Error('TPV_CATALOGUE_QUERY_INVALID');}
-      extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
+      extensionScope();requireValue(typeof inventoryOnly==='boolean'&&(!inventoryOnly||!filters.hideUnavailable&&!filters.excludedCategories.length)&&typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
         Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&Number.isSafeInteger(variantGroupId)&&variantGroupId>=0&&variantGroupId<=2147483647&&(productId>0||variantGroupId===0)&&
         (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647&&
         ['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(sortField)&&['asc','desc'].includes(sortDirection),'TPV_CATALOGUE_QUERY_INVALID');
       return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
-        sort_field:sortField,sort_direction:sortDirection,sort_group_id:String(variantGroupId),search_fields:fields.join(','),hide_unavailable:filters.hideUnavailable?'1':'0',excluded_categories:filters.excludedCategories.join(','),...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
+        sort_field:sortField,sort_direction:sortDirection,sort_group_id:String(variantGroupId),search_fields:fields.join(','),hide_unavailable:filters.hideUnavailable?'1':'0',excluded_categories:filters.excludedCategories.join(','),...(inventoryOnly?{inventory_only:'1'}:{}),...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
     },
     async quoteOwnedCart({operationId,cartId}) {
       const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
