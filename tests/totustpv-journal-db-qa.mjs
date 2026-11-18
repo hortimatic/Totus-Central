@@ -7,6 +7,9 @@ import {createNativeRequestService} from '../src/totustpv/server/native-request-
 import {createStockReceiptService} from '../src/totustpv/server/stock-receipt-service.js';
 import {productIntakeDraft,productIntakeBase,productIntakePlan} from '../src/totustpv/product-intake-contract.js';
 import {exerciseBudgetLedger} from './native-lab/budget-ledger-assertions.mjs';
+import {exerciseBarcodeCapture} from './native-lab/barcode-capture-assertions.mjs';
+import {exerciseBarcodeExecution} from './native-lab/barcode-execution-assertions.mjs';
+import {exerciseBarcodeSettings} from './native-lab/barcode-settings-assertions.mjs';
 import {exerciseCentralCashLedger} from './native-lab/central-cash-ledger-assertions.mjs';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -90,6 +93,10 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118023253_totustpv_tax_summary.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118034019_totustpv_barcode_settings.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118035905_totustpv_barcode_capture.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118044052_totustpv_barcode_execution.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showTaxBreakdown:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -405,6 +412,9 @@ try {
  for(const variantOrder of ['name:asc','name:desc','stock:asc','stock:desc','price:asc','price:desc','reference:asc','reference:desc'])check((await prefs(qaScope,{display:{variantOrder}})).display.variantOrder,variantOrder);
  check((await prefs(qaScope,{viewMode:'table'})).display.variantOrder,'reference:desc');
  for(const variantOrder of [null,true,3,{},'stock','cost:desc','name;drop:asc'])await denied(()=>prefs(qaScope,{display:{variantOrder}}),/INVALID/);
+ await exerciseBarcodeSettings({db,id,scope:qaScope,check,denied});
+ await exerciseBarcodeCapture({db,id,scope:qaScope,check,denied});
+ await exerciseBarcodeExecution({db,id,scope:qaScope,check,denied});
  check((await prefs()).stockPolicy,{allowOutOfStock:false});
  check((await prefs()).lineOptions,{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false});
  // Numbering is shared by the shop, allocated at confirmation and immutable.

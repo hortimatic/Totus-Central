@@ -9,6 +9,7 @@ import {createNativeRequestService,nativeStepId} from '../../../src/totustpv/ser
 import {expectedFromNativeQuote} from '../../../src/totustpv/server/quote-contract.js';
 import {createRefundService} from '../../../src/totustpv/server/refund-service.js';
 import {createStockReceiptService} from '../../../src/totustpv/server/stock-receipt-service.js';
+import {createBarcodeService} from '../../../src/totustpv/server/barcode-service.js';
 import {createOfficialProductWriter} from '../../../src/totustpv/server/official-products.js';
 import {createProductIntakeService} from '../../../src/totustpv/server/product-intake-service.js';
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
@@ -79,6 +80,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
     ['context','configure','workstations','update-workstation-access','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
+     'barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
      'central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
@@ -109,6 +111,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'stock-receipts':['action','selection','operationId'],'stock-receipt-create':['action','selection','operationId','payload'],
     'stock-receipt-get':['action','selection','operationId'],'stock-receipt-step':['action','selection','operationId'],
     'stock-receipt-cancel':['action','selection','operationId'],
+    'barcode-labels':['action','selection','operationId','query'],
+    'barcode-options':['action','selection','operationId','settings'],barcodes:['action','selection','operationId'],
+    'barcode-create':['action','selection','operationId'],'barcode-get':['action','selection','operationId','query'],
+    'barcode-capture':['action','selection','operationId'],'barcode-confirm':['action','selection','operationId','accepted'],
+    'barcode-step':['action','selection','operationId'],'barcode-pause':['action','selection','operationId'],
+    'barcode-resume':['action','selection','operationId'],'barcode-cancel':['action','selection','operationId'],
     'product-profile':['action','selection','operationId'],'product-metadata':['action','selection','operationId','resource','page','recordId'],
     'product-intakes':['action','selection','operationId'],'product-intake-prepare':['action','selection','operationId','payload'],
     'product-intake-get':['action','selection','operationId'],'product-intake-step':['action','selection','operationId'],
@@ -234,8 +242,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
     const historicalCash=['cash-summary','cash-movement','close'].includes(input.action);
-    const sessionId=readWithoutCash?undefined:input.action==='open'?input.operationId:input.selection.sessionId;
-    need(readWithoutCash?row.canReconcile===true:uuid(sessionId)&&(historicalCash?row.canReconcile===true:input.action==='open'?!row.session||row.session.id===sessionId:row.session?.id===sessionId),
+    const sessionId=readWithoutCash||input.action==='barcodes'||input.action.startsWith('barcode-')?undefined:input.action==='open'?input.operationId:input.selection.sessionId;
+    need(readWithoutCash||input.action==='barcodes'||input.action.startsWith('barcode-')?row.canReconcile===true:uuid(sessionId)&&(historicalCash?row.canReconcile===true:input.action==='open'?!row.session||row.session.id===sessionId:row.session?.id===sessionId),
      'TPV_CASH_SESSION_MISMATCH');
     return {row,scope:{actorId:user.id,connectionId:row.connectionId,connectionRevision:row.connectionRevision,
      storeId:row.storeId,shopId:row.shopId,drawerId:row.drawerId,sessionId,currency:row.nativeProfile.currency,environment:'qa'}};
@@ -249,6 +257,11 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    async function authorize({action}){const fresh=await selected();
     need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
     check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
+   const barcodeAction=input.action==='barcodes'||input.action.startsWith('barcode-');
+   if(input.action==='barcode-options'){
+    await authorize({action:'read'});
+    return respond(check(await scoped.rpc('totus_tpv_barcode_options',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_settings:input.settings??null})));
+   }
    if(['budgets','budget-get','budget-open','budget-cancel'].includes(input.action)){
     await authorize({action:input.action==='budget-open'?'sell':'read'});const budgets=createCommercialBudgetService({rpc,scope});
     return respond(input.action==='budgets'?await budgets.list(input.query):input.action==='budget-open'?await budgets.open(input.operationId,input.version):input.action==='budget-cancel'?await budgets.cancel(input.operationId,input.version):await budgets.get(input.operationId));
@@ -290,7 +303,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   if(input.action!=='categories')await authorize({action:['budget-create','orders','catalogue','customers','customer-metadata','document',
+   if(input.action!=='categories')await authorize({action:barcodeAction?'read':['budget-create','orders','catalogue','customers','customer-metadata','document',
     'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action)?'read':
     ['resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
@@ -302,8 +315,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    }
    const productAction=input.action.startsWith('product-'),productWrite=['product-intake-prepare','product-intake-step','product-intake-cancel',
     'product-category-prepare','product-category-step','product-category-cancel'].includes(input.action);
-   async function productContext(denialCode='TPV_PRODUCT_FORBIDDEN'){
-    const response=await scoped.rpc('totus_products_context',{p_action:productWrite?'create':'view'});
+   async function productContext(denialCode='TPV_PRODUCT_FORBIDDEN',permission=productWrite?'create':'view'){
+    const response=await scoped.rpc('totus_products_context',{p_action:permission});
     if(denialCode==='TPV_INVENTORY_FORBIDDEN')need(!response.error,denialCode);
     const result=check(response);
     need(result.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),denialCode);
@@ -311,6 +324,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(website&&typeof website.key==='string','TPV_PRODUCT_SCOPE_INVALID');return website;
    }
    if(input.action==='catalogue'&&input.inventoryOnly===true)await productContext('TPV_INVENTORY_FORBIDDEN');
+   const barcodeAuthorize=async permission=>{await authorize({action:'read'});await productContext('TPV_BARCODE_FORBIDDEN',permission);};
+   if(barcodeAction)await barcodeAuthorize(['barcode-create','barcode-capture','barcode-confirm','barcode-pause','barcode-resume','barcode-cancel'].includes(input.action)?'edit':'view');
    const productWebsite=productAction?await productContext():null;
    const connection=check(await rpc('totus_api_server',{p_id:scope.connectionId,p_revision:scope.connectionRevision}));
    await beginAudit(admin,scope.connectionId,scope.connectionRevision);
@@ -328,11 +343,16 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     return respond(input.action==='product-intakes'?await service.list():input.action==='product-intake-prepare'?await service.prepare(input.operationId,input.payload):
      input.action==='product-intake-step'?await service.advance(input.operationId):input.action==='product-intake-cancel'?await service.cancel(input.operationId):await service.get(input.operationId));
    }
-   const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{request:input.action==='catalogue'&&input.inventoryOnly?async(target,init)=>{await authorize({action:'read'});await productContext('TPV_INVENTORY_FORBIDDEN');return request(target,init);}:request,resolve,qaPolicy:TOTUS_QA_POLICY,
+   const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{request:barcodeAction?async(target,init)=>{await barcodeAuthorize(init?.method==='POST'?'edit':'view');return request(target,init);}:input.action==='catalogue'&&input.inventoryOnly?async(target,init)=>{await authorize({action:'read'});await productContext('TPV_INVENTORY_FORBIDDEN');return request(target,init);}:request,resolve,qaPolicy:TOTUS_QA_POLICY,
     nativeExtension:{verified:true,installationId:row.nativeProfile.installation_id,connectionId:scope.connectionId,
      connectionRevision:scope.connectionRevision,shopId:scope.shopId,protocol:1},
     allowNativeQuote:async()=>{await authorize({action:'sell'});return true;},
     allowNativeCommand:async({command,operationId})=>{
+     if(barcodeAction){
+      need(input.action==='barcode-step'&&command==='barcodes.assign','TPV_NATIVE_COMMAND_DISABLED');
+      await barcodeAuthorize('edit');const approved=check(await rpc('totus_tpv_native_command',{p_action:'get',p_id:operationId,p_scope:scope,p_data:{}}));
+      need(approved?.id===operationId&&approved.command===command&&approved.status==='dispatched','TPV_BARCODE_OPERATION_NOT_APPROVED');return true;
+     }
      if(input.action==='budget-create'){
       need(['cart.prepare','cart.quote'].includes(command),'TPV_NATIVE_COMMAND_DISABLED');
       await authorize({action:'read'});check(await rpc('totus_tpv_commercial_options',{p_scope:scope}));return true;
@@ -420,6 +440,13 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     return respond(input.action==='cancel-refund'?await refunds.cancel(input.operationId):await refunds.recover(input.operationId));
    }
    const nativeRequests=createNativeRequestService({rpc,transport,scope});
+   if(barcodeAction){
+    const service=createBarcodeService({rpc,transport,scope,authorize:barcodeAuthorize,nativeRequests});
+    if(input.action==='barcodes')return respond(await service.list());
+    if(input.action==='barcode-confirm'){need(input.accepted===true,'TPV_BARCODE_CONFIRMATION_REQUIRED');return respond(await service.confirm(input.operationId));}
+    const method={'barcode-labels':'labels','barcode-create':'create','barcode-get':'get','barcode-capture':'capture','barcode-step':'advance','barcode-pause':'pause','barcode-resume':'resume','barcode-cancel':'cancel'}[input.action];
+    need(method,'TPV_BARCODE_REQUEST_INVALID');return respond(await service[method](input.operationId,...(['get','labels'].includes(method)?[input.query??{}]:[])));
+   }
    if(input.action.startsWith('stock-receipt')){
     const receipts=createStockReceiptService({rpc,nativeRequests,scope});
     return respond(input.action==='stock-receipts'?await receipts.list():input.action==='stock-receipt-create'?

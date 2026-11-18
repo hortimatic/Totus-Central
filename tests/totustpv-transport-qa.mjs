@@ -30,6 +30,28 @@ function fixture(options={}) {
  });
  return {transport,requests};
 }
+test('barcode plans use only the owned read resource and bounded native target parameters',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeBarcodePlan({field:'upc',productId:12,attributeId:3});
+ const url=new URL(f.requests[0].url);assert.equal(url.pathname,'/api/totus_tpv_barcodes');assert.equal(f.requests[0].init.method,'GET');assert.equal(url.searchParams.get('actor_id'),scope.actorId);assert.equal(url.searchParams.get('field'),'upc');assert.equal(url.searchParams.get('product_id'),'12');assert.equal(url.searchParams.get('attribute_id'),'3');
+ for(const query of [{field:'isbn'},{productId:'12'},{productId:0},{productId:2147483648},{productId:12,attributeId:-1},{attributeId:3}])await assert.rejects(f.transport.readNativeBarcodePlan(query),/TPV_BARCODE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{field:'upc'}),/TPV_NATIVE_QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+
+test('barcode writes retain the native command authorization gate',async()=>{
+ const operationId=scope.connectionId,f=fixture({extension:true});
+ await assert.rejects(f.transport.nativeCommand({operationId,command:'barcodes.assign',payload:{}}),/TPV_NATIVE_COMMAND_DISABLED/);assert.equal(f.requests.length,0);
+ const allowed=fixture({extension:true,commandsAllowed:true});await allowed.transport.nativeCommand({operationId,command:'barcodes.assign',payload:{plan_version:1,field:'ean13',items:[],plan_fingerprint:'0'.repeat(64),item_index:0}});
+ assert.equal(new URL(allowed.requests[0].url).pathname,'/api/totus_tpv_barcodes');assert.equal(allowed.requests[0].init.method,'POST');assert.equal(JSON.parse(allowed.requests[0].init.body).command,'barcodes.assign');
+});
+
+test('barcode target paging retains its boundary and selected planning cannot broaden into an arbitrary native query',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeBarcodeTargets({field:'reference',cursor:[12,3],bounds:{product:99,attribute:50}});
+ const page=new URL(f.requests[0].url);assert.equal(page.searchParams.get('mode'),'targets');assert.equal(page.searchParams.get('max_product'),'99');assert.equal(page.searchParams.get('after_product'),'12');
+ await f.transport.readNativeBarcodePlan({field:'ean13',targets:[{productId:12,attributeId:3},{productId:13,attributeId:0}],skipExisting:true});const plan=new URL(f.requests[1].url);assert.equal(plan.searchParams.get('targets'),'12:3,13:0');assert.equal(plan.searchParams.get('skip_existing'),'1');
+ for(const value of [{cursor:[-1,0]},{cursor:[1]},{bounds:{product:1}},{bounds:{product:1,attribute:0,sql:'x'}}])await assert.rejects(f.transport.readNativeBarcodeTargets(value),/BARCODE_QUERY_INVALID/);
+ for(const value of [{skipExisting:true},{targets:[]},{targets:[{productId:1,attributeId:0},{productId:1,attributeId:0}]},{targets:[{productId:1,attributeId:0}],productId:2}])await assert.rejects(f.transport.readNativeBarcodePlan(value),/BARCODE_QUERY_INVALID/);assert.equal(f.requests.length,2);
+});
+
 test('billing metadata is a scoped authenticated GET and rejects invalid sale identity',async()=>{
  const f=fixture({extension:true});
  await f.transport.readNativeBilling({operationId:scope.connectionId,sourceActorId:scope.actorId});

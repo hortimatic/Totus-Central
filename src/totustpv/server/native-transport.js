@@ -62,7 +62,7 @@ export function createTpvNativeTransport(connection, scope, {
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
   const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
   const commandResources=Object.freeze({'setup.qa':'totus_tpv_setup','cart.prepare':'totus_tpv_carts',
-    'cart.quote':'totus_tpv_quotes','sale.commit':'totus_tpv_sales','return.commit':'totus_tpv_returns','stock.receive':'totus_tpv_stock'});
+    'cart.quote':'totus_tpv_quotes','sale.commit':'totus_tpv_sales','return.commit':'totus_tpv_returns','stock.receive':'totus_tpv_stock','barcodes.assign':'totus_tpv_barcodes'});
   function extensionScope(){
     assertQaTarget(connection,scope,qaPolicy);
     requireValue(nativeExtension?.verified===true&&uuid(nativeExtension.installationId)&&uuid(scope.actorId)&&
@@ -74,7 +74,7 @@ export function createTpvNativeTransport(connection, scope, {
     // With a QA policy, reads are also confined to the same test installation.
     if(method!=='GET'||qaPolicy)assertQaTarget(connection,scope,qaPolicy);
     const extensionResource=nativeCommand&&((method==='POST'&&Object.values(commandResources).includes(resource))||
-      (method==='GET'&&['totus_tpv_profile','totus_tpv_operations','totus_tpv_returns','totus_tpv_catalogue','totus_tpv_documents','totus_tpv_customers'].includes(resource)));
+      (method==='GET'&&['totus_tpv_profile','totus_tpv_operations','totus_tpv_returns','totus_tpv_catalogue','totus_tpv_documents','totus_tpv_customers','totus_tpv_barcodes'].includes(resource)));
     requireValue(resources.test(resource)||extensionResource, 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
@@ -93,9 +93,13 @@ export function createTpvNativeTransport(connection, scope, {
          resource==='totus_tpv_catalogue'&&key==='inventory_only'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
          ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
+      const barcodeQuery=resource==='totus_tpv_barcodes'&&method==='GET'&&(
+        key==='field'&&['ean13','upc','reference'].includes(value)||key==='mode'&&['plan','targets','labels'].includes(value)||
+        key==='skip_existing'&&['0','1'].includes(value)||['product_id','attribute_id','after_product','after_attribute','max_product','max_attribute'].includes(key)&&/^(0|[1-9][0-9]{0,9})$/.test(value)||
+        key==='targets'&&typeof value==='string'&&/^[1-9][0-9]{0,9}:(0|[1-9][0-9]{0,9})(,[1-9][0-9]{0,9}:(0|[1-9][0-9]{0,9})){0,49}$/.test(value));
       const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note','billing'].includes(value);
-      requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
-        value.length<=(resource==='totus_tpv_catalogue'&&key==='excluded_categories'?1099:1000) && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
+      requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery || barcodeQuery) && typeof value==='string' &&
+        value.length<=((resource==='totus_tpv_catalogue'&&key==='excluded_categories'||resource==='totus_tpv_barcodes'&&key==='targets')?1099:1000) && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
       url.searchParams.set(key,value);
     }
     const target=await safeEndpoint(url.href,resolve);
@@ -145,6 +149,24 @@ export function createTpvNativeTransport(connection, scope, {
         shop_id:scope.shopId,actor_id:scope.actorId,command,payload});
       requireValue(new TextEncoder().encode(body).length<=65536,'TPV_NATIVE_COMMAND_TOO_LARGE');
       return call(commandResources[command],'POST',{},body,false,true);
+    },
+    async readNativeBarcodeTargets({field='ean13',cursor=[0,0],bounds}={}){
+      extensionScope();const id=value=>Number.isSafeInteger(value)&&value>=0&&value<=2147483647;
+      requireValue(['ean13','upc','reference'].includes(field)&&Array.isArray(cursor)&&cursor.length===2&&cursor.every(id)&&
+        (bounds===undefined||bounds&&typeof bounds==='object'&&!Array.isArray(bounds)&&Object.keys(bounds).length===2&&id(bounds.product)&&id(bounds.attribute)),'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,mode:'targets',after_product:String(cursor[0]),after_attribute:String(cursor[1]),...(bounds===undefined?{}:{max_product:String(bounds.product),max_attribute:String(bounds.attribute)})},undefined,false,true);
+    },
+    async readNativeBarcodePlan({field='ean13',productId,attributeId,targets,skipExisting=false}={}){
+      extensionScope();const attribute=value=>Number.isSafeInteger(value)&&value>=0&&value<=2147483647;
+      requireValue(['ean13','upc','reference'].includes(field)&&typeof skipExisting==='boolean'&&
+        (targets===undefined?(productId===undefined&&attributeId===undefined||positive(productId)&&productId<=2147483647&&(attributeId===undefined||attribute(attributeId))):
+         productId===undefined&&attributeId===undefined&&Array.isArray(targets)&&targets.length>0&&targets.length<=50&&targets.every(row=>row&&positive(row.productId)&&row.productId<=2147483647&&attribute(row.attributeId))&&new Set(targets.map(row=>row.productId+':'+row.attributeId)).size===targets.length)&&
+        (!skipExisting||targets!==undefined||productId!==undefined),'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,...(skipExisting?{skip_existing:'1'}:{}),...(targets!==undefined?{targets:targets.map(row=>row.productId+':'+row.attributeId).join(',')}:productId===undefined?{}:{product_id:String(productId),...(attributeId===undefined?{}:{attribute_id:String(attributeId)})})},undefined,false,true);
+    },
+    async readNativeBarcodeLabels({field,targets}){
+      extensionScope();requireValue(['ean13','upc','reference'].includes(field)&&Array.isArray(targets)&&targets.length>0&&targets.length<=50&&targets.every(row=>row&&positive(row.productId)&&row.productId<=2147483647&&Number.isSafeInteger(row.attributeId)&&row.attributeId>=0&&row.attributeId<=2147483647)&&new Set(targets.map(row=>row.productId+':'+row.attributeId)).size===targets.length,'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,mode:'labels',targets:targets.map(row=>row.productId+':'+row.attributeId).join(',')},undefined,false,true);
     },
     async readNativeProfile(){extensionScope();return call('totus_tpv_profile','GET',{},undefined,false,true);},
     async readNativeCustomers({search='',page=0,customerId=0}={}){

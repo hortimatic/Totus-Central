@@ -11,6 +11,33 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
     public function setWsObject(WebserviceRequest $obj){$this->wsObject=$obj;return $this;}
     public function getWsObject(){return $this->wsObject;}
     public function getContent(){return $this->output;}
+    protected function barcodeRead(array $profile,int $shopId,int $account): array
+    {
+        $query=$this->wsObject->urlFragments;$actor=$query['actor_id']??null;$field=$query['field']??'ean13';$mode=$query['mode']??'plan';
+        TotusCentralConnector\Protocol::ensure(TotusCentralConnector\Protocol::uuid($actor),'IDENTITY_INVALID');
+        TotusCentralConnector\Protocol::ensure(is_string($field)&&in_array($field,['ean13','upc','reference'],true)&&in_array($mode,['plan','targets','labels'],true),'BARCODE_QUERY_INVALID');
+        $scope=['installation_id'=>$profile['installation_id'],'shop_id'=>$shopId,'actor_id'=>$actor,'api_account_id'=>$account];
+        $provider=new TotusCentralConnector\NativeBarcodes(Db::getInstance()->getLink(),(int)$profile['language_id']);
+        $number=static function($value): int {TotusCentralConnector\Protocol::ensure(is_string($value)&&preg_match('/^(0|[1-9][0-9]{0,9})$/D',$value)===1&&(int)$value<=2147483647,'BARCODE_QUERY_INVALID');return (int)$value;};
+        if($mode==='targets'){
+            TotusCentralConnector\Protocol::ensure(!isset($query['product_id'])&&!isset($query['targets'])&&!isset($query['attribute_id'])&&!isset($query['skip_existing']),'BARCODE_QUERY_INVALID');
+            TotusCentralConnector\Protocol::ensure(isset($query['after_product'])===isset($query['after_attribute'])&&isset($query['max_product'])===isset($query['max_attribute']),'BARCODE_QUERY_INVALID');
+            $cursor=isset($query['after_product'])?[$number($query['after_product']),$number($query['after_attribute'])]:[0,0];
+            $bounds=isset($query['max_product'])?['product'=>$number($query['max_product']),'attribute'=>$number($query['max_attribute'])]:null;
+            return $provider->targets($scope,$field,$cursor,$bounds);
+        }
+        TotusCentralConnector\Protocol::ensure(!isset($query['after_product'])&&!isset($query['after_attribute'])&&!isset($query['max_product'])&&!isset($query['max_attribute']),'BARCODE_QUERY_INVALID');
+        $selection=null;$skip=$query['skip_existing']??'0';TotusCentralConnector\Protocol::ensure(in_array($skip,['0','1'],true),'BARCODE_QUERY_INVALID');
+        if(isset($query['targets'])){
+            TotusCentralConnector\Protocol::ensure(!isset($query['product_id'])&&!isset($query['attribute_id'])&&is_string($query['targets'])&&strlen($query['targets'])<=1099,'BARCODE_TARGET_INVALID');
+            $pairs=explode(',',$query['targets']);TotusCentralConnector\Protocol::ensure(count($pairs)>=1&&count($pairs)<=50,'BARCODE_TARGET_INVALID');$selection=[];
+            foreach($pairs as $pair){$ids=explode(':',$pair);TotusCentralConnector\Protocol::ensure(count($ids)===2,'BARCODE_TARGET_INVALID');$product=$number($ids[0]);TotusCentralConnector\Protocol::ensure($product>0,'BARCODE_TARGET_INVALID');$selection[]=['product_id'=>$product,'attribute_id'=>$number($ids[1])];}
+        }elseif(isset($query['product_id'])||isset($query['attribute_id'])){
+            $product=$number($query['product_id']??null);TotusCentralConnector\Protocol::ensure($product>0,'BARCODE_TARGET_INVALID');$selection=[['product_id'=>$product,'attribute_id'=>$number($query['attribute_id']??'0')]];
+        }
+        if($mode==='labels'){TotusCentralConnector\Protocol::ensure($selection!==null&&$skip==='0','BARCODE_QUERY_INVALID');return $provider->labels($scope,$field,$selection);}
+        return $provider->plan($scope,$field,50,$selection,$skip==='1');
+    }
     public function manage()
     {
         $restore=TotusCentralConnector\NativeCompatibility::enter();
@@ -38,8 +65,11 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
                     'carrier_id'=>$profile['carrier_id']??null,'paid_state_id'=>$profile['paid_state_id']??null,
                     'preparing_state_id'=>$profile['preparing_state_id']??null,'payment_labels'=>$profile['payment_labels']??null,
                     'configured'=>isset($profile['carrier_id'],$profile['preparing_state_id'],$profile['paid_state_id'],$profile['counter_customer_id'],$profile['counter_address_id']),
-                    'commands'=>['setup.qa','cart.prepare','cart.quote','sale.commit','return.commit','stock.receive']];
+                    'commands'=>['setup.qa','cart.prepare','cart.quote','sale.commit','return.commit','stock.receive','barcodes.assign']];
+            } elseif($resource==='totus_tpv_barcodes' && $method==='GET'){
+                $result=$this->barcodeRead($profile,$shopId,$account);
             } elseif($resource==='totus_tpv_catalogue' && $method==='GET'){
+
                 $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['search','page','page_size','product_id','customer_id','address_id','category_id','categories_only','sort_field','sort_direction','search_fields','hide_unavailable','excluded_categories','sort_group_id','stock_policy_only','product_capabilities_only','inventory_only']));
                 $result=TotusCentralConnector\NativeCatalogue::read($query,$profile);
             } elseif($resource==='totus_tpv_customers' && $method==='GET'){
@@ -67,7 +97,7 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
                     'authenticated'=>true,'method'=>$method,'resource'=>$resource,'resource_methods'=>$permissions[$resource],
                     'api_account_id'=>$account,'installation_id'=>$profile['installation_id'],
                     'shop_id'=>$shopId,'allowed_shop_ids'=>[$shopId],
-                    'enabled_commands'=>['setup.qa','cart.prepare','cart.quote','sale.commit','return.commit','stock.receive'],
+                    'enabled_commands'=>['setup.qa','cart.prepare','cart.quote','sale.commit','return.commit','stock.receive','barcodes.assign'],
                 ]);
                 $runner=$command['command']==='setup.qa'?TotusCentralConnector\NativeRuntime::setup($module,$profile):TotusCentralConnector\NativeRuntime::create($module,$profile);
                 $result=$runner->execute($command);
@@ -94,3 +124,4 @@ class WebserviceSpecificManagementTotusTpvStock extends TotusCentralNativeWebser
 class WebserviceSpecificManagementTotusTpvCatalogue extends TotusCentralNativeWebservice {}
 class WebserviceSpecificManagementTotusTpvDocuments extends TotusCentralNativeWebservice {}
 class WebserviceSpecificManagementTotusTpvCustomers extends TotusCentralNativeWebservice {}
+class WebserviceSpecificManagementTotusTpvBarcodes extends TotusCentralNativeWebservice {}

@@ -1,3 +1,4 @@
+import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
 import {exerciseNativeLineName} from './line-name-flow.mjs';
 import {exerciseDisabledStock} from './disabled-stock-flow.mjs';
 import {exerciseDisabledStockBrowser} from './disabled-stock-browser.mjs';
@@ -26,10 +27,10 @@ import {exerciseNativeLinePrice} from './line-price-flow.mjs';
 import {exerciseNativeLinePriceBrowser} from './line-price-browser.mjs';
 import {exerciseNativeBillingBrowser} from './billing-browser.mjs';
 import {exerciseNativeCentralCashBrowser} from './central-cash-browser.mjs';
-export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart,inspectDisabledStock}){
+export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart,inspectDisabledStock,setExternalBarcode,changeCurrentBarcode}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
- let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false;
+ let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false,dropBarcodeComplete=false;
  try{
   await db.exec(`create schema private;create schema auth;create role anon;create role authenticated;create role service_role;
    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -76,12 +77,16 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118023253_totustpv_tax_summary.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118034019_totustpv_barcode_settings.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118035905_totustpv_barcode_capture.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118044052_totustpv_barcode_execution.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
    [actor,connection,store,drawer,'qa-shop',JSON.stringify(profile),JSON.stringify({sell:true,open:true,reconcile:true})]);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
-  const argsByRpc={totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
+  const argsByRpc={totus_tpv_barcode_options:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_barcode_jobs:['p_action','p_id','p_scope','p_data'],totus_tpv_barcode_execution:['p_action','p_id','p_scope','p_data'],totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
    totus_tpv_journal:['p_action','p_operation_id','p_scope','p_data'],totus_tpv_cash:['p_action','p_request_id','p_scope','p_data'],
    totus_tpv_budgets:['p_action','p_scope','p_id','p_data'],totus_tpv_commercial_options:['p_scope'],totus_tpv_budget_checkout:['p_scope','p_id','p_version','p_action'],
    totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],
@@ -100,6 +105,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:fixture.key}};
    if(name==='totus_api_call')return {data:{ok:true}};
+   if(name==='totus_tpv_native_command'&&args.p_action==='complete'&&dropBarcodeComplete){dropBarcodeComplete=false;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
    if(name==='totus_tpv_journal'&&args.p_action==='confirm'&&dropBudgetConfirm){dropBudgetConfirm=false;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
    if(name==='totus_tpv_budgets'&&args.p_action==='create'&&dropBudgetCreate){dropBudgetCreate=false;return {error:{message:'TPV_BUDGET_STORAGE_UNAVAILABLE'}};}
    assert.ok(Object.hasOwn(argsByRpc,name),'Unexpected RPC '+name);
@@ -155,6 +161,9 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   const call=async(body)=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
+  if(focus==='barcodes')return await exerciseCentralBarcodes({call,handle,actor,setExternalCode:setExternalBarcode,changeCurrentCode:changeCurrentBarcode,fixtureProductId:fixture.productId,selection:{connectionId:connection,shopId:1,drawerId:drawer},db,paths,loseCompletion:()=>{dropBarcodeComplete=true;},nativeRead:async resource=>{
+   const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();
+  }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(focus==='disabled-stock'){

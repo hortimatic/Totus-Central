@@ -41,7 +41,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
  const scopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]);
  const budgetScopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId]);
- async function operation(kind,payload,requestedId=null){const data=saved(),scope=kind==='budget'?budgetScopeKey():scopeKey(),
+ async function operation(kind,payload,requestedId=null){const data=saved(),scope=['budget','barcode'].includes(kind)?budgetScopeKey():scopeKey(),
   fingerprint=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(payload))))].map(n=>n.toString(16).padStart(2,'0')).join(''),prior=data[kind];
   if(prior?.scope===scope&&prior.fingerprint===fingerprint)return prior.id;
   if(prior?.scope===scope&&!['prepare','park','claim-draft','release-draft','archive-draft','stock-receipt'].includes(kind))throw new Error('Hay una solicitud pendiente de esta operación. Recupera su resultado con los mismos datos antes de iniciar otra.');
@@ -253,6 +253,17 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async receiveStock({productId,quantity,reason}){const [product,attribute]=productId.split(':').map(Number),values={productId:product,attributeId:attribute,quantity,reason},
    id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
   async stockReceipts(){return call('stock-receipts');},
+  async barcodeOptions(settings){return call('barcode-options',settings===undefined?{}:{settings});},
+  async barcodeLabels(id,query={}){return call('barcode-labels',{query},id);},
+  async barcodeJobs(){return call('barcodes');},
+  async createBarcodeJob(){const id=await operation('barcode',{}),result=await call('barcode-create',{},id);forget('barcode',id);return result;},
+  async getBarcodeJob(id,query={}){const result=await call('barcode-get',{query},id);forget('barcode',id);return result;},
+  async captureBarcodeJob(id){return call('barcode-capture',{},id);},
+  async confirmBarcodeJob(id,accepted){need(accepted===true,'Confirma que has revisado los artículos antes de generar sus códigos.');return call('barcode-confirm',{accepted:true},id);},
+  async advanceBarcodeJob(id){return call('barcode-step',{},id);},
+  async pauseBarcodeJob(id){return call('barcode-pause',{},id);},
+  async resumeBarcodeJob(id){return call('barcode-resume',{},id);},
+  async cancelBarcodeJob(id){return call('barcode-cancel',{},id);},
   async createStockReceipt({reason,lines}){const payload={reason,lines:lines.map(row=>{
    const [productId,attributeId]=row.productId.split(':').map(Number);return {productId,attributeId,quantity:row.quantity,label:row.name};})};
    const id=await operation('stock-receipt',payload),result=await call('stock-receipt-create',{payload},id);forget('stock-receipt',id);return result;},

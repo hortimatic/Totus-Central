@@ -1,7 +1,7 @@
 <?php
 /** Totus Central native capability. No front-office payment option or POS UI. */
 if (!defined('_PS_VERSION_')) { exit; }
-foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeOrderLineNames','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeSaleNote','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogueIndex','NativeCatalogue','NativeDocuments','NativeBilling','NativeSetup','NativeRuntime'] as $file)
+foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeOrderLineNames','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeSaleNote','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeBarcodes','NativeBarcodeIntents','NativeBarcodeEffect','NativeCatalogueIndex','NativeCatalogue','NativeDocuments','NativeBilling','NativeSetup','NativeRuntime'] as $file)
     require_once __DIR__.'/src/'.$file.'.php';
 class Totuscentralconnector extends PaymentModule
 {
@@ -22,7 +22,7 @@ class Totuscentralconnector extends PaymentModule
     public function getOrderShippingCostExternal($cart){return self::$nativeCommandDepth>0?0:false;}
     public function __construct()
     {
-        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.1.9';$this->author='Totus Central';
+        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.2.0';$this->author='Totus Central';
         $this->bootstrap=true;$this->need_instance=1;$this->ps_versions_compliancy=['min'=>'8.2.8','max'=>'8.2.8'];
         parent::__construct();$this->displayName='Totus Central · capacidad nativa';
         $this->description='Pedidos del mostrador de Totus Central. Sin interfaz de caja ni opción de pago en la web.';
@@ -43,6 +43,7 @@ class Totuscentralconnector extends PaymentModule
             TotusCentralConnector\NativeReturns::mysqlSchema(_DB_PREFIX_.'totus_tpv_returns'),
             TotusCentralConnector\NativeSetup::mysqlSchema(_DB_PREFIX_.'totus_tpv_settings'),
             TotusCentralConnector\NativeCatalogueIndex::mysqlSchema(_DB_PREFIX_.'totus_tpv_catalogue_index'),
+            TotusCentralConnector\NativeBarcodeIntents::mysqlSchema(_DB_PREFIX_.'totus_tpv_barcode_intents'),
         ] as $sql)if(!Db::getInstance()->execute(str_replace('CREATE TABLE ','CREATE TABLE IF NOT EXISTS ',$sql)))return false;
         TotusCentralConnector\NativeOwnedCarts::ensureCommercialStorage(Db::getInstance()->getLink(),_DB_PREFIX_.'totus_tpv_carts');
         if(!Configuration::get('TOTUS_TPV_INSTALLATION_ID')){
@@ -129,9 +130,9 @@ class Totuscentralconnector extends PaymentModule
         }
         require_once __DIR__.'/Webservice.php';
         $resources=[];
-        foreach(['profile','operations','setup','carts','quotes','sales','returns','stock','catalogue','documents','customers'] as $name)$resources['totus_tpv_'.$name]=[
+        foreach(['profile','operations','setup','carts','quotes','sales','returns','stock','catalogue','documents','customers','barcodes'] as $name)$resources['totus_tpv_'.$name]=[
             'description'=>'Totus Central '.$name,'specific_management'=>true,
-            'forbidden_method'=>in_array($name,['profile','operations','catalogue','documents','customers'],true)?['POST','PUT','PATCH','DELETE']:($name==='returns'?['PUT','PATCH','DELETE']:['GET','PUT','PATCH','DELETE']),
+            'forbidden_method'=>in_array($name,['profile','operations','catalogue','documents','customers'],true)?['POST','PUT','PATCH','DELETE']:(in_array($name,['returns','barcodes'],true)?['PUT','PATCH','DELETE']:['GET','PUT','PATCH','DELETE']),
         ];
         return $resources;
     }
@@ -181,7 +182,7 @@ class Totuscentralconnector extends PaymentModule
             $read->execute([$accountId]);$before=$read->fetchAll(PDO::FETCH_ASSOC);$permissions=[];
             $resources=WebserviceRequest::getResources();
             foreach(['profile'=>['GET'],'operations'=>['GET'],'setup'=>['POST'],'carts'=>['POST'],
-                'quotes'=>['POST'],'sales'=>['POST'],'returns'=>['GET','POST'],'stock'=>['POST'],'catalogue'=>['GET'],'documents'=>['GET'],'customers'=>['GET']] as $resource=>$methods)
+                'quotes'=>['POST'],'sales'=>['POST'],'returns'=>['GET','POST'],'stock'=>['POST'],'catalogue'=>['GET'],'documents'=>['GET'],'customers'=>['GET'],'barcodes'=>['GET','POST']] as $resource=>$methods)
                 foreach($methods as $method)$permissions['totus_tpv_'.$resource][$method]=true;
             foreach(['carts','customers','addresses','products','combinations','stock_availables','currencies','languages',
                 'carriers','orders','order_details','order_states','order_payments','countries','states','groups'] as $resource)$permissions[$resource]['GET']=true;

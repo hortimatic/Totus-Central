@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCentralTpvAdapter,orderLookupInput,catalogueVariantAttributes} from '../src/totustpv/central-adapter.js';
 
+test('barcode creation keeps its identity after a lost response and requires review before confirmation without opening cash',async()=>{
+ const values=new Map(),requests=[],station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:false,canOpen:false,canReconcile:true};let lost=true;
+ const build=()=>createCentralTpvAdapter({actorId:'operator',storage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v)},invoke:async body=>{
+  requests.push(body);if(body.action==='context')return {actorId:'operator',workstations:[station]};
+  if(body.action==='barcode-create'){if(lost){lost=false;throw Error('Lost reply');}return {id:body.operationId,status:'preparing'};}
+  if(body.action==='barcode-confirm')return {id:body.operationId,status:'processing'};throw Error('Unexpected '+body.action);
+ }});
+ let adapter=build();await adapter.context();await adapter.selectWorkstation({storeId:'store',drawerId:'drawer'});await assert.rejects(adapter.createBarcodeJob(),/Lost reply/);
+ adapter=build();await adapter.context();await adapter.selectWorkstation({storeId:'store',drawerId:'drawer'});const job=await adapter.createBarcodeJob();
+ const attempts=requests.filter(r=>r.action==='barcode-create');assert.equal(attempts[0].operationId,attempts[1].operationId);assert.equal(attempts[1].selection.sessionId,undefined);
+ await assert.rejects(adapter.confirmBarcodeJob(job.id,false),/Confirma/);assert.equal(requests.some(r=>r.action==='barcode-confirm'),false);
+ await adapter.confirmBarcodeJob(job.id,true);assert.equal(requests.at(-1).accepted,true);assert.equal(requests.some(r=>r.action==='open'),false);
+});
+
 test('fresh recovery preserves sealed tax totals even when the recovery result contains only the order identity',async()=>{
  const requests=[],values=new Map();let base=662;
  const station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};

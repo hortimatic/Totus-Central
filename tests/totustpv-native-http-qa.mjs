@@ -12,12 +12,14 @@ import {nativeCents,nativeMicros} from '../src/totustpv/server/native-adapter.js
 import {verifyRemoteSale} from '../src/totustpv/model.js';
 import {exerciseCentralEdge} from './native-lab/central-edge-flow.mjs';
 import {exerciseNativeCatalogue} from './native-lab/catalogue-order-flow.mjs';
+import {exerciseNativeBarcodeHttp} from './native-lab/barcode-http-flow.mjs';
 import {exerciseCommercialQuote} from './native-lab/commercial-quote-flow.mjs';
 const project=process.cwd(),native=path.resolve('artifacts/native-lab/shop');
 const params=await fs.readFile(path.join(native,'app/config/parameters.php'),'utf8');
 assert.match(params,/'database_name'\s*=>\s*'totus_tpv_lab'/);assert.match(params,/'database_host'\s*=>\s*'127.0.0.1'/);
 const moduleDir=path.join(native,'modules/totuscentralconnector');await fs.mkdir(moduleDir,{recursive:true});
 await fs.cp('connectors/prestashop/src',path.join(moduleDir,'src'),{recursive:true});
+await fs.cp('connectors/prestashop/module/upgrade',path.join(moduleDir,'upgrade'),{recursive:true});
 for(const file of ['totuscentralconnector.php','Webservice.php'])await fs.copyFile('connectors/prestashop/module/'+file,path.join(moduleDir,file));
 const php=path.resolve('artifacts/php82/php.exe'),ini=path.resolve('artifacts/native-lab/php.ini');
 const env={...process.env,OPENSSL_CONF:path.resolve('artifacts/php82/extras/ssl/openssl.cnf')};
@@ -28,7 +30,7 @@ const setup=execFileSync(php,['-c',ini,'tests/native-lab/http-setup.php'],{encod
 const fixture=JSON.parse(setup.trim().split(/\r?\n/).at(-1));
 execFileSync(php,['-c',ini,'tests/native-lab/document-logo.php'],{encoding:'utf8',env,maxBuffer:1024*1024});
 process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/api-permissions.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}));
-const base='http://127.0.0.1:8771/api/';let stderr='';
+const base='http://127.0.0.1:8771/api/',nativeHttpTrace=[];let stderr='';
 const assets=createServer(async(req,res)=>{try{
  const uri=new URL(req.url,'http://127.0.0.1:8772').pathname;
  assert.ok(['GET','HEAD'].includes(req.method)&&/^\/img\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|gif|webp)$/.test(uri));
@@ -39,10 +41,11 @@ const assets=createServer(async(req,res)=>{try{
 await new Promise((resolve,reject)=>{assets.once('error',reject);assets.listen(8772,'127.0.0.1',resolve);});
 const child=spawn(php,['-c',ini,'-d','display_errors=0','-S','127.0.0.1:8771','tests/native-lab/http-router.php'],
  {cwd:project,env,windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',b=>stderr+=b.toString());
-async function api(resource,{method='GET',body,auth=true,actor}={}){
+async function api(resource,{method='GET',body,auth=true,actor,authKey=fixture.key}={}){
+ nativeHttpTrace.push({resource,method,operationId:body?.operation_id});
  const url=new URL(resource,base);url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop','1');
  if(actor)url.searchParams.set('actor_id',actor);
- const response=await fetch(url,{method,redirect:'error',headers:{...(auth?{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')}:{ }),
+ const response=await fetch(url,{method,redirect:'error',headers:{...(auth?{Authorization:'Basic '+Buffer.from(authKey+':').toString('base64')}:{ }),
   ...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
  const text=await response.text();let result;try{result=JSON.parse(text);}catch{if(response.status===401&&!auth)return {status:401,result:null};throw Error('Native HTTP returned non-JSON: '+text.slice(0,450));}
  return {status:response.status,result};
@@ -61,7 +64,19 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--budget-only')){
+ if(process.argv.includes('--central-barcodes-only')){
+  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/barcode-durable-provider.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024}));
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'barcodes',changeCurrentBarcode:async(id,expected,replacement)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-current-code.php',String(id),expected,replacement],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),setExternalBarcode:async item=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-external-code.php',String(item.product_id),String(item.attribute_id),item.code],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--barcodes-only')){
+  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/barcode-durable-provider.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024}));
+  const readOnly=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-readonly-key.php'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseNativeBarcodeHttp({api,command,fixture,actor,readOnlyKey:readOnly.key,nativeHttpTrace,
+   changeFixturePrice:async price=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-price-change.php',String(fixture.productId),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),
+   addTargetAfterBoundary:async()=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-scan-add.php'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),simulateLostResult:async intent=>{
+   await fs.writeFile('artifacts/native-lab/barcode-lost-command.json',JSON.stringify(intent));
+   return JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-lost-result.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  }});
+ }else if(process.argv.includes('--budget-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'budgets',inspectCommercialCart:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
  }else if(process.argv.includes('--commercial-quote-only')){
   await exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});

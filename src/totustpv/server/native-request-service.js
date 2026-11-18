@@ -19,6 +19,17 @@ export function createNativeRequestService({rpc,transport,scope}){
     ['carrier_id','counter_customer_id','counter_address_id','preparing_state_id','paid_state_id'].every(key=>positive(result[key])),
     'TPV_NATIVE_SETUP_READBACK_REQUIRED');return;
   }
+  if(record.command==='barcodes.assign'){
+   const p=record.payload,schemes={ean13:'rcn13-04',upc:'rcn12-4',reference:'totus-reference'};
+   const item=p?.items?.[p.item_index];
+   need(item&&Object.hasOwn(schemes,p.field),'TPV_NATIVE_BARCODE_RESPONSE_INVALID');
+   const expected={verified:true,native_reference:record.id,shop_id:scope.shopId,plan_version:1,
+    field:p.field,scheme:schemes[p.field],plan_fingerprint:p.plan_fingerprint,item_index:p.item_index,items:[item],count:1};
+   // Compare the whole immutable receipt, including the selected variant and code.
+   const canonical=value=>JSON.stringify(value,(_,row)=>row&&typeof row==='object'&&!Array.isArray(row)?
+    Object.fromEntries(Object.keys(row).sort().map(key=>[key,row[key]])):row);
+   need(canonical(result)===canonical(expected),'TPV_NATIVE_BARCODE_RESPONSE_INVALID');return;
+  }
   need(positive(result.native_reference),'TPV_NATIVE_READBACK_REQUIRED');
   if(record.command==='cart.prepare')need(positive(result.cart_id)&&result.native_reference===result.cart_id&&
    result.session_id===record.payload.session_id&&result.drawer_id===record.payload.drawer_id&&
@@ -35,6 +46,13 @@ export function createNativeRequestService({rpc,transport,scope}){
   need(record,'TPV_NATIVE_REQUEST_NOT_FOUND');
   try{
    const read=await transport.readNativeOperation(record.id);
+   if(record.command==='barcodes.assign'&&read?.status==='preserved'){
+    const p=record.payload,item=p.items[p.item_index],proof=read.preserved;
+    need(read.operation_id===record.id&&read.native_command==='barcodes.assign'&&read.retry_command_forbidden===true&&read.execution_finished===true&&read.effect_observed===false&&read.failure_code==='TOTUS_BARCODE_FIELD_ALREADY_SET'&&
+     proof&&Object.keys(proof).length===8&&proof.plan_version===1&&proof.shop_id===scope.shopId&&proof.field===p.field&&proof.product_id===item.product_id&&proof.attribute_id===item.attribute_id&&proof.plan_fingerprint===p.plan_fingerprint&&proof.item_index===p.item_index&&typeof proof.code==='string'&&Array.from(proof.code).length>0&&Array.from(proof.code).length<=64,'TPV_NATIVE_BARCODE_RESPONSE_INVALID');
+    await journal('uncertain',record.id);
+    return {operationId:record.id,status:'preserved',preserved:{...proof},retryCommandForbidden:true};
+   }
    need(read?.status==='verified'&&read.operation_id===record.id,'TPV_NATIVE_RESULT_UNCERTAIN');
    verify(record,read.result);
    const saved=await journal('complete',record.id,{result:read.result});
