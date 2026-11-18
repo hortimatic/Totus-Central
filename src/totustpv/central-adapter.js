@@ -1,3 +1,4 @@
+import {offlineBasketCommercial} from './offline-basket-commercial.js';
 import {cataloguePricingContext} from './catalogue-pricing-context.js';
 import {prepareOfflineCatalogue} from './offline-catalogue-preparation.js';
 import {offlineCatalogueSearch} from './offline-catalogue-search.js';
@@ -44,7 +45,7 @@ export function catalogueImageUrl(origin,path){
 }
 export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID(),catalogueCache=createOfflineCatalogueCache,centralCatalogueSource=()=>null,canReadCentralCatalogue=()=>true,sourceStore=createOfflineSourceStore}={}){
  need(typeof invoke==='function'&&actorId&&storage,'No se puede preparar el puesto.');
- let stations=[],selected=null,session=null,prepared=new Map(),localSnapshots=new Map(),returnSources=new Map(),customer=null,activeDraft=null;
+ let stations=[],selected=null,session=null,prepared=new Map(),localSnapshots=new Map(),returnSources=new Map(),customer=null,activeDraft=null,cachedPaymentOptions=null;
  const key='totus:tpv:requests:v1:'+actorId;
  function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
@@ -116,6 +117,21 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
  function catalogueStore(){return catalogueCache({scope:{actorId,connectionId:selected.connectionId,revision:selected.connectionRevision??0,drawerId:selected.drawerId,shopId:selected.shopId,customerId:customer?.id||0,addressId:customer?.addressId||0}});}
  function catalogueRequest({pricingQuantity=1,search='',page=0,productId=0,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){
   return {...(pricingQuantity===1?{}:{pricingQuantity}),search,page,productId,categoryId,sortField,sortDirection,searchFields:catalogueSearchFields(searchFields),catalogueFilters:normalizeCatalogueFilters(catalogueFilters),variantGroupId,...(inventoryOnly?{inventoryOnly:true}:{}),...(customer?{customerId:customer.id,addressId:customer.addressId}:{})};
+ }
+ async function localQuote(id,intent){
+   need(selected?.canSell===true&&session?.status==='open'&&!activeDraft,'Conecta para comprobar este puesto antes de preparar el cobro.');
+   need(!intent.adjustment&&!intent.coupon&&!intent.lines.some(line=>line.discount),'Conecta para comprobar los descuentos de esta venta antes de cobrar.');
+   const policy=cachedPaymentOptions;
+   need(policy?.scope===scopeKey()&&Date.now()-policy.readAt>=0&&Date.now()-policy.readAt<300000,'Conecta para actualizar los medios de cobro de esta caja.');
+   const options=policy.data.options,methods=options.enabledMethods;
+   need(Array.isArray(methods)&&methods.length>0&&methods.every(method=>['cash','card','bizum','transfer'].includes(method)),'No se han confirmado los medios de cobro de esta caja.');
+   const scope=scopeKey(),basket=await api.localBasketPrices({lines:intent.lines});
+   need(scope===scopeKey(),'La caja ha cambiado durante el cálculo local.');
+   const commercial=offlineBasketCommercial(basket);
+   need(commercial.totalCents>0,'Revisa los importes de este ticket antes de cobrar.');
+   const quote={id,totalCents:commercial.totalCents,totalTaxExclCents:commercial.totalTaxExclCents,currency:commercial.currency,
+    quoteExpiresAt:Math.min(basket.validUntil,policy.readAt+300000),localEstimate:true,paymentMethods:clone(methods),paymentLabels:clone(options.labels),referencePolicy:clone(options.referencePolicy),lines:clone(commercial.lines),discountCents:0};
+   localSnapshots.set(id,{expected:commercial,intent:clone(intent),scope});prepared.set(id,quote);return clone(quote);
  }
  async function warmCatalogue(){try{await catalogueSource();}catch{/* Online checkout remains available when optional device storage is unavailable. */}}
  const api=Object.freeze({
@@ -223,13 +239,15 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async quote({lines,adjustment,coupon,note}){
    const pending=saved()['submitted-sale'];need(!pending||pending.scope!==scopeKey(),'Hay un cobro pendiente de recuperar. Consulta su resultado antes de preparar otra venta.');
    const intent={...cartIntent(lines,adjustment,coupon,false,note),...(activeDraft?{draftId:activeDraft.id,draftVersion:activeDraft.version}:{})};
-   const id=await operation('prepare',intent);let record;
+   const origin=scopeKey(),id=await operation('prepare',intent);let record;need(origin===scopeKey(),'La caja ha cambiado durante la preparación del ticket.');
+   if(globalThis.navigator?.onLine===false)return localQuote(id,intent);
    try{record=await call('prepare',intent,id);}catch(error){
     if(['TPV_NATIVE_QUOTE_EXPIRED','TPV_QUOTE_EXPIRED'].includes(error?.code||error?.message)){
      await releaseDraft();
      forget('prepare',id);
      throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');
     }
+    if(error?.code==='TPV_CONNECTION_UNAVAILABLE')return localQuote(id,intent);
     throw error;
    }
    need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
@@ -245,10 +263,19 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    prepared.set(id,quote);return clone(quote);},
   localSaleTicket({operationId,payments}){
    const snapshot=localSnapshots.get(operationId);if(!snapshot)return null;
+   const local=prepared.get(operationId);need(!local?.localEstimate||Date.now()<local.quoteExpiresAt,'El cálculo sin conexión ha caducado. Vuelve al ticket y calcula de nuevo antes de cobrar.');
    need(snapshot.scope===scopeKey()&&session,'La caja del ticket ha cambiado.');
    need(payments.every(row=>row.method==='cash'||row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const commercial=commercialFromExpected(snapshot.expected),intent=snapshot.intent;
    return {commercial,cashSessionId:session.id,currency:commercial.currency,totalCents:commercial.totalCents,lines:clone(intent.lines),...(intent.note?{note:intent.note}:{}),...(intent.adjustment?{adjustment:clone(intent.adjustment)}:{}),...(intent.coupon?{coupon:intent.coupon}:{}),payments:payments.map(row=>({method:row.method,amountCents:row.amountCents,...(row.method==='cash'?{receivedCents:row.receivedCents}:{}),...(row.reference===undefined?{}:{reference:paymentReference(row.reference)})}))};
+  },
+  leaveLocalTicket(id){
+   const snapshot=localSnapshots.get(id);
+   need(snapshot?.scope===scopeKey()&&prepared.has(id),'No se encuentra el ticket guardado de esta caja.');
+   // The durable device journal owns this ticket now. Release only the browser
+   // preparation pointer so an identical NEXT purchase receives another ID.
+   forget('prepare',id);
+   if(activeDraft?.id===snapshot.intent.draftId)activeDraft=null;
   },
   async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
    const status=await call('sale-status',{},id);need(status.status==='ready','Este cobro ya se envió. Recupera su resultado antes de continuar.');}
@@ -367,7 +394,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
   async stockReceipts(){return call('stock-receipts');},
   async barcodeOptions(settings){return call('barcode-options',settings===undefined?{}:{settings});},
-  async paymentOptions(settings){return call('payment-options',settings===undefined?{}:{settings});},
+  async paymentOptions(settings){const scope=scopeKey(),data=await call('payment-options',settings===undefined?{}:{settings});need(scope===scopeKey(),'La caja ha cambiado.');cachedPaymentOptions={scope,readAt:Date.now(),data:clone(data)};return data;},
   async barcodeLabels(id,query={}){return call('barcode-labels',{query},id);},
   async barcodeJobs(){return call('barcodes');},
   async createBarcodeJob(){const id=await operation('barcode',{}),result=await call('barcode-create',{},id);forget('barcode',id);return result;},

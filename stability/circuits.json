@@ -819,6 +819,30 @@
         "isolated fixture server starts without hidden environment preparation",
         "fixture server is closed after success or failure"
       ]
+    },
+    {
+      "id": "totustpv-offline-new-basket",
+      "paths": [
+        "src/totustpv/offline-basket-commercial.js",
+        "src/totustpv/central-adapter.js",
+        "src/totustpv/workspace.js",
+        "tests/totustpv-offline-new-basket",
+        "tests/totustpv-offline-basket-commercial",
+        "tests/native-lab/offline-sale-browser.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-offline-basket-commercial-qa.mjs",
+        "tests/totustpv-offline-new-basket-adapter-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-prepared-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs"
+      ],
+      "invariants": [
+        "offline capture retains the original account drawer session and operation identity and never represents a confirmed native order",
+        "only current scoped catalogue micros and recently read allowed payment choices may prepare a local unmodified basket",
+        "native delivery rechecks permissions and compares every captured amount before a single financial dispatch; conflicts cannot silently change collected totals"
+      ]
     }
   ]
 }

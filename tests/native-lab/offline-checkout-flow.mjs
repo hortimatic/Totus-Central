@@ -40,5 +40,5 @@ export async function exerciseOfflineCheckout({call,selection,fixture,paths,lose
  const expiredRecovery=await delivery.recover({operationId:expiredQuote.id,ticket:expiredTicket});
  assert.equal(expiredRecovery.status,'confirmed');assert.equal(posts(),expiredPosts+1);
  await exerciseOfflineSaleBrowser({handle,actor,fixture,paths});
- console.log('PASS offline server checkout: immutable receipt, same-ID native sale with lost-response read recovery, replay creates no second sale, micro-price conflict creates no order. Local shop only; new-basket offline checkout remains pending.');
+ console.log('PASS offline server checkout: immutable receipt, same-ID native sale with lost-response read recovery, replay creates no second sale, micro-price conflict creates no order. New unmodified offline basket and automatic reconnection also verified in the workspace. Local shop only; offline cart discounts and remote deployment unverified.');
 }
