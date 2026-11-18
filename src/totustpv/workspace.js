@@ -37,7 +37,7 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  * No code in this browser module can import the privileged checkout adapters.
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
- onConfigure=null,canConfigure=()=>false,readSetup=null,createLiveAdapter=null,
+ onConfigure=null,canConfigure=()=>false,onBilling=null,canBilling=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,drawerManagement=()=>null,workspacePreferences=null,receiptNumbering=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
  let scanQueue=[],scanning=false,mobilePane='catalogue';
@@ -202,7 +202,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  function receiptHtml(){if(receipt.status==='cancelled')return `<section class="card card-pad tpv-receipt"><h3>Intento cerrado sin pedido</h3><p>Se conserva la incidencia y su revisión. No se ha vuelto a enviar la venta.</p>${button('next','Nuevo ticket','primary')}</section>`;const uncertain=receipt.status!=='confirmed';return `<section class="card card-pad tpv-receipt" aria-label="Resultado de venta"><h3>${uncertain?'Respuesta pendiente de recuperar':wording('Venta de práctica registrada','Pedido verificado en PrestaShop')}</h3>
   <p><b>${esc(receipt.reference)}</b> · ${money(receipt.totalCents)}</p><p>${uncertain?'No confirmes otro ticket para repetir esta venta. Recupera el resultado de la misma operación.':wording('Cambio de práctica: ','Cambio devuelto: ')+money(receipt.changeCents||0)}</p>
   <small>${wording('Simulación: no existe pedido ni pago real en PrestaShop.',uncertain?'No se ha confirmado el resultado; consulta la misma operación.':'Pedido y pago registrados en preproducción.')}</small><div class="inline-actions">${uncertain?button('recover','Recuperar resultado','primary'):button('next','Nuevo ticket','primary')}${live()&&!uncertain?documentButtons(receipt.id):''}${live()&&uncertain&&canAssign()?button('review-incident','Revisar incidencia'):''}</div>${incidentForm?`<form data-tpv-form="incident" class="tpv-payment"><h4>Cerrar intento sin pedido</h4><p>El servidor comprobará que la ejecución terminó sin pedido. Revisa también que no quede ningún cobro externo pendiente.</p><label>Resultado de la revisión<select name="settlementReview"><option value="not-collected">No se recibió ningún cobro</option><option value="returned-externally">Cobro externo devuelto y comprobado</option></select></label><label>Motivo y comprobación<input name="reason" minlength="10" maxlength="500" required></label><label class="tpv-check"><input name="accepted" type="checkbox" required> He revisado el cobro y confirmo este resultado.</label><button class="btn primary" type="submit">Verificar y cerrar incidencia</button></form>`:''}</section>`;}
- function documentButtons(id){return `<details class="tpv-document-actions" ${busy?'inert':''}><summary class="btn secondary">Documentos</summary><div class="inline-actions">${[['receipt','Ticket'],['gift','Ticket regalo'],['invoice','Factura PDF'],['delivery','Albarán PDF']].map(([kind,label])=>`<button type="button" class="btn secondary" data-tpv-document="${kind}" data-sale-id="${esc(id)}">${label}</button>`).join('')}</div></details>`;}
+ function documentButtons(id){return `<details class="tpv-document-actions" ${busy?'inert':''}><summary class="btn secondary">Documentos</summary><div class="inline-actions">${[['receipt','Ticket'],['gift','Ticket regalo'],['invoice','Factura PDF'],['delivery','Albarán PDF']].map(([kind,label])=>`<button type="button" class="btn secondary" data-tpv-document="${kind}" data-sale-id="${esc(id)}">${label}</button>`).join('')}${live()&&onBilling&&canBilling()?`<button type="button" class="btn secondary" data-tpv-billing="${esc(id)}">Ver en Facturación</button>`:''}</div></details>`;}
  function draftsHtml(){return `<section class="card card-pad"><header class="inline-actions"><h3>Tickets aparcados · esta caja</h3>${button('refresh-drafts','Actualizar tickets')}</header><p class="small muted">Se muestran los últimos 100. Al recuperar se recalculan precios, impuestos y disponibilidad.</p>
   <div class="tpv-history">${parked.map(row=>{const expiry=parkingExpiry(row),current=row.status==='checkout'&&row.mine&&row.sessionId===session.id,
    available=row.status==='parked'||row.mine||row.sessionId!==session.id;
@@ -377,6 +377,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    await adapter.archiveDraft({draftId:row.id,version:row.version});parked=await adapter.drafts();});
   if(Object.keys(target.dataset).some(key=>key.startsWith('tpvClient')))return work(()=>customers.click(target));
   if(action==='customers'&&live()&&!payment&&canCustomer('view'))return work(()=>customers.open());
+  if(target.dataset.tpvBilling&&live()&&onBilling&&canBilling())return work(async()=>{
+   if(hasDraft())throw Error('Aparca o termina el ticket y los cambios pendientes antes de abrir Facturación.');
+   const drawer=context?.drawers.find(row=>row.id===(session?.drawerId||selectedDrawer));
+   if(!drawer?.connectionId||!drawer.shopId)throw Error('Selecciona el establecimiento de esta venta antes de abrir su factura.');
+   await onBilling({saleId:target.dataset.tpvBilling,connectionId:drawer.connectionId,shopId:drawer.shopId});
+  });
   if(target.dataset.tpvDocument&&live())return work(async()=>{const doc=await adapter.document({saleId:target.dataset.saleId,kind:target.dataset.tpvDocument,refundId:target.dataset.refundId});
    if(doc.mime==='application/pdf'){await downloadNativePdf(doc);const number=receiptNumber(doc.ticket_number);notice=number?.kind==='return'?'Devolución '+number.label+' · abono nativo descargado.':'Documento nativo descargado.';}else documentPreview=doc;});
   if(action==='close-document'){documentPreview=null;render();return;}

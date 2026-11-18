@@ -162,11 +162,19 @@ try{
   results.push({saleId:sale.operation_id,orderId:paid.result.order_id,payments:paid.result.payments,invoiceIds:paid.result.invoice_ids});
  }
  assert.equal(new Set(results.map(r=>r.orderId)).size,5);
- for(const kind of ['receipt','gift','invoice','delivery']){
+ for(const kind of ['receipt','gift','invoice','delivery','billing']){
   const document=await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind='+kind,{actor});
   assert.equal(document.status,200,JSON.stringify(document.result));assert.equal(document.result.order_id,results[0].orderId);
   assert.equal(document.result.existing_document,true);
-  if(['invoice','delivery'].includes(kind))assert.equal(Buffer.from(document.result.base64,'base64').subarray(0,5).toString(),'%PDF-');
+  if(kind==='billing'){
+   assert.equal(document.result.source,'native-billing-document');assert.equal(document.result.total_cents,801);
+   assert.equal(document.result.invoice_id,results[0].invoiceIds[0]);assert.ok(document.result.number>0);
+   assert.equal(document.result.lines.length,1);assert.match(document.result.lines[0].recorded_tax_rate,/^\d+\.\d{6}$/);
+   const denied=await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind=billing',{actor:randomUUID()});
+   assert.equal(denied.status,400);
+   assert.deepEqual((await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind=billing',{actor})).result,document.result);
+  }
+  else if(['invoice','delivery'].includes(kind))assert.equal(Buffer.from(document.result.base64,'base64').subarray(0,5).toString(),'%PDF-');
   else{assert.equal(document.result.lines.length,1);const line=document.result.lines[0];
    if(kind==='gift'){for(const field of ['line_cents','unit_tax_incl_micros','tax_cents','tax_excl_cents'])assert.equal(line[field],undefined);assert.equal(document.result.total_cents,undefined);}
    else{assert.equal(document.result.total_cents,801);assert.ok(Number.isSafeInteger(line.unit_tax_incl_micros)&&line.unit_tax_incl_micros>0);

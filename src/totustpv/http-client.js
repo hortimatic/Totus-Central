@@ -1,4 +1,10 @@
 const messages={
+ TPV_BILLING_FORBIDDEN:'Necesitas permiso de lectura de Facturación para consultar estos documentos.',
+ TPV_BILLING_CONTEXT_STALE:'El acceso al establecimiento ha cambiado. Vuelve a abrir Facturas del TPV.',
+ TPV_BILLING_QUERY_INVALID:'Selecciona un establecimiento y una venta para consultar su factura.',
+ TPV_BILLING_SALE_NOT_FOUND:'Esta venta no está disponible en el establecimiento seleccionado o todavía no está confirmada.',
+ TPV_BILLING_RETURN_NOT_FOUND:'Este abono no corresponde a una devolución confirmada de la venta.',
+ TPV_BILLING_DOCUMENT_MISMATCH:'No se ha podido verificar que el documento corresponda a esta venta. Actualiza la consulta; no es necesario repetir el cobro.',
  TPV_BUDGET_INPUT_INVALID:'Revisa los artículos, el cliente y la vigencia del presupuesto.',
  TPV_BUDGET_REQUEST_INVALID:'No se ha podido consultar este presupuesto. Actualiza la lista y vuelve a seleccionarlo.',
  TPV_BUDGET_NOT_FOUND:'Este presupuesto no está disponible en el establecimiento seleccionado.',

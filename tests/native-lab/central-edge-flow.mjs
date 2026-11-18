@@ -22,6 +22,7 @@ import {exerciseNativeStockPolicyBrowser} from './stock-policy-browser.mjs';
 import {exerciseNativeSaleNote} from './sale-note-flow.mjs';
 import {exerciseNativeLinePrice} from './line-price-flow.mjs';
 import {exerciseNativeLinePriceBrowser} from './line-price-browser.mjs';
+import {exerciseNativeBillingBrowser} from './billing-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
@@ -67,12 +68,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117170825_totustpv_temporary_line_names.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261117191716_totustpv_commercial_budgets.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261117234736_totustpv_billing_bridge.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
    [actor,connection,store,drawer,'qa-shop',JSON.stringify(profile),JSON.stringify({sell:true,open:true,reconcile:true})]);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
-  const argsByRpc={totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
+  const argsByRpc={totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
    totus_tpv_journal:['p_action','p_operation_id','p_scope','p_data'],totus_tpv_cash:['p_action','p_request_id','p_scope','p_data'],
    totus_tpv_budgets:['p_action','p_scope','p_id','p_data'],totus_tpv_commercial_options:['p_scope'],totus_tpv_budget_checkout:['p_scope','p_id','p_version','p_action'],
    totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],
@@ -204,6 +206,19 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   const refunded=await call({action:'submit-refund',selection,operationId:refundId,
    confirmation:{accepted:true,operationId:refundId,totalCents:801,currency:'EUR'}});
   assert.equal(refunded.status,'confirmed',JSON.stringify(refunded));
+  const billingSelection={connectionId:connection,shopId:1},billingPosts=nativePosts;
+  const billingContext=await call({action:'billing-context'});assert.equal(billingContext.sources.length,1);
+  const billingList=await call({action:'billing-list',selection:billingSelection,query:{search:String(sold.orderId)}});
+  assert.equal(billingList.items.length,1);assert.equal(billingList.items[0].id,saleId);assert.equal(billingList.items[0].refundCents,801);
+  const billing=await call({action:'billing-document',selection:billingSelection,operationId:saleId,kind:'billing'});
+  assert.equal(billing.document.order_id,sold.orderId);assert.equal(billing.document.total_cents,801);assert.equal(billing.sale.refunds[0].id,refundId);
+  for(const kind of ['invoice','credit-note']){
+   const doc=await call({action:'billing-document',selection:billingSelection,operationId:saleId,kind,...(kind==='credit-note'?{refundId}:{})});
+   assert.equal(Buffer.from(doc.base64,'base64').subarray(0,5).toString(),'%PDF-');
+  }
+  assert.equal(nativePosts,billingPosts);
+  console.log('PASS Facturación bridge: confirmed native invoice details, original invoice and credit-note PDFs from the journal, without cash selection or native writes. Local native HTTP and real SQL.');
+  await exerciseNativeBillingBrowser({handle,actor,selection:billingSelection,saleId,orderId:sold.orderId,posts:()=>nativePosts});
   const entries=await call({action:'history',selection,operationId:randomUUID()});
   assert.equal(entries[0].id,saleId);assert.equal(entries[0].orderId,sold.orderId);
   assert.equal(entries[0].refunds[0].id,refundId);assert.equal(entries[0].refunds[0].status,'confirmed');

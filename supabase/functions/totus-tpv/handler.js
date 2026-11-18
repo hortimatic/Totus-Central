@@ -14,6 +14,7 @@ import {createProductIntakeService} from '../../../src/totustpv/server/product-i
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
 import {createCommercialBudgetService} from '../../../src/totustpv/server/commercial-budget-service.js';
 import {budgetDraft} from '../../../src/totustpv/budget-contract.js';
+import {readBillingDocument} from '../../../src/totustpv/server/billing-service.js';
 import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
 import {lineName} from '../../../src/totustpv/line-name.js';
@@ -79,10 +80,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
-     'budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+     'billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
+    'billing-context':['action'],'billing-list':['action','selection','query'],
+    'billing-document':['action','selection','operationId','kind','refundId'],
     'update-workstation-access':['action','selection','operationId','revision','operatorId','assignmentRevision','permissions','active'],
     open:['action','selection','operationId','openingCents'],catalogue:['action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
@@ -116,6 +119,34 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'cancel-refund':['action','selection','operationId']};
    need(Object.keys(input).every(key=>permitted[input.action].includes(key)),'TPV_REQUEST_FIELD_FORBIDDEN');
    if(input.action==='budget-create')input.payload=budgetDraft(input.payload);
+   if(input.action.startsWith('billing-')){
+    const billingContext=async()=>{const ctx=check(await scoped.rpc('totus_tpv_billing_context'));
+     need(ctx?.actorId===user.id&&Array.isArray(ctx.sources),'TPV_BILLING_FORBIDDEN');return ctx;};
+    const ctx=await billingContext();if(input.action==='billing-context')return respond(ctx);
+    need(input.selection&&Object.keys(input.selection).every(key=>['connectionId','shopId'].includes(key))&&
+     input.selection.connectionId===TOTUS_QA_POLICY.connectionId&&positive(input.selection.shopId),'TPV_BILLING_QUERY_INVALID');
+    const row=ctx.sources.find(source=>source.connectionId===input.selection.connectionId&&source.shopId===input.selection.shopId);
+    need(row?.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&row.nativeProfile.native_version==='8.2.8'&&
+     row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id)&&row.environment==='qa','TPV_BILLING_CONTEXT_STALE');
+    const scope={actorId:user.id,connectionId:row.connectionId,connectionRevision:row.connectionRevision,shopId:row.shopId,
+     storeId:row.storeId,currency:row.nativeProfile.currency,environment:'qa'},admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
+    if(input.action==='billing-list'){
+     need(input.query===undefined||input.query&&typeof input.query==='object'&&!Array.isArray(input.query),'TPV_BILLING_QUERY_INVALID');
+     return respond(check(await rpc('totus_tpv_billing_read',{p_scope:scope,p_sale:null,p_query:input.query??{}})));
+    }
+    need(uuid(input.operationId)&&['billing','invoice','credit-note'].includes(input.kind)&&
+     (input.kind==='credit-note'?uuid(input.refundId):input.refundId===undefined),'TPV_BILLING_QUERY_INVALID');
+    const connection=check(await rpc('totus_api_server',{p_id:scope.connectionId,p_revision:scope.connectionRevision}));
+    await beginAudit(admin,scope.connectionId,scope.connectionRevision);
+    const transport=createTpvNativeTransport({...connection,website_origin:TOTUS_QA_POLICY.origin},scope,{resolve,qaPolicy:TOTUS_QA_POLICY,
+     nativeExtension:{verified:true,installationId:row.nativeProfile.installation_id,connectionId:scope.connectionId,
+      connectionRevision:scope.connectionRevision,shopId:scope.shopId,protocol:1},
+     request:async(target,init)=>{const fresh=(await billingContext()).sources.find(source=>source.connectionId===scope.connectionId&&source.shopId===scope.shopId);
+      need(fresh&&fresh.connectionRevision===scope.connectionRevision&&fresh.storeId===scope.storeId&&
+       fresh.nativeProfile?.installation_id===row.nativeProfile.installation_id,'TPV_BILLING_CONTEXT_STALE');
+      need(init.method==='GET','TPV_BILLING_READ_ONLY');return request(target,init);}});
+    return respond(await readBillingDocument({rpc,scope,operationId:input.operationId,kind:input.kind,refundId:input.refundId,transport}));
+   }
    if(['workstations','update-workstation-access'].includes(input.action)){
     const connectionId=input.action==='workstations'?input.connectionId:input.selection?.connectionId;
     need(connectionId===TOTUS_QA_POLICY.connectionId&&positive(input.revision),'TPV_CONFIGURATION_INVALID');

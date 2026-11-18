@@ -22,6 +22,7 @@ import {createTpvWorkspace} from './totustpv/workspace.js';
 import {createCentralTpvAdapter} from './totustpv/central-adapter.js';
 import {createTpvConfigurationReader} from './totustpv/configuration-reader.js';
 import {createTpvHttpClient} from './totustpv/http-client.js';
+import {createTpvBillingUI} from './totustpv/billing-ui.js';
 import {SUPABASE_URL as TPV_SUPABASE_URL,SUPABASE_KEY as TPV_SUPABASE_KEY} from './config.js';
 import {createTpvSetupReader} from './totustpv/setup-reader.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -87,6 +88,7 @@ import {renderPdfPreview} from './pdf-preview.js';
 let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=null;
 const businessWriter=createBusinessWriter({rpc});
 const mobileNavigation=createMobileNavigation();
+const tpvBillingUI=createTpvBillingUI({actor:()=>state.user?.id,client:tpvClient});
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
@@ -100,6 +102,8 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  receiptNumbering:(drawer,settings=null)=>rpc('totus_tpv_receipt_series',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  canCustomer:action=>can('clientes',action),
+ canBilling:()=>can('facturacion','view'),onBilling:async target=>{const owner=state.user?.id;await navigateModule('facturacion');
+  if(state.user?.id===owner&&state.route==='facturacion'){setView('facturacion',{mode:'list',section:'tpv',tpvDocument:target});render();}},
  canStock:()=>can('productos','edit')&&can('totustpv','create'),
  canCreateProduct:()=>can('productos','view')&&can('productos','create')&&can('totustpv','create'),
  canReadCost:()=>can('productos','view'),
@@ -331,7 +335,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='totustpv'?'ventas':state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='totustpv'?'tpv':state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -366,6 +370,7 @@ function render(){
   else $('#productosRoot').innerHTML='<p role="status">Necesitas permiso de lectura de Productos para consultar los precios de la tienda.</p>';
  }
  if(['clientes','proveedores','marcas'].includes(state.route)||state.route==='facturacion'&&$('[data-directory-root]'))void directoryUI.mount($('[data-directory-root]'));
+ if(state.route==='facturacion'&&$('[data-tpv-billing-root]'))void tpvBillingUI.mount($('[data-tpv-billing-root]'),getView('facturacion').tpvDocument||null);
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='apis')void apiManager.mount($('[data-api-manager]'));
@@ -525,7 +530,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(moduleNavigationState(location.href,route,{...history.state,totusModuleNavigation:true}),'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -2932,7 +2937,7 @@ document.addEventListener('click',async e=>{
   if(a==='invoice-edit'||a==='invoice-open'){const row=state.data.invoices.find(x=>x.id===el.dataset.id);if(row){setView('facturacion',{prestashopDraft:null,mode:'record',id:row.id,docType:row.document_type,invoiceKind:row.invoice_kind,origin:row.origin});render()}return}
   if(a==='invoice-save'){await saveInvoice(el.dataset.id||'',el.dataset.type||'factura',el.dataset.kind||'invoice',el.dataset.origin||'totus');return}
   if(a==='invoice-back'){setView('facturacion',{prestashopDraft:null,mode:'list',id:null});render();return}
-  if(a==='billing-section'){setView('facturacion',{prestashopDraft:null,mode:'list',id:null,section:el.dataset.section||'documentos'});render();return}
+  if(a==='billing-section'){setView('facturacion',{prestashopDraft:null,tpvDocument:null,mode:'list',id:null,section:el.dataset.section||'documentos'});render();return}
   if(a==='invoice-source-preview'){await previewDocument(el.dataset.id);return}
   if(a==='invoice-source-download'){await downloadDocument(el.dataset.id);return}
   if(a==='invoice-finalize'){await finalizeInvoice(el.dataset.id);return}
@@ -3374,7 +3379,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();totusTpvUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();tpvBillingUI.dispose();totusTpvUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

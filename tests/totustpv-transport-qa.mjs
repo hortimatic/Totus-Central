@@ -30,6 +30,16 @@ function fixture(options={}) {
  });
  return {transport,requests};
 }
+test('billing metadata is a scoped authenticated GET and rejects invalid sale identity',async()=>{
+ const f=fixture({extension:true});
+ await f.transport.readNativeBilling({operationId:scope.connectionId,sourceActorId:scope.actorId});
+ assert.equal(f.requests.length,1);assert.equal(f.requests[0].init.method,'GET');
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('kind'),'billing');
+ assert.equal(url.searchParams.get('actor_id'),scope.actorId);assert.equal(url.searchParams.get('id_shop'),'2');
+ await assert.rejects(()=>f.transport.readNativeBilling({operationId:'invalid',sourceActorId:scope.actorId}),/TPV_DOCUMENT_QUERY_INVALID/);
+ assert.equal(f.requests.length,1);
+});
+
 test('read uses Central credentials privately, native shop context and no ambient cookies',async()=>{
  const f=fixture();await f.transport.read('orders',{'filter[id_cart]':'[701]',display:'[id,id_cart]',limit:'0,2'});
  const {url,init}=f.requests[0],u=new URL(url);

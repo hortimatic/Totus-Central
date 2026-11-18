@@ -2,6 +2,12 @@
   "version": 1,
   "circuits": [
     {
+      "id": "totustpv-billing-bridge",
+      "paths": ["src/app.js", "src/pages/main.js", "src/totustpv/billing-ui.js", "src/totustpv/billing.css", "src/totustpv/server/billing-service.js", "src/totustpv/server/native-transport.js", "supabase/functions/totus-tpv/", "supabase/migrations/20261117234736_totustpv_billing_bridge.sql", "tests/totustpv-billing-", "connectors/prestashop/src/NativeBilling.php"],
+      "tests": ["tests/totustpv-billing-db-qa.mjs", "tests/totustpv-billing-service-qa.mjs", "tests/totustpv-billing-edge-qa.mjs", "tests/totustpv-billing-browser-qa.mjs", "tests/totustpv-billing-app-browser-qa.mjs", "tests/billing-submenus-qa.mjs"],
+      "invariants": ["Facturación uses its own current read permission without a cashier assignment or cash session", "native invoice identity and historical amounts must match a confirmed scoped Central sale", "existing invoice and confirmed credit-note reads never issue documents, allocate numbers or duplicate revenue", "QA commercial documents remain outside business fiscal totals", "late responses cannot cross account or disposed page boundaries"]
+    },
+    {
       "id": "access",
       "paths": [
         "src/bootstrap",

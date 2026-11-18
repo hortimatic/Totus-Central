@@ -92,7 +92,7 @@ export function createTpvNativeTransport(connection, scope, {
          resource==='totus_tpv_catalogue'&&key==='hide_unavailable'&&['0','1'].includes(value)||
          resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
          ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
-      const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note'].includes(value);
+      const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note','billing'].includes(value);
       requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
         value.length<=(resource==='totus_tpv_catalogue'&&key==='excluded_categories'?1099:1000) && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
       url.searchParams.set(key,value);
@@ -150,6 +150,10 @@ export function createTpvNativeTransport(connection, scope, {
       extensionScope();requireValue(typeof search==='string'&&search.length<=100&&Number.isSafeInteger(page)&&page>=0&&page<10000&&
         Number.isSafeInteger(customerId)&&customerId>=0,'TPV_CUSTOMER_QUERY_INVALID');
       return call('totus_tpv_customers','GET',{search,page:String(page),customer_id:String(customerId)},undefined,false,true);
+    },
+    async readNativeBilling({operationId,sourceActorId}){
+      extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId),'TPV_DOCUMENT_QUERY_INVALID');
+      return call('totus_tpv_documents','GET',{operation_id:operationId,actor_id:sourceActorId,kind:'billing'},undefined,false,true);
     },
     async readNativeDocument({operationId,sourceActorId,kind}){
       extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId)&&['receipt','gift','invoice','delivery','credit-note'].includes(kind),'TPV_DOCUMENT_QUERY_INVALID');

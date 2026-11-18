@@ -47,7 +47,9 @@ class TotusCentralNativeWebservice implements WebserviceSpecificManagementInterf
                 $result=TotusCentralConnector\NativeCustomers::read($query,$profile);
             } elseif($resource==='totus_tpv_documents' && $method==='GET'){
                 $query=array_intersect_key($this->wsObject->urlFragments,array_flip(['operation_id','actor_id','kind']));
-                $result=TotusCentralConnector\NativeDocuments::read($module,$profile,$query,$account);
+                $result=($query['kind']??null)==='billing'
+                    ? TotusCentralConnector\NativeBilling::read($module,$profile,$query,$account)
+                    : TotusCentralConnector\NativeDocuments::read($module,$profile,$query,$account);
             } elseif($resource==='totus_tpv_operations' && $method==='GET'){
                 $query=$this->wsObject->urlFragments;
                 $result=TotusCentralConnector\NativeRuntime::readOperation($module,$profile,

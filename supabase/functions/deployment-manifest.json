@@ -219,6 +219,7 @@
         "src/totustpv/line-name.js",
         "src/totustpv/budget-contract.js",
         "src/totustpv/server/commercial-budget-service.js",
+        "src/totustpv/server/billing-service.js",
         "src/totustpv/server/commercial-quote-contract.js"
       ]
     }
