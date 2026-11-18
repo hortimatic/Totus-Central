@@ -828,7 +828,8 @@
         "src/totustpv/workspace.js",
         "tests/totustpv-offline-new-basket",
         "tests/totustpv-offline-basket-commercial",
-        "tests/native-lab/offline-sale-browser.mjs"
+        "tests/native-lab/offline-sale-browser.mjs",
+        "src/totustpv/offline-workstation-cache.js"
       ],
       "tests": [
         "tests/totustpv-offline-basket-commercial-qa.mjs",
@@ -836,7 +837,8 @@
         "tests/totustpv-central-adapter-qa.mjs",
         "tests/totustpv-offline-journal-browser-qa.mjs",
         "tests/totustpv-offline-prepared-browser-qa.mjs",
-        "tests/totustpv-workspace-browser-qa.mjs"
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-offline-workstation-cache-qa.mjs"
       ],
       "invariants": [
         "offline capture retains the original account drawer session and operation identity and never represents a confirmed native order",

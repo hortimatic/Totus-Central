@@ -24,7 +24,8 @@ test('new offline basket uses cached native prices and last scoped payment choic
   await assert.rejects(adapter.quote({lines:[{productId:'8:0',qty:2}],coupon:'PROMO'}),/descuentos/);
   online=true;transportError='TPV_CONNECTION_UNAVAILABLE';const unavailable=await adapter.quote({lines:[{productId:'8:0',qty:3}]});assert.equal(unavailable.localEstimate,true);assert.equal(prepareCalls,1);
   transportError='TPV_PERMISSION_DENIED';await assert.rejects(adapter.quote({lines:[{productId:'8:0',qty:4}]}),/TPV_PERMISSION_DENIED/);assert.equal(prepareCalls,2);
-  online=false;
+  online=false;await assert.rejects(adapter.quote({lines:[{productId:'8:0',qty:3}]}),/Conecta para comprobar/);
+  online=true;transportError=null;await adapter.context();await adapter.paymentOptions();online=false;
   page.requestedAt=Date.now()-400000;await assert.rejects(adapter.quote({lines:[{productId:'8:0',qty:3}]}),/precio vigente/);
  }finally{if(original)Object.defineProperty(globalThis,'navigator',original);else delete globalThis.navigator;}
 });

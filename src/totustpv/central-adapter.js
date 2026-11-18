@@ -1,3 +1,4 @@
+import {createOfflineWorkstationCache} from './offline-workstation-cache.js';
 import {offlineBasketCommercial} from './offline-basket-commercial.js';
 import {cataloguePricingContext} from './catalogue-pricing-context.js';
 import {prepareOfflineCatalogue} from './offline-catalogue-preparation.js';
@@ -45,8 +46,21 @@ export function catalogueImageUrl(origin,path){
 }
 export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.randomUUID(),catalogueCache=createOfflineCatalogueCache,centralCatalogueSource=()=>null,canReadCentralCatalogue=()=>true,sourceStore=createOfflineSourceStore}={}){
  need(typeof invoke==='function'&&actorId&&storage,'No se puede preparar el puesto.');
- let stations=[],selected=null,session=null,prepared=new Map(),localSnapshots=new Map(),returnSources=new Map(),customer=null,activeDraft=null,cachedPaymentOptions=null;
+ let stations=[],selected=null,session=null,prepared=new Map(),localSnapshots=new Map(),returnSources=new Map(),customer=null,activeDraft=null,cachedPaymentOptions=null,offlineAccessDenied=false;
  const key='totus:tpv:requests:v1:'+actorId;
+ const workstationCache=createOfflineWorkstationCache({actorId,storage});
+ async function cachedRead(action){
+  const scope=action==='context'?'':canonical([selection(),selected.connectionRevision]);
+  let revision;try{revision=workstationCache.revision();}catch{}
+  let data;try{data=await call(action);}catch(error){
+   if(error?.code!=='TPV_CONNECTION_UNAVAILABLE')throw error;
+   let saved;try{saved=workstationCache.get(action,scope);}catch{}
+   if(!saved)throw error;return saved;
+  }
+  let currentRevision=revision;try{currentRevision=workstationCache.revision();}catch{}
+  need(revision===undefined||currentRevision===revision,'El acceso ha cambiado durante la consulta. Actualiza el puesto.');
+  const readAt=Date.now();try{workstationCache.put(action,scope,data,{expectedRevision:revision});}catch{}return {data,readAt};
+ }
  function saved(){const raw=storage.getItem(key);if(!raw)return {};need(raw.length<100000,'El registro de solicitudes requiere revisión.');
   const value=JSON.parse(raw);need(value&&typeof value==='object'&&!Array.isArray(value),'Registro de solicitudes no válido.');return value;}
  const scopeKey=()=>JSON.stringify([selected?.connectionId,selected?.shopId,selected?.drawerId,session?.id]);
@@ -72,7 +86,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   }
   need(activeDraft.status==='claimed'&&activeDraft.mine&&activeDraft.sessionId===session.id,'El borrador ha cambiado. Consulta de nuevo los tickets aparcados.');
  }
- async function call(action,values={},id){const result=await invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});
+ async function call(action,values={},id){let result;try{result=await invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});}
+  catch(error){if(/FORBIDDEN|PERMISSION|AUTH_REQUIRED|CONTEXT_STALE|CONNECTION_STALE/.test(error?.code||error?.message||'')){offlineAccessDenied=true;cachedPaymentOptions=null;try{workstationCache.revoke();}catch{}}throw error;}
   const draft=value=>({...value,...parkingExpiry(value)});
   if(action==='drafts'){need(Array.isArray(result),'No se han podido consultar los tickets aparcados.');return result.map(draft);}
   return ['get-draft','park','claim-draft','release-draft','archive-draft'].includes(action)?draft(result):result;}
@@ -119,7 +134,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   return {...(pricingQuantity===1?{}:{pricingQuantity}),search,page,productId,categoryId,sortField,sortDirection,searchFields:catalogueSearchFields(searchFields),catalogueFilters:normalizeCatalogueFilters(catalogueFilters),variantGroupId,...(inventoryOnly?{inventoryOnly:true}:{}),...(customer?{customerId:customer.id,addressId:customer.addressId}:{})};
  }
  async function localQuote(id,intent){
-   need(selected?.canSell===true&&session?.status==='open'&&!activeDraft,'Conecta para comprobar este puesto antes de preparar el cobro.');
+   need(!offlineAccessDenied&&selected?.canSell===true&&session?.status==='open'&&!activeDraft,'Conecta para comprobar este puesto antes de preparar el cobro.');
    need(!intent.adjustment&&!intent.coupon&&!intent.lines.some(line=>line.discount),'Conecta para comprobar los descuentos de esta venta antes de cobrar.');
    const policy=cachedPaymentOptions;
    need(policy?.scope===scopeKey()&&Date.now()-policy.readAt>=0&&Date.now()-policy.readAt<300000,'Conecta para actualizar los medios de cobro de esta caja.');
@@ -193,9 +208,10 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     }
    });
   },
-  async context(){const data=await call('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
+  async context(){const {data}=await cachedRead('context');need(data.actorId===actorId&&Array.isArray(data.workstations),'El puesto no pertenece a esta sesión.');
    stations=data.workstations;need(stations.every(row=>row.environment==='qa'),'Entorno de pruebas no válido.');
    need(stations.every(row=>['canSell','canOpen','canReconcile'].every(key=>typeof row[key]==='boolean')),'No se han podido comprobar los permisos de esta caja.');
+   offlineAccessDenied=false;
    return {stores:[...new Map(stations.map(row=>[row.storeId,{id:row.storeId,name:row.storeName}])).values()],
     drawers:stations.map(row=>({id:row.drawerId,storeId:row.storeId,name:row.drawerName,connectionId:row.connectionId,shopId:row.shopId,
      canSell:row.canSell,canOpen:row.canOpen,canReconcile:row.canReconcile})),
@@ -207,7 +223,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const id=await operation('open',{storeId,drawerId,openingCents}),result=await call('open',{openingCents},id);
    need(result.id===id&&result.status==='open','No se ha confirmado la apertura de caja.');
    session={id,storeId,drawerId,status:'open',openingCents};forget('open',id);await warmCatalogue();need(session?.id===id,'La caja ha cambiado.');return clone(session);},
-  async categories(){const data=await call('categories');need(Array.isArray(data.categories)&&data.has_more===false,'No se han podido consultar todas las categorías de esta tienda.');
+  async categories(){const {data}=await cachedRead('categories');need(Array.isArray(data.categories)&&data.has_more===false,'No se han podido consultar todas las categorías de esta tienda.');
    return data.categories.map(r=>({...r,label:r.parentName?r.parentName+' / '+r.name:r.name})).sort((a,b)=>a.label.localeCompare(b.label,'es',{numeric:true}));},
   async resolveIncident({operationId,reason,settlementReview}){const result=await call('resolve-incident',{reason,settlementReview},operationId);
    need(result.status==='cancelled','La incidencia sigue pendiente de revisión.');forget('prepare',operationId);forget('submitted-sale',operationId);prepared.delete(operationId);return receipt(result);},
@@ -263,7 +279,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    prepared.set(id,quote);return clone(quote);},
   localSaleTicket({operationId,payments}){
    const snapshot=localSnapshots.get(operationId);if(!snapshot)return null;
-   const local=prepared.get(operationId);need(!local?.localEstimate||Date.now()<local.quoteExpiresAt,'El cálculo sin conexión ha caducado. Vuelve al ticket y calcula de nuevo antes de cobrar.');
+   const local=prepared.get(operationId);need(!local?.localEstimate||!offlineAccessDenied&&Date.now()<local.quoteExpiresAt,'El cálculo sin conexión ha caducado. Vuelve al ticket y calcula de nuevo antes de cobrar.');
    need(snapshot.scope===scopeKey()&&session,'La caja del ticket ha cambiado.');
    need(payments.every(row=>row.method==='cash'||row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const commercial=commercialFromExpected(snapshot.expected),intent=snapshot.intent;
@@ -271,17 +287,18 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   },
   leaveLocalTicket(id){
    const snapshot=localSnapshots.get(id);
-   need(snapshot?.scope===scopeKey()&&prepared.has(id),'No se encuentra el ticket guardado de esta caja.');
+   const pending=saved().prepare;
+   need(snapshot?.scope===scopeKey()&&prepared.has(id)||pending?.scope===scopeKey()&&pending.id===id,'No se encuentra el ticket guardado de esta caja.');
    // The durable device journal owns this ticket now. Release only the browser
    // preparation pointer so an identical NEXT purchase receives another ID.
    forget('prepare',id);
-   if(activeDraft?.id===snapshot.intent.draftId)activeDraft=null;
+   if(snapshot&&activeDraft?.id===snapshot.intent.draftId)activeDraft=null;
   },
   async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
    const status=await call('sale-status',{},id);need(status.status==='ready','Este cobro ya se envió. Recupera su resultado antes de continuar.');}
    await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);localSnapshots.delete(id);},
   async pendingSale(){const data=saved(),scope=scopeKey();for(const kind of ['submitted-sale','prepare'])if(data[kind]?.scope===scope)return data[kind].id;
-   const rows=await call('history');return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
+   let rows;try{rows=await call('history');}catch(error){if(error?.code==='TPV_CONNECTION_UNAVAILABLE')return null;throw error;}return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
   async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
    need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
@@ -394,7 +411,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
   async stockReceipts(){return call('stock-receipts');},
   async barcodeOptions(settings){return call('barcode-options',settings===undefined?{}:{settings});},
-  async paymentOptions(settings){const scope=scopeKey(),data=await call('payment-options',settings===undefined?{}:{settings});need(scope===scopeKey(),'La caja ha cambiado.');cachedPaymentOptions={scope,readAt:Date.now(),data:clone(data)};return data;},
+  async paymentOptions(settings){const scope=scopeKey(),{data,readAt}=settings===undefined?await cachedRead('payment-options'):{data:await call('payment-options',{settings}),readAt:Date.now()};need(scope===scopeKey(),'La caja ha cambiado.');if(settings!==undefined)try{workstationCache.put('payment-options',canonical([selection(),selected.connectionRevision]),data);}catch{}cachedPaymentOptions={scope,readAt,data:clone(data)};return data;},
   async barcodeLabels(id,query={}){return call('barcode-labels',{query},id);},
   async barcodeJobs(){return call('barcodes');},
   async createBarcodeJob(){const id=await operation('barcode',{}),result=await call('barcode-create',{},id);forget('barcode',id);return result;},
