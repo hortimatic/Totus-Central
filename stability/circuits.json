@@ -507,6 +507,7 @@
         "tests/totustpv-sale-note-qa.mjs",
         "tests/totustpv-native-sale-note-qa.php",
         "tests/native-lab/sale-note-flow.mjs",
+        "tests/native-lab/sale-note-validator.php",
         "supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql",
         "tests/totustpv-receipt-line-discounts-qa.mjs",
         "tests/native-lab/price-history-change.php",

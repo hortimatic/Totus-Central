@@ -50,6 +50,7 @@ final class NativeSale
             ($saved['quote']['shop_id']??null)===$command['shop_id'] &&
             hash_equals($saved['quote_fingerprint']??'',$payload['quote_fingerprint']), 'SALE_QUOTE_MISMATCH');
         $quote=$saved['quote'];Protocol::ensure(($quote['commercial_only']??false)!==true,'SALE_COMMERCIAL_QUOTE_FORBIDDEN');if(!empty($owner['line_names'])||array_filter($quote['lines'],static fn($line)=>array_key_exists('display_name',$line)))NativeOrderLineNames::assertQuote($owner['line_names']??[],$quote['lines']);$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
+        NativeSaleNote::assertMessageCompatible($note);
         foreach ($payload['payments'] as $payment) {
             Protocol::ensure(is_array($payment) &&
                 array_diff(array_keys($payment),['method','amount_cents','received_cents'])===[] &&

@@ -21,6 +21,7 @@ await fs.cp('connectors/prestashop/src',path.join(moduleDir,'src'),{recursive:tr
 for(const file of ['totuscentralconnector.php','Webservice.php'])await fs.copyFile('connectors/prestashop/module/'+file,path.join(moduleDir,file));
 const php=path.resolve('artifacts/php82/php.exe'),ini=path.resolve('artifacts/native-lab/php.ini');
 const env={...process.env,OPENSSL_CONF:path.resolve('artifacts/php82/extras/ssl/openssl.cnf')};
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/sale-note-validator.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
 execFileSync(php,['-c',ini,'tests/native-lab/http-install.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 execFileSync(php,['-c',ini,'tests/native-lab/cart-quote.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const setup=execFileSync(php,['-c',ini,'tests/native-lab/http-setup.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});

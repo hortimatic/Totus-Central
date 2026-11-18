@@ -20,6 +20,14 @@ final class NativeSaleNote
         // PaymentModule uses empty(), which otherwise discards the valid text "0".
         return $note==='0'?"0\n":$note;
     }
+    public static function assertMessageCompatible($value): ?string
+    {
+        $note=self::normalize($value);
+        // PaymentModule validates the private Message after starting the order.
+        // Apply its actual validator before preparing a cart or committing a sale.
+        Protocol::ensure($note===null||\Validate::isCleanHtml($note),'SALE_NOTE_INVALID');
+        return $note;
+    }
     public static function verifyOrder($order,$value,string $fingerprint): void
     {
         $note=self::normalize($value);

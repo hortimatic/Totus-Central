@@ -79,7 +79,7 @@ final class NativeOwnedCarts
             (!array_key_exists('allow_out_of_stock',$p)||is_bool($p['allow_out_of_stock'])) &&
             Protocol::uuid($p['session_id']??null) && Protocol::uuid($p['drawer_id']??null),'CART_PREPARE_INVALID');
         Protocol::ensure(!array_key_exists('commercial_only',$p)||is_bool($p['commercial_only']),'CART_COMMERCIAL_MODE_INVALID');$commercial=($p['commercial_only']??false)===true;if($commercial)Protocol::ensure(self::supportsCommercialQuotes(),'CART_COMMERCIAL_STORAGE_REQUIRED');
-        $note=array_key_exists('sale_note',$p)?NativeSaleNote::normalize($p['sale_note']):null;Protocol::ensure(!array_key_exists('sale_note',$p)||is_string($p['sale_note'])&&$note!==null&&$note===$p['sale_note'],'SALE_NOTE_INVALID');
+        $note=array_key_exists('sale_note',$p)?NativeSaleNote::assertMessageCompatible($p['sale_note']):null;Protocol::ensure(!array_key_exists('sale_note',$p)||is_string($p['sale_note'])&&$note!==null&&$note===$p['sale_note'],'SALE_NOTE_INVALID');
         foreach (['customer_id','invoice_address_id','delivery_address_id'] as $key)Protocol::ensure(is_int($p[$key]??null)&&$p[$key]>0,'CART_NATIVE_IDENTITY_INVALID');
         Protocol::ensure(is_array($p['lines']??null) && array_is_list($p['lines']) && count($p['lines'])>0 && count($p['lines'])<=200,'CART_LINES_INVALID');
         $lineNames=array_filter($p['lines'],static fn($line)=>is_array($line)&&array_key_exists('display_name',$line))?NativeOrderLineNames::fromLines($p['lines']):[];
