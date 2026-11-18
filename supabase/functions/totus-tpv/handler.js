@@ -80,10 +80,11 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
-     'billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+     'central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
+    'central-cash-context':['action'],'central-cash-read':['action','selection','section','query'],
     'billing-context':['action'],'billing-list':['action','selection','query'],
     'billing-document':['action','selection','operationId','kind','refundId'],
     'update-workstation-access':['action','selection','operationId','revision','operatorId','assignmentRevision','permissions','active'],
@@ -119,6 +120,16 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'cancel-refund':['action','selection','operationId']};
    need(Object.keys(input).every(key=>permitted[input.action].includes(key)),'TPV_REQUEST_FIELD_FORBIDDEN');
    if(input.action==='budget-create')input.payload=budgetDraft(input.payload);
+   if(input.action==='central-cash-context'){
+    const result=check(await scoped.rpc('totus_tpv_central_cash_context'));
+    need(result?.actorId===user.id&&Array.isArray(result.sources),'TPV_CENTRAL_CASH_FORBIDDEN');return respond(result);
+   }
+   if(input.action==='central-cash-read'){
+    need(input.selection&&typeof input.selection==='object'&&!Array.isArray(input.selection)&&
+     (input.query===undefined||input.query&&typeof input.query==='object'&&!Array.isArray(input.query))&&
+     (input.section===undefined||['sessions','session','sales','refunds','movements'].includes(input.section)),'TPV_CENTRAL_CASH_QUERY_INVALID');
+    return respond(check(await scoped.rpc('totus_tpv_central_cash_read',{p_selection:input.selection,p_section:input.section??'sessions',p_query:input.query??{}})));
+   }
    if(input.action.startsWith('billing-')){
     const billingContext=async()=>{const ctx=check(await scoped.rpc('totus_tpv_billing_context'));
      need(ctx?.actorId===user.id&&Array.isArray(ctx.sources),'TPV_BILLING_FORBIDDEN');return ctx;};

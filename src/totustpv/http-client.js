@@ -1,4 +1,8 @@
 const messages={
+ TPV_CENTRAL_CASH_FORBIDDEN:'Necesitas permiso de consulta de Cajas para ver estas sesiones del TPV.',
+ TPV_CENTRAL_CASH_CONTEXT_STALE:'La conexión del establecimiento ha cambiado. Actualiza la consulta de Cajas.',
+ TPV_CENTRAL_CASH_QUERY_INVALID:'Revisa el establecimiento, la caja y los filtros de la consulta.',
+ TPV_CENTRAL_CASH_SESSION_NOT_FOUND:'Esta sesión de caja no está disponible en el establecimiento seleccionado.',
  TPV_BILLING_FORBIDDEN:'Necesitas permiso de lectura de Facturación para consultar estos documentos.',
  TPV_BILLING_CONTEXT_STALE:'El acceso al establecimiento ha cambiado. Vuelve a abrir Facturas del TPV.',
  TPV_BILLING_QUERY_INVALID:'Selecciona un establecimiento y una venta para consultar su factura.',

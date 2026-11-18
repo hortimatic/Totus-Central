@@ -20,3 +20,9 @@ test('numbers remain numbers and literal contents retain quotes, newlines and ac
  assert.equal(csvCell('Texto "útil";\nsegunda línea'),'"Texto ""útil"";\nsegunda línea"');
  assert.equal(csvCell(null),'""');
 });
+
+test('Spanish cash exports preserve negative numeric amounts and guard textual formulas',()=>{
+ const data=csv([{amount:-1.05,reason:'=2+2'}],[{label:'Importe',get:r=>r.amount},{label:'Motivo',get:r=>r.reason}],{decimalComma:true});
+ assert.equal(data,'"Importe";"Motivo"\n"-1,05";"\'=2+2"');
+ assert.equal(csv([{amount:-1.05}],[{label:'Importe',get:r=>r.amount}]),'"Importe"\n"-1.05"');
+});

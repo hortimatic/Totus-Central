@@ -203,10 +203,12 @@ function readClosingSource(row){
 }
 export function cajas(){
  const view=getView('cajas');
+ const tabs=`<div class="tabs module-tabs"><button class="tab ${view.section!=='tpv'?'active':''}" data-action="closing-section" data-section="business">Cierres del negocio</button><button class="tab ${view.section==='tpv'?'active':''}" data-action="closing-section" data-section="tpv">Sesiones del TPV</button></div>`;
  if(view.mode==='record'){
    const row=view.id?state.data.closings.find(x=>x.id===view.id):null;
    return closingRecordHtml(row);
  }
+ if(view.section==='tpv')return `<div class="page">${tabs}<div data-central-cash-root></div></div>`;
  const f=getFilters('cajas');
  const rows=state.data.closings.filter(x=>inRange(x.business_date,f.from,f.to)&&(f.store==='all'||x.store_id===f.store)&&matchesText(f.query,x.notes,storeName(x.store_id),x.status,acceptedClosing(x)?'conciliado aceptado':x.entry_mode==='source_snapshot'?'por conciliar':x.status==='borrador'?'borrador por terminar':'cerrado'));
  const total=sum(rows,row=>Number(row.card_sales||0));
@@ -227,6 +229,7 @@ export function cajas(){
   {label:'Acciones',html:r=>`<button type="button" class="btn secondary mobile-row-toggle" data-action="toggle-closing-breakdown" aria-expanded="false">Ver desglose</button><div class="inline-actions">${r.entry_mode==='source_snapshot'&&!acceptedClosing(r)?btn('Conciliar','closing-reconcile-source','primary',`data-id="${r.id}"`):''}${btn(r.entry_mode==='source_snapshot'?'Ver detalle':r.status==='borrador'?'Continuar':'Ver detalle','closing-edit','secondary',`data-id="${r.id}"`)}${btn('Eliminar','closing-delete','danger',`data-id="${r.id}"`)}</div>`}
  ];
  return `<div class="page closing-list-page">
+  ${tabs}
   <div class="kpis closing-kpis">${kpi('Tarjeta registrada',money(total),'El total fiscal se consulta en Fiscalidad',{compactHelp:true})}${kpi('Salidas en metálico',money(withdrawals),'Retiradas de las cajas · filtros aplicados',{compactHelp:true})}${kpi('Registros',String(rows.length))}${kpi('Borradores',String(drafts))}${kpi('Descuadres',String(mismatches),historical.length?historical.length+' históricos pendientes de conciliación':mismatches?'Revisar antes de cerrar':'Sin incidencias',{compactHelp:true})}</div>
   <section class="card table-card">
    <div class="section-head card-pad"><div><h2>Cierres de caja</h2><p>${historical.length?'Hay '+historical.length+' registros históricos pendientes de conciliación de caja. Fiscalidad conserva las referencias mensuales registradas. Conciliar comprueba el desglose de caja y no duplica esos ingresos.':'Histórico completo. Abre un cierre para ver o editar su ficha.'}</p></div><div class="inline-actions">${btn('Exportar','export-closings-current','secondary')}${btn('+ Nuevo cierre','closing-new','primary')}</div></div>

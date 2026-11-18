@@ -23,6 +23,7 @@ import {createCentralTpvAdapter} from './totustpv/central-adapter.js';
 import {createTpvConfigurationReader} from './totustpv/configuration-reader.js';
 import {createTpvHttpClient} from './totustpv/http-client.js';
 import {createTpvBillingUI} from './totustpv/billing-ui.js';
+import {createCentralCashUI} from './totustpv/central-cash-ui.js';
 import {SUPABASE_URL as TPV_SUPABASE_URL,SUPABASE_KEY as TPV_SUPABASE_KEY} from './config.js';
 import {createTpvSetupReader} from './totustpv/setup-reader.js';
 import {personalInterfaceSettings,acceptPersonalInterface} from './interface-preferences.js';
@@ -89,6 +90,7 @@ let chatUnread=0,pendingChatTarget=null,pendingTaskSource=null,pendingTaskDate=n
 const businessWriter=createBusinessWriter({rpc});
 const mobileNavigation=createMobileNavigation();
 const tpvBillingUI=createTpvBillingUI({actor:()=>state.user?.id,client:tpvClient});
+const centralCashUI=createCentralCashUI({actor:()=>state.user?.id,client:tpvClient,canExport:()=>can('cajas','export'),canBilling:()=>can('facturacion','view'),onBilling:openTpvBilling});
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
@@ -102,8 +104,9 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  receiptNumbering:(drawer,settings=null)=>rpc('totus_tpv_receipt_series',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  canCustomer:action=>can('clientes',action),
- canBilling:()=>can('facturacion','view'),onBilling:async target=>{const owner=state.user?.id;await navigateModule('facturacion');
-  if(state.user?.id===owner&&state.route==='facturacion'){setView('facturacion',{mode:'list',section:'tpv',tpvDocument:target});render();}},
+ canBilling:()=>can('facturacion','view'),onBilling:openTpvBilling,
+ canCentralCash:()=>can('cajas','view'),onCash:async target=>{const owner=state.user?.id;await navigateModule('cajas',null,()=>{
+  if(state.user?.id===owner)setView('cajas',{mode:'list',id:null,section:'tpv',tpvSession:target});});},
  canStock:()=>can('productos','edit')&&can('totustpv','create'),
  canCreateProduct:()=>can('productos','view')&&can('productos','create')&&can('totustpv','create'),
  canReadCost:()=>can('productos','view'),
@@ -114,6 +117,8 @@ async function invokeTotusTpv(body){
  return tpvClient(state.user?.id)(body);
 }
 function tpvClient(owner){return createTpvHttpClient({auth:sb.auth,owner,currentActor:()=>state.user?.id,url:TPV_SUPABASE_URL,key:TPV_SUPABASE_KEY});}
+async function openTpvBilling(target){const owner=state.user?.id;await navigateModule('facturacion',null,()=>{
+ if(state.user?.id===owner)setView('facturacion',{mode:'list',section:'tpv',tpvDocument:target});});}
 // A delayed preview belongs to the account and rendered page that requested it.
 function activeActor(){
  const owner=JSON.stringify([state.session?.user?.id,state.user?.email]);
@@ -335,7 +340,7 @@ function render(){
  setHeader(eye,title);
  const renderer=renderers[state.route]||renderers.inicio;
  activityLog.navigate(state.route==='totustpv'?'ventas':state.route==='cotejos'?'recepciones':['configuracion','prestashop','productos','automatizaciones','apis'].includes(state.route)?'administracion':state.route,state.route==='totustpv'?'tpv':state.route==='administracion'?getView('administracion').section||'usuarios':['configuracion','automatizaciones','apis'].includes(state.route)?state.route:'');
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();centralCashUI.dispose();
  draftPreviewResizeObserver?.disconnect();
  const openStorageDetails=state.route==='administracion'&&getView('administracion').section==='storage'?[...document.querySelectorAll('#content details[open][data-storage-detail]')].map(el=>el.dataset.storageDetail):[];
  const maintenance=isStoragePanelVisible()?'':oneDriveCredentialNotice({compact:true});
@@ -371,6 +376,7 @@ function render(){
  }
  if(['clientes','proveedores','marcas'].includes(state.route)||state.route==='facturacion'&&$('[data-directory-root]'))void directoryUI.mount($('[data-directory-root]'));
  if(state.route==='facturacion'&&$('[data-tpv-billing-root]'))void tpvBillingUI.mount($('[data-tpv-billing-root]'),getView('facturacion').tpvDocument||null);
+ if(state.route==='cajas'&&$('[data-central-cash-root]'))void centralCashUI.mount($('[data-central-cash-root]'),getView('cajas').tpvSession||null);
  if(state.route==='automatizaciones')void automationsUI.mount($('#automationsRoot'));
  if(state.route==='configuracion')appearanceUI.mount($('#appearanceRoot'));
  if(state.route==='apis')void apiManager.mount($('[data-api-manager]'));
@@ -530,7 +536,7 @@ async function navigateModule(route,el=null,prepare=null){
  const current=()=>sessionViewOwner()===owner&&generation===refreshGeneration&&state.route===route;
  setRoute(route);mobileNavigation.close(false);state.loading=true;renderNav();
  history.replaceState(moduleNavigationState(location.href,route,{...history.state,totusModuleNavigation:true}),'',moduleUrl(location.href,route));
- teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();
+ teamChat.dispose();tasks.dispose();appearanceUI.dispose();apiManager.dispose();prestashopUI.dispose();salesUI.dispose();recurringExpensesUI.dispose();productosUI.dispose();directoryUI.dispose();automationsUI.dispose();totusTpvUI.dispose();tpvBillingUI.dispose();centralCashUI.dispose();
  const [eye,title]=titles[route]||['Totus Central',''];setHeader(eye,title);
  $('#content').inert=true;$('#content').setAttribute('aria-busy','true');
  try{
@@ -2903,6 +2909,7 @@ document.addEventListener('click',async e=>{
   if(a==='closing-save-close'){await saveClosing(el.dataset.id||'',val('clSaveStatus')||'cerrado');return}
   if(a==='closing-reopen'){await reopenClosing(el.dataset.id);return}
   if(a==='closing-back'){resetView('cajas');render();return}
+  if(a==='closing-section'){setView('cajas',{mode:'list',id:null,section:el.dataset.section==='tpv'?'tpv':'business',tpvSession:null});render();return}
   if(a==='export-closings-current'){await ensureExcel();if(!isCurrentLibraryActor())return;exportCurrentModule('cajas');return}
   if(a==='closing-delete'){await deleteClosing(el.dataset.id);return}
   if(a==='expense-suppliers-search'){patchFilters('gastos',{supplierQuery:val('expenseSuppliersQuery').trim(),supplierShowInactive:!!input('expenseSuppliersInactive')?.checked});render();return}
@@ -3379,7 +3386,7 @@ function clearSessionView(){
  mobileNavigation.reset();
  $('#content').inert=false;$('#content').removeAttribute('aria-busy');
  ++refreshGeneration;++auditUiGeneration;++storageUiGeneration;auditRequest=null;storageRequest=null;storagePanelRequest=null;invalidateAuditReads();resetStorageUsageSession();state.user=null;resetSessionData();setRolePermissions([]);
- chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();tpvBillingUI.dispose();totusTpvUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
+ chatPreferenceTransport.reset();loginAppearanceGeneration++;appearanceUI.dispose();apiManager.dispose();productosUI.dispose();centralCashUI.dispose();tpvBillingUI.dispose();totusTpvUI.dispose();directoryUI.reset();applyInterfaceAppearance(null);void loadPublicLoginAppearance();
  activityLog.reset();clearStartupTiming();accountUI.stop();headerTools.stop();chatNotifier.stop();pendingChatTarget=null;chatUnread=0;teamChat.reset();tasks.reset();pendingTaskSource=null;pendingTaskDate=null;
  closeModal();$('#content').innerHTML='';$('#userCard').textContent='';$('#nav').innerHTML='';$('#toastHost').innerHTML='';
  $('#app').classList.add('hidden');$('#login').classList.remove('hidden');

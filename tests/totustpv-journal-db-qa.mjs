@@ -7,6 +7,7 @@ import {createNativeRequestService} from '../src/totustpv/server/native-request-
 import {createStockReceiptService} from '../src/totustpv/server/stock-receipt-service.js';
 import {productIntakeDraft,productIntakeBase,productIntakePlan} from '../src/totustpv/product-intake-contract.js';
 import {exerciseBudgetLedger} from './native-lab/budget-ledger-assertions.mjs';
+import {exerciseCentralCashLedger} from './native-lab/central-cash-ledger-assertions.mjs';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const scope={actorId:id(5),connectionId:id(1),connectionRevision:1,storeId:id(2),shopId:1,
@@ -86,6 +87,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117191716_totustpv_commercial_budgets.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -735,4 +737,5 @@ try {
  await denied(()=>db.query('delete from private.totus_tpv_product_intakes'),/permission denied/);
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
+ await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

@@ -5,7 +5,8 @@ try{await fs.mkdir('qa-artifacts',{recursive:true});for(const width of [1440,390
  const page=await browser.newPage({viewport:{width,height:950},acceptDownloads:true}),errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto('http://127.0.0.1:4173/tests/totustpv-billing.html');
  await page.evaluate(async()=>{
-  const {createTpvBillingUI}=await import('/src/totustpv/billing-ui.js');window.fixture={actor:'account',calls:[],wait:false};const f=fixture;
+  const {createTpvBillingUI}=await import('/src/totustpv/billing-ui.js');window.fixture={actor:'account',calls:[],wait:false,downloads:[]};const f=fixture;
+  document.addEventListener('totus-download-prepared',event=>f.downloads.push(event.detail.format));
   const row={id:'sale',orderId:420,createdAt:'2026-11-17T23:00:00Z',totalCents:1210,currency:'EUR',drawerName:'Mostrador',operatorName:'Vendedor de pruebas',refundCents:100,refunds:[{id:'refund',totalCents:100}]};
   f.ui=createTpvBillingUI({actor:()=>f.actor,client:()=>async body=>{
    f.calls.push(body);if(f.wait){await new Promise(resolve=>f.resolve=resolve);f.wait=false;}
@@ -28,6 +29,7 @@ try{await fs.mkdir('qa-artifacts',{recursive:true});for(const width of [1440,390
   const download=page.waitForEvent('download');await page.getByRole('button',{name,exact:true}).click();assert.match((await download).suggestedFilename(),/^(Factura|Abono)-pedido-420\.pdf$/);
   await page.getByText('Documento preparado para descargar.',{exact:true}).waitFor();
  }
+ assert.deepEqual(await page.evaluate(()=>fixture.downloads),['pdf','pdf']);
  await page.getByRole('button',{name:'← Volver a las ventas',exact:true}).click();
  await page.evaluate(()=>{fixture.wait=true;});await page.getByRole('button',{name:'Ver factura',exact:true}).click();
  await page.evaluate(()=>{fixture.actor='other-account';fixture.resolve();});

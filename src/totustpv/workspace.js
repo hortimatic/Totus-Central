@@ -37,7 +37,7 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  * No code in this browser module can import the privileged checkout adapters.
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
- onConfigure=null,canConfigure=()=>false,onBilling=null,canBilling=()=>false,readSetup=null,createLiveAdapter=null,
+ onConfigure=null,canConfigure=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,drawerManagement=()=>null,workspacePreferences=null,receiptNumbering=null,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
  let scanQueue=[],scanning=false,mobilePane='catalogue';
@@ -60,7 +60,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  const canSell=()=>can('create')&&stationPermission('canSell'),canManageCash=()=>can('create')&&stationPermission('canOpen'),
   canReceiveStock=()=>canStock()&&stationPermission('canSell');
  const receiptDelivery=createReceiptDelivery({getDocument:args=>adapter.document(args),print:printReceipt});
- const reports=createCashReportsPanel({adapter:()=>adapter,capturePrintContext:()=>{const run=generation,operator=identity();return()=>run===generation&&operator===identity()&&allowed();}});
+ const reports=createCashReportsPanel({adapter:()=>adapter,canOpenCentral:()=>live()&&!!onCash&&canCentralCash(),capturePrintContext:()=>{const run=generation,operator=identity();return()=>run===generation&&operator===identity()&&allowed();}});
  const stockIntake=createStockIntake({adapter:()=>adapter,canEdit:canReceiveStock});
  const productIntake=createProductIntakePanel({adapter:()=>adapter,canCreate:()=>live()&&!!session&&canSell()&&canCreateProduct()&&!payment&&!returnForm&&receipt?.status!=='uncertain',
   canRead:()=>live()&&(canReadCost()||canCreateProduct())&&stationPermission('canReconcile'),
@@ -337,6 +337,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(target.dataset.tpvStockRun)return work(async()=>{await stockIntake.run(target.dataset.tpvStockRun);await reloadProducts();notice='Entrada de mercancía verificada.';});
   if(target.dataset.tpvStockCancel)return work(()=>stockIntake.cancel(target.dataset.tpvStockCancel));
   if(target.dataset.tpvStockRemove){if(canReceiveStock()){stockIntake.remove(target.dataset.tpvStockRemove);render();}return;}
+  if(target.dataset.tpvReportAction==='central'&&live()&&onCash&&canCentralCash())return work(async()=>{
+   if(hasDraft())throw Error('Aparca o termina el ticket y los cambios pendientes antes de abrir Cajas.');
+   const drawer=context?.drawers.find(row=>row.id===(session?.drawerId||selectedDrawer)),sessionId=reports.selectedSession();
+   if(!drawer?.connectionId||!drawer.shopId||!sessionId)throw Error('Selecciona el informe de caja antes de abrirlo en Central.');
+   await onCash({connectionId:drawer.connectionId,shopId:drawer.shopId,sessionId});
+  });
   if(target.dataset.tpvReportAction)return work(()=>{reports.click(target);if(target.dataset.tpvReportAction==='close')tab='sale';});
   if(action==='reports'&&live())return work(async()=>{if(customers.hasDraft())throw Error('Termina o descarta la edición del cliente antes de consultar informes.');
    customers.reset();tab='reports';if(!session){const storeId=host.querySelector('[data-tpv-store]').value,

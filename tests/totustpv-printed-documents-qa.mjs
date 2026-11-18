@@ -4,6 +4,7 @@ import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
 import {prepareTpvPrintHtml,receiptHtml,TOTUS_PRINTER_PROFILE} from '../src/totustpv/documents.js';
 import {cashReportHtml} from '../src/totustpv/cash-reports.js';
+import {centralCashPrintHtml} from '../src/totustpv/central-cash-ui.js';
 import {budgetDocumentHtml} from '../src/totustpv/budget-document.js';
 import {receiptLogoUrl,receiptWebsiteUrl} from '../src/totustpv/receipt-options.js';
 const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',ticket_number:{kind:'sale',number:46631,prefix:'V-',label:'V-46631'},created_at:'2026-11-16 12:00:00',
@@ -33,7 +34,7 @@ try{const page=await browser.newPage({viewport:{width:220,height:900}});await mk
  await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
  await page.evaluate(async()=>{window.fitPrint=(await import('/src/totustpv/documents.js')).fitTpvPrintPage;});
  assert.deepEqual([TOTUS_PRINTER_PROFILE.paperMm,TOTUS_PRINTER_PROFILE.printableMm],[58,48]);
- for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],['budget',budgetDocumentHtml(budget)],['receipt-item-prices',receiptHtml(itemPrices,priceOptions)],
+ for(const [kind,html] of [['receipt',receiptHtml(document)],['gift',receiptHtml({...document,kind:'gift'})],['cash-report',cashReportHtml(report)],['central-cash-summary',centralCashPrintHtml(report)],['budget',budgetDocumentHtml(budget)],['receipt-item-prices',receiptHtml(itemPrices,priceOptions)],
   ['receipt-custom',receiptHtml(document,{title:'Gracias por tu compra',fontFamily:'monospace',fontSize:16,footer:'Hasta pronto\n<img src=x onerror=alert(1)>',showReferences:false,showPayments:false,showOrderReference:false,numberLines:true})],
   ['receipt-logo',receiptHtml(withLogo)],['gift-logo',receiptHtml({...withLogo,kind:'gift'})],
   ['receipt-customer',receiptHtml({...document,customer},customerOptions)],['gift-customer',receiptHtml({...document,customer,kind:'gift'},customerOptions)]]){

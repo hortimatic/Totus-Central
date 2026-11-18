@@ -1,13 +1,12 @@
-import {esc} from '../utils.js';
+import {esc,download} from '../utils.js';
 const amount=(cents,currency='EUR')=>new Intl.NumberFormat('es-ES',{style:'currency',currency}).format(cents/100);
 const date=value=>new Date(value).toLocaleString('es-ES');
 /** Existing native documents, through the same authenticated Central session.
  * This view has no issue/save/payment/recovery commands. */
 export function createTpvBillingUI({actor,client}){
- let root=null,owner=null,generation=0,call=null,sources=[],selected=null,items=[],cursor=null,previous=[],query='',detail=null,busy=false,message='',pdfUrl=null;
+ let root=null,owner=null,generation=0,call=null,sources=[],selected=null,items=[],cursor=null,previous=[],query='',detail=null,busy=false,message='';
  const valid=stamp=>root?.isConnected&&owner===actor()&&stamp===generation;
  const selection=()=>({connectionId:selected.connectionId,shopId:selected.shopId});
- const releasePdf=()=>{if(pdfUrl)URL.revokeObjectURL(pdfUrl);pdfUrl=null;};
  function render(){
   if(!valid(generation))return;
   root.innerHTML='<section class="card tpv-billing"><header class="section-head card-pad"><div><h2>Facturas del TPV</h2><p>Documentos emitidos en las ventas de mostrador.</p></div><span class="badge info">Pruebas</span></header>'+
@@ -48,16 +47,16 @@ export function createTpvBillingUI({actor,client}){
   dispose();root=target;if(!root)return;owner=actor();call=client(owner);const stamp=generation;
   root.onsubmit=event=>{if(!event.target.matches('[data-billing-search]'))return;event.preventDefault();const value=root.querySelector('[data-billing-query]').value.trim();
    void run(async token=>{query=value;previous=[];await load(token);});};
-  root.onchange=event=>{if(event.target.matches('[data-billing-source]')){const row=sources[Number(event.target.value)];if(!row)return;void run(async token=>{selected=row;query='';previous=[];items=[];cursor=null;detail=null;releasePdf();await load(token);});}};
+  root.onchange=event=>{if(event.target.matches('[data-billing-source]')){const row=sources[Number(event.target.value)];if(!row)return;void run(async token=>{selected=row;query='';previous=[];items=[];cursor=null;detail=null;await load(token);});}};
   root.onclick=event=>{const button=event.target.closest('button');if(!button||busy)return;
-   if(button.hasAttribute('data-billing-open'))void run(async token=>{const value=await call({action:'billing-document',selection:selection(),operationId:button.dataset.billingOpen,kind:'billing'});if(valid(token)){detail=value;releasePdf();}});
-   if(button.hasAttribute('data-billing-back')){detail=null;releasePdf();render();}
+   if(button.hasAttribute('data-billing-open'))void run(async token=>{const value=await call({action:'billing-document',selection:selection(),operationId:button.dataset.billingOpen,kind:'billing'});if(valid(token))detail=value;});
+   if(button.hasAttribute('data-billing-back')){detail=null;render();}
    if(button.hasAttribute('data-billing-next')&&cursor){const next=cursor;void run(async token=>{await load(token,next);if(valid(token))previous.push(next);});}
    if(button.hasAttribute('data-billing-prev')&&previous.length){const back=previous.length>1?previous[previous.length-2]:null;void run(async token=>{await load(token,back);if(valid(token))previous.pop();});}
    if(button.hasAttribute('data-billing-pdf')&&detail){const saleId=detail.sale.id,kind=button.dataset.billingPdf,refundId=button.dataset.billingRefund;
     void run(async token=>{const doc=await call({action:'billing-document',selection:selection(),operationId:saleId,kind,...(refundId?{refundId}:{})});if(!valid(token))return;
-     releasePdf();const bytes=Uint8Array.from(atob(doc.base64),c=>c.charCodeAt(0));pdfUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-     const link=document.createElement('a');link.href=pdfUrl;link.download=(kind==='invoice'?'Factura':'Abono')+'-pedido-'+doc.orderId+'.pdf';link.click();message='Documento preparado para descargar.';});}
+     const bytes=Uint8Array.from(atob(doc.base64),c=>c.charCodeAt(0));
+     download(new Blob([bytes],{type:'application/pdf'}),(kind==='invoice'?'Factura':'Abono')+'-pedido-'+doc.orderId+'.pdf');message='Documento preparado para descargar.';});}
   };
   busy=true;render();try{const ctx=await call({action:'billing-context'});if(!valid(stamp))return;sources=ctx.sources;
    selected=initial?sources.find(row=>row.connectionId===initial.connectionId&&row.shopId===initial.shopId)??null:sources[0]??null;
@@ -67,6 +66,6 @@ export function createTpvBillingUI({actor,client}){
    }}}
   catch(error){if(valid(stamp))message=error.message;}finally{if(valid(stamp)){busy=false;render();}}
  }
- function dispose(){generation++;releasePdf();if(root)root.onclick=root.onchange=root.onsubmit=null;root=null;owner=null;call=null;sources=[];selected=null;items=[];cursor=null;previous=[];query='';detail=null;busy=false;message='';}
+ function dispose(){generation++;if(root)root.onclick=root.onchange=root.onsubmit=null;root=null;owner=null;call=null;sources=[];selected=null;items=[];cursor=null;previous=[];query='';detail=null;busy=false;message='';}
  return {mount,dispose};
 }
