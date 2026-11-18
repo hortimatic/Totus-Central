@@ -4,7 +4,7 @@
     {
       "id": "totustpv-central-cash",
       "paths": ["src/app.js", "src/pages/main.js", "src/styles.css", "src/utils.js", "tests/csv-cell-qa.mjs", "src/totustpv/central-cash", "src/totustpv/cash-reports.js", "src/totustpv/workspace.js", "supabase/functions/totus-tpv/", "supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql", "tests/totustpv-central-cash", "tests/native-lab/central-cash"],
-      "tests": ["tests/totustpv-journal-db-qa.mjs", "tests/totustpv-central-cash-qa.mjs", "tests/totustpv-central-cash-browser-qa.mjs", "tests/totustpv-central-cash-app-browser-qa.mjs", "tests/totustpv-printed-documents-qa.mjs", "tests/csv-cell-qa.mjs", "tests/agent-delivery-qa.mjs"],
+      "tests": ["tests/totustpv-journal-db-qa.mjs", "tests/totustpv-central-cash-qa.mjs", "tests/totustpv-central-cash-browser-qa.mjs", "tests/totustpv-central-cash-app-browser-qa.mjs", "tests/totustpv-printed-documents-qa.mjs", "tests/csv-cell-qa.mjs", "tests/agent-delivery-qa.mjs", "tests/stitch-design-browser-qa.mjs"],
       "invariants": ["Cajas reads the existing Central cash, payment and refund journals without creating duplicate daily closings or income", "current Cajas view permission and immutable source/store/drawer/session scope are required without a cashier assignment", "disabled website connections do not erase authorized Central cash history or cause native shop requests", "unconfirmed financial operations are visible for review but excluded from settled balances", "session and detail pagination and CSV exports do not silently truncate records", "QA cash sessions remain excluded from commercial fiscal totals and late responses cannot cross accounts"]
     },
     {

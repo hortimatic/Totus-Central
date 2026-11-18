@@ -4,11 +4,22 @@ import fs from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {clickModuleLink} from './ui-navigation.mjs';
 import {APPEARANCE_PRESETS} from '../src/appearance-core.js';
+import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer();
 const browser=await chromium.launch({headless:true,...(process.env.TOTUS_BROWSER_CHANNEL?{channel:process.env.TOTUS_BROWSER_CHANNEL}:{})}),page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],views=[];
 let stored={config:APPEARANCE_PRESETS.stitch,revision:0};
 page.on('pageerror',error=>errors.push(error.message));
 try{
  await fs.mkdir('artifacts/stitch-complete',{recursive:true});
+ // Newly integrated read-only module tabs stay inside the synthetic service.
+ await page.route('**/functions/v1/totus-tpv',async route=>{
+  const request=route.request(),headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type','Access-Control-Allow-Methods':'POST,OPTIONS'};
+  if(request.method()==='OPTIONS')return route.fulfill({status:204,headers});
+  const input=request.postDataJSON();assert.equal(request.headers().authorization,'Bearer qa-sandbox');
+  assert.ok(['central-cash-context','billing-context','context'].includes(input.action),'Layout checks cannot issue TPV writes');
+  const result=input.action==='context'?{actorId:'cccccccc-cccc-4ccc-cccc-cccccccccccc',workstations:[]}:{sources:[]};
+  return route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify(result)});
+ });
  await page.exposeFunction('__saveStitchPreference',args=>{
   assert.equal(args.p_expected_revision,stored.revision);
   stored={config:args.p_config,revision:stored.revision+1};return {data:stored,error:null};
@@ -59,7 +70,10 @@ try{
     const visible=await page.locator('#content').evaluate(e=>({client:e.clientWidth,scroll:e.scrollWidth}));
     if(visible.scroll>visible.client+2)console.log('Overflow elements',route,width,await page.locator('#content *').evaluateAll(es=>es.filter(e=>{let r=e.getBoundingClientRect();return r.width&&r.right>innerWidth+2&&getComputedStyle(e).visibility!=='hidden';}).slice(0,12).map(e=>({tag:e.tagName,class:e.className,right:e.getBoundingClientRect().right,text:e.textContent.slice(0,60)}))));
     assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),route);
-    if(route==='cajas')assert(await page.locator('.closing-kpis .kpi').first().locator('strong').evaluate(e=>e.getBoundingClientRect().height<35),'The amount and currency symbol stay on one line');
+    if(route==='cajas'&&section?.section==='tpv'){
+     await page.locator('[data-central-cash-root] .tpv-central-cash').waitFor();
+     assert.equal(await page.locator('.closing-kpis').count(),0,'TPV sessions have their own panel; business closing metrics belong to their tab');
+    }else if(route==='cajas')assert(await page.locator('.closing-kpis .kpi').first().locator('strong').evaluate(e=>e.getBoundingClientRect().height<35),'The amount and currency symbol stay on one line');
     await page.screenshot({path:'artifacts/stitch-complete/'+route+'-'+(section?.section||'principal')+'-'+width+'.png',fullPage:true});
     assert(visible.scroll<=visible.client+2,route+' '+width+' content overflow '+JSON.stringify(visible));
     views.push({route,section:section?.section||'principal',width});
@@ -84,4 +98,4 @@ try{
  assert.equal(await page.locator('#nav [aria-current=page]').getAttribute('data-route'),'informes','An explicit link overrides the startup preference');
  assert.deepEqual(errors,[]);await fs.writeFile('artifacts/stitch-complete/views.json',JSON.stringify(views,null,2));
  console.log('STITCH: '+views.length+' module/subtab/width views, all navigation icons, personal preset save and reload OK.');
-}finally{await browser.close();}
+}finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve));}
