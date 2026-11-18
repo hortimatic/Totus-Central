@@ -4,7 +4,7 @@ import {exerciseNativeBudgetBrowser} from './commercial-budget-browser.mjs';
 /** Real Central handler, migrated SQL and native commercial cart/quote HTTP.
  * First saves without cash; then explicitly converts, sells and refunds one
  * separate ordinary checkout. Everything stays in the local laboratory. */
-export async function exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss}){
+export async function exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss,simulateBudgetCreateFailure,simulateBudgetCreateRace}){
  const {sessionId,...closedSelection}=selection,id=randomUUID(),payload={lines:[{productId:fixture.productId,attributeId:0,qty:10000}],title:'Oferta de mostrador',publicNote:'Válido durante 30 días',validDays:30};
  const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
  const inspect=async(sql,args=[])=>{await db.exec('reset role');return db.query(sql,args);};
@@ -29,6 +29,29 @@ export async function exerciseCommercialBudget({handle,call,selection,fixture,db
  assert.equal((await sessions()).rows[0].n,0);assert.equal((await inspect('select count(*)::int n from private.totus_tpv_operations')).rows[0].n,0);
  assert.equal(paths.filter(row=>row.method==='POST').length,posts);assert.equal(paths.filter(row=>row.path==='/api/totus_tpv_sales').length,0);
  console.log('PASS commercial budget: closed cash desk → actual native calculation → durable commercial snapshot, 10000 units without reservation, immutable identity/recovery without a second POST, browser amount rejection, no cash session/order/payment/stock change. Local laboratory only.');
+ if(process.argv.includes('--budget-expiry')){
+  const pendingId=randomUUID(),request={action:'budget-create',selection:closedSelection,operationId:pendingId,payload};
+  const beforePosts=paths.filter(row=>row.method==='POST').length;simulateBudgetCreateFailure();
+  assert.equal((await raw(request)).result.error,'TPV_BUDGET_STORAGE_UNAVAILABLE');
+  assert.equal((await inspect('select count(*)::int n from private.totus_tpv_budgets where id=$1',[pendingId])).rows[0].n,0);
+  assert.equal(paths.filter(row=>row.method==='POST').length,beforePosts+2);
+  console.log('Waiting for the actual native commercial calculation to expire (122 seconds); no mocked clock or quote timestamps.');
+  await new Promise(resolve=>setTimeout(resolve,122000));
+  const renewed=await call(request);assert.equal(renewed.id,pendingId);assert.equal(renewed.status,'saved');
+  const afterPosts=paths.filter(row=>row.method==='POST').length;assert.equal(afterPosts,beforePosts+3,'Only the non-financial quote is renewed; no second cart');
+  assert.deepEqual(await call(request),renewed);assert.equal(paths.filter(row=>row.method==='POST').length,afterPosts);
+  assert.equal((await inspect('select count(*)::int n from private.totus_tpv_budgets where id=$1',[pendingId])).rows[0].n,1);
+  assert.equal((await sessions()).rows[0].n,0);assert.equal(inspectCommercialCart(fixture.productId,0).stock,before.stock);
+  assert.equal(paths.filter(row=>row.path==='/api/totus_tpv_sales').length,0);
+  console.log('PASS expired budget preparation: failed durable save, real native quote expiry, renewed calculation on the same commercial cart and budget identity, exactly one budget, no cash/order/payment/stock mutation and repeat recovery without another POST.');
+ }
+ const raceId=randomUUID(),raceRequest={action:'budget-create',selection:closedSelection,operationId:raceId,payload};
+ simulateBudgetCreateRace();const raceSaved=await call(raceRequest);assert.equal(raceSaved.id,raceId);
+ const racePosts=paths.filter(row=>row.method==='POST').length;
+ assert.deepEqual(await call(raceRequest),raceSaved);assert.equal(paths.filter(row=>row.method==='POST').length,racePosts);
+ assert.equal((await inspect('select count(*)::int n from private.totus_tpv_budgets where id=$1',[raceId])).rows[0].n,1);
+ assert.equal((await sessions()).rows[0].n,0);assert.equal(inspectCommercialCart(fixture.productId,0).stock,before.stock);
+ console.log('PASS concurrent-budget outcome recovery: bound-result signal recovers the original saved document with its intent hash, one budget, no cash or stock mutation and no repeated native POST. Commit-race signal is injected after actual SQL persistence.');
  const saleBudgetId=randomUUID(),saleBudget=await call({action:'budget-create',selection:closedSelection,operationId:saleBudgetId,payload:{...payload,lines:[{productId:fixture.productId,attributeId:0,qty:1}]}});
  await call({action:'open',selection:closedSelection,operationId:sessionId,openingCents:10000});
  const opened=await call({action:'budget-open',selection,operationId:saleBudgetId,version:saleBudget.version});assert.equal(opened.draft.status,'claimed');

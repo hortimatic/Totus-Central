@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {budgetDraft} from '../src/totustpv/budget-contract.js';
-import {createCommercialBudgetService} from '../src/totustpv/server/commercial-budget-service.js';
+import {createCommercialBudgetService,budgetQuoteRefreshId} from '../src/totustpv/server/commercial-budget-service.js';
 import {nativeQuoteFingerprint} from '../src/totustpv/server/quote-contract.js';
 import {nativeStepId} from '../src/totustpv/server/native-request-service.js';
 test('commercial command identities never reuse financial cart or quote identities',async()=>{
@@ -12,6 +12,14 @@ test('commercial command identities never reuse financial cart or quote identiti
   assert.equal(commercial,await nativeStepId(id,step,'budget'));
  }
  await assert.rejects(nativeStepId(id,'cart','unknown'),/TPV_NATIVE_OPERATION_INVALID/);
+});
+test('commercial quote renewal IDs share a bounded retry window and stay outside financial identities',async()=>{
+ const id='abcdefab-1111-4111-8111-111111111111',renewed=await budgetQuoteRefreshId(id,120001);
+ assert.equal(renewed,await budgetQuoteRefreshId(id.toUpperCase(),239999));
+ assert.notEqual(renewed,await budgetQuoteRefreshId(id,240000));
+ assert.notEqual(renewed,await budgetQuoteRefreshId('11111111-1111-4111-8111-111111111111',120001));
+ for(const purpose of ['sale','budget'])for(const step of ['cart','quote'])assert.notEqual(renewed,await nativeStepId(id,step,purpose));
+ for(const now of [-1,NaN,1.5])await assert.rejects(budgetQuoteRefreshId(id,now),/TPV_BUDGET_REQUEST_INVALID/);
 });
 test('native fingerprint matches PHP for Unicode line separators',async()=>{
  assert.equal(await nativeQuoteFingerprint({text:'A\u2028B\u2029C'}),'d3e021c77b1614b2727a6e91755627a9d1502d4142f551e383f3d1aa62941ca0');

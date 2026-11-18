@@ -5,6 +5,12 @@ import {commercialFromNativeQuote} from './commercial-quote-contract.js';
 import {createNativeRequestService,nativeStepId} from './native-request-service.js';
 const need=(ok,code)=>{if(!ok)throw Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+export async function budgetQuoteRefreshId(operationId,now=Date.now()){
+ need(uuid(operationId)&&Number.isSafeInteger(now)&&now>=0,'TPV_BUDGET_REQUEST_INVALID');
+ const hash=await nativeQuoteFingerprint({purpose:'TotusTPV:budget:quote-refresh:1',operationId:operationId.toLowerCase(),window:Math.floor(now/120000)});
+ const hex=hash.slice(0,12)+'8'+hash.slice(13,16)+'a'+hash.slice(17,32);
+ return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
 /** Non-financial commercial workflow. Quotation identities are separate from
  * cash sessions; conversion will always prepare an ordinary payable cart. */
 export function createCommercialBudgetService({rpc,scope,transport,nativeProfile,authorizeCustomer=async()=>{throw Error('TPV_CUSTOMER_CONTEXT_INVALID');}}){
@@ -26,17 +32,30 @@ export function createCommercialBudgetService({rpc,scope,transport,nativeProfile
    }));
    const customerId=draft.customerId??nativeProfile.counter_customer_id,invoiceAddressId=draft.invoiceAddressId??nativeProfile.counter_address_id,deliveryAddressId=draft.deliveryAddressId??invoiceAddressId;
    if(customerId!==nativeProfile.counter_customer_id)await authorizeCustomer();
-   const native=createNativeRequestService({rpc,transport,scope:commercialScope}),cartOperationId=await nativeStepId(operationId,'cart','budget'),quoteOperationId=await nativeStepId(operationId,'quote','budget');
+   const native=createNativeRequestService({rpc,transport,scope:commercialScope}),cartOperationId=await nativeStepId(operationId,'cart','budget');let quoteOperationId=await nativeStepId(operationId,'quote','budget');
    const verified=record=>{need(record?.status==='verified'&&record.result?.verified===true,'TPV_NATIVE_RESULT_UNCERTAIN');return record.result;};
    const cart=verified(await native.execute({operationId:cartOperationId,command:'cart.prepare',payload:{session_id:commercialScope.sessionId,drawer_id:scope.drawerId,customer_id:customerId,invoice_address_id:invoiceAddressId,delivery_address_id:deliveryAddressId,commercial_only:true,
     lines:draft.lines.map(line=>({product_id:line.productId,attribute_id:line.attributeId,quantity:line.qty,...(line.discount?{discount:line.discount}:{}),...(line.displayName?{display_name:line.displayName}:{})})),...(draft.adjustment?{adjustment:draft.adjustment}:{}),...(draft.coupon?{coupon:draft.coupon}:{}),...(draft.note?{sale_note:draft.note}:{})}}));
    need(cart.commercial_only===true,'TPV_NATIVE_COMMERCIAL_QUOTE_UNAVAILABLE');
-   const quoted=verified(await native.execute({operationId:quoteOperationId,command:'cart.quote',payload:{cart_id:cart.cart_id,commercial_only:true}}));
+   const quote=()=>native.execute({operationId:quoteOperationId,command:'cart.quote',payload:{cart_id:cart.cart_id,commercial_only:true}});
+   let quoted=verified(await quote());
+   // A prepared quote may outlive the failed Central save. Renew only this
+   // non-financial calculation, keeping the commercial cart and budget ID.
+   // Concurrent retries in the same window share one durable quote command.
+   if(Number.isSafeInteger(quoted.quoted_at)&&quoted.quoted_at+120000<=Date.now()){
+    quoteOperationId=await budgetQuoteRefreshId(operationId);quoted=verified(await quote());
+   }
    need((quoted.quote?.sale_note_hash??undefined)===await saleNoteHash(draft.note),'TPV_NATIVE_SALE_NOTE_MISMATCH');
    const commercial=await commercialFromNativeQuote({scope:commercialScope,ownedCart:{...commercialScope,commercialOnly:true,cartId:cart.cart_id,customerId,counterCustomerId:nativeProfile.counter_customer_id,invoiceAddressId,deliveryAddressId,currencyId:nativeProfile.currency_id,languageId:nativeProfile.language_id,carrierId:nativeProfile.carrier_id},profile:{...commercialScope,verified:true,nativeVersion:'8.2.8',quoteLifetimeMs:120000},response:quoted});
    need(commercial.snapshot.merchant,'TPV_BUDGET_DOCUMENT_INVALID');
    const payload={lines:draft.lines.map(line=>{const item=commercial.snapshot.lines.find(item=>item.productId===line.productId&&item.attributeId===line.attributeId);need(item,'TPV_BUDGET_SNAPSHOT_INVALID');return {...line,label:item.name,originalLabel:item.catalogueName};}),customerId,invoiceAddressId,deliveryAddressId,...(draft.adjustment?{adjustment:draft.adjustment}:{}),...(draft.coupon?{coupon:draft.coupon}:{}),...(draft.note?{note:draft.note}:{})};
-   return stored('create',operationId,{intentHash,payload,snapshot:commercial.snapshot,cartOperationId,quoteOperationId,calculationExpiresAt:commercial.calculationExpiresAt,title:draft.title,publicNote:draft.publicNote,validDays:draft.validDays},commercialScope);
+   try{return await stored('create',operationId,{intentHash,payload,snapshot:commercial.snapshot,cartOperationId,quoteOperationId,calculationExpiresAt:commercial.calculationExpiresAt,title:draft.title,publicNote:draft.publicNote,validDays:draft.validDays},commercialScope);}
+   catch(error){
+    // A concurrent retry crossing a renewal window can win with a different
+    // valid quote. Return only the original document bound to this same intent.
+    if(error.message==='TPV_BUDGET_ALREADY_BOUND'){const saved=await stored('recover',operationId,{intentHash},commercialScope);if(saved)return saved;}
+    throw error;
+   }
   }
  });
 }

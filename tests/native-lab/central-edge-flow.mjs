@@ -27,7 +27,7 @@ import {exerciseNativeCentralCashBrowser} from './central-cash-browser.mjs';
 export async function exerciseCentralEdge({fixture,profile,base,focus='complete',simulateCartAckLoss,simulateCataloguePriceChange,inspectCommercialCart}){
  const db=new PGlite(),actor=randomUUID(),store=randomUUID(),drawer=randomUUID(),session=randomUUID(),
   connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';let nativePosts=0,cartOptions=null,dropProductReply=false,dropProductAck=null;const paths=[];
- let dropBudgetConfirm=false;
+ let dropBudgetConfirm=false,dropBudgetCreate=false,raceBudgetCreate=false;
  try{
   await db.exec(`create schema private;create schema auth;create role anon;create role authenticated;create role service_role;
    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -97,10 +97,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:fixture.key}};
    if(name==='totus_api_call')return {data:{ok:true}};
    if(name==='totus_tpv_journal'&&args.p_action==='confirm'&&dropBudgetConfirm){dropBudgetConfirm=false;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
+   if(name==='totus_tpv_budgets'&&args.p_action==='create'&&dropBudgetCreate){dropBudgetCreate=false;return {error:{message:'TPV_BUDGET_STORAGE_UNAVAILABLE'}};}
    assert.ok(Object.hasOwn(argsByRpc,name),'Unexpected RPC '+name);
    await db.exec('reset role');await db.exec('set role '+(key==='fixture-secret'?'service_role':'authenticated'));
    try{const keys=argsByRpc[name],values=keys.map(k=>args[k]!==null&&typeof args[k]==='object'?JSON.stringify(args[k]):args[k]);
-    return {data:(await db.query(`select public.${name}(${keys.map((_,i)=>'$'+(i+1)).join(',')}) result`,values)).rows[0].result};
+    const data=(await db.query(`select public.${name}(${keys.map((_,i)=>'$'+(i+1)).join(',')}) result`,values)).rows[0].result;
+    if(name==='totus_tpv_budgets'&&args.p_action==='create'&&raceBudgetCreate){raceBudgetCreate=false;return {error:{message:'TPV_BUDGET_ALREADY_BOUND'}};}
+    return {data};
    }catch(error){if(name==='totus_directory_operation')console.log('Local directory SQL diagnostic:',error.message);return {error:{message:error.message}};}
   }});
   const preferences=async(drawer,value)=>{
@@ -148,7 +151,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   const call=async(body)=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',
    headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));
    const result=await response.json();assert.equal(response.status,200,JSON.stringify({result,cartOptions}));return result;};
-  if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;}});
+  if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(['stock-policy','line-price','sale-note','line-name'].includes(focus)){
    const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
