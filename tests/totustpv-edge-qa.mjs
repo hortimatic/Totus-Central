@@ -40,7 +40,7 @@ function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:'fictional-key-not-valid-at-any-shop'}};
    if(name==='totus_api_call')return {data:{ok:true}};
    if(name==='totus_tpv_orders')return reportDenied?{error:{message:'TPV_ACTION_FORBIDDEN'}}:{data:args.p_order_id&&args.p_order_id!==42?[]:
-    [{id:actor,status:'confirmed',scope:{actorId:actor},operatorName:'Cajero original',orderId:42,createdAt:'2026-11-17T12:00:00Z',drawerName:'Caja ficticia',totalCents:150,lines:[],refunds:[],private_marker:'must not escape'}]};
+    [{id:actor,status:'confirmed',scope:{actorId:actor},expected:{totalCents:150,totalTaxExclCents:124},operatorName:'Cajero original',orderId:42,createdAt:'2026-11-17T12:00:00Z',drawerName:'Caja ficticia',totalCents:150,lines:[],refunds:[],private_marker:'must not escape'}]};
    throw Error('Unexpected RPC '+name);
   }};
  };
@@ -112,8 +112,11 @@ test('receipt operator and website come from the authorized journal and connecti
  const f=fixture({nativeRows:[],nativeDocument:{kind:'receipt',operator_name:'Forged operator',merchant_origin:'https://unrelated.invalid',ticket_number:{kind:'sale',prefix:'FAKE',number:999,label:'FAKE999'}}});
  const result=await f.call({action:'document',operationId:actor,selection:orderLookup.selection,kind:'receipt'});
  assert.equal(result.status,200);assert.equal(result.body.operator_name,'Cajero original');assert.equal(result.body.merchant_origin,'https://preproduccion.hortimatic.com');
+ assert.equal(result.body.total_tax_excl_cents,124);
+ const gift=await f.call({action:'document',operationId:actor,selection:orderLookup.selection,kind:'gift'});
+ assert.equal(gift.status,200);assert.equal(Object.hasOwn(gift.body,'total_tax_excl_cents'),false);
  assert.equal(result.body.ticket_number,null);const numbering=f.calls.find(row=>row.name==='totus_tpv_receipt_number');assert.equal(numbering.args.p_operation,actor);assert.equal(numbering.args.p_kind,'sale');assert.equal(numbering.key,'fixture-server-only');
- assert.equal(f.nativeRequests.length,1);assert.equal(new URL(f.nativeRequests[0].url).searchParams.get('actor_id'),actor);
+ assert.equal(f.nativeRequests.length,2);assert.equal(new URL(f.nativeRequests[0].url).searchParams.get('actor_id'),actor);
 });
 test('reference lookup reads native IDs then returns only the matching authorized Central sale',async()=>{
  const f=fixture({noSession:true,nativeRows:[{id:'42',reference:'ABCDEFGHI',id_shop:'1'}]});

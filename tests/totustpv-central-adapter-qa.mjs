@@ -1,6 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCentralTpvAdapter,orderLookupInput,catalogueVariantAttributes} from '../src/totustpv/central-adapter.js';
+
+test('fresh recovery preserves sealed tax totals even when the recovery result contains only the order identity',async()=>{
+ const requests=[],values=new Map();let base=662;
+ const station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};
+ const adapter=createCentralTpvAdapter({actorId:'operator',storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:async body=>{
+  requests.push(body.action);
+  if(body.action==='context')return {actorId:'operator',workstations:[station]};
+  if(body.action==='open')return {id:body.operationId,status:'open'};
+  if(body.action==='sale-status')return {id:body.operationId,status:'uncertain',totalCents:801,totalTaxExclCents:base};
+  if(body.action==='recover')return {id:body.operationId,status:'confirmed',orderId:42};
+  throw Error('Unexpected '+body.action);
+ }});
+ await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});
+ const result=await adapter.recover({operationId:'sale'});assert.equal(result.totalCents,801);assert.equal(result.totalTaxExclCents,662);
+ base=802;await assert.rejects(adapter.recover({operationId:'sale'}),{code:'TPV_TAX_SUMMARY_INVALID'});
+ assert.equal(requests.includes('submit'),false);assert.equal(requests.includes('prepare'),false);
+});
 test('expired parked preparation releases only the unsubmitted binding before a new explicit calculation',async()=>{
  const values=new Map(),requests=[],station={environment:'qa',connectionId:'connection',shopId:1,storeId:'store',drawerId:'drawer',canSell:true,canOpen:true,canReconcile:true};let draft,expire=true;
  const adapter=createCentralTpvAdapter({actorId:'operator',storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:async body=>{
@@ -55,9 +72,9 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
  const invoke=async body=>{requests.push(structuredClone(body));switch(body.action){
   case 'context':return {actorId:actor,workstations:[station]};
   case 'open':return {id:body.operationId,status:'open'};
-  case 'prepare':return {id:body.operationId,status:'ready',expected:{totalCents:801,nativePaymentLabels:{bizum:'Bizum',card:'Tarjeta',cash:'Efectivo',transfer:'Transferencia'}},scope:{currency:'EUR'},quoteExpiresAt:Date.now()+120000};
+  case 'prepare':return {id:body.operationId,status:'ready',expected:{totalCents:801,totalTaxExclCents:662,nativePaymentLabels:{bizum:'Bizum',card:'Tarjeta',cash:'Efectivo',transfer:'Transferencia'}},scope:{currency:'EUR'},quoteExpiresAt:Date.now()+120000};
   case 'submit':dispatches++;throw Error('Lost reply');
-  case 'sale-status':return {id:body.operationId,status:'confirmed',orderId:42,totalCents:801};
+  case 'sale-status':return {id:body.operationId,status:'confirmed',orderId:42,totalCents:801,totalTaxExclCents:662};
   case 'history':return [];
   case 'orders':return [{id:'sale-fixture',status:'confirmed',orderId:42,totalCents:150}];
   case 'cash-movement':if(movementLost)throw Error('Lost reply');return {expectedCashCents:9900,payments:{cash:801,card:200}};
@@ -80,12 +97,12 @@ test('the real adapter projects explicit workstation rights and rejects missing 
 test('lost submit is recovered by server status, never resent or reconstructed from browser prices',async()=>{
  const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:10000});
  const quote=await adapter.quote({lines:[{productId:'12:3',qty:2,discount:{kind:'percent',value:1000}}]});
- assert.deepEqual(quote.paymentMethods,['cash','card','bizum','transfer']);
+ assert.deepEqual(quote.paymentMethods,['cash','card','bizum','transfer']);assert.equal(quote.totalTaxExclCents,662);
  const result=await adapter.submit({operationId:quote.id,payments:[{method:'cash',amountCents:801,receivedCents:1000}]});
  assert.equal(result.status,'uncertain');assert.equal(result.changeCents,199);assert.equal(f.dispatches(),1);
  assert.equal(await adapter.pendingSale(),quote.id,'Reload can discover the bound sale without storing customer or payment details');
  await assert.rejects(adapter.quote({lines:[{productId:'12:3',qty:3}]}),/pendiente de recuperar/);
- assert.equal((await adapter.recover({operationId:quote.id})).orderId,42);assert.equal(f.dispatches(),1);
+ const recovered=await adapter.recover({operationId:quote.id});assert.equal(recovered.orderId,42);assert.equal(recovered.totalTaxExclCents,662);assert.equal(f.dispatches(),1);
  assert.equal(await adapter.pendingSale(),null,'Verified recovery releases the pending pointer');
  const request=f.requests.find(row=>row.action==='prepare');assert.deepEqual(request.lines,[{productId:12,attributeId:3,qty:2,discount:{kind:'percent',value:1000}}]);
  assert.equal(Object.hasOwn(request,'totalCents'),false);

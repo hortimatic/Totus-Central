@@ -97,6 +97,8 @@ try{
  for(const key of ['showAfterSale','printAfterSale','showCustomer','showCustomerPhone','showCustomerEmail','showAddressComment','showDeliveryAddress','showCustomerCompany'])await page.locator(`[name=receipt-${key}]`).check();
  assert.match(await page.locator('.tpv-receipt-preview').innerText(),/Cliente de ejemplo[\s\S]*cliente@ejemplo.invalid[\s\S]*Destinatario de ejemplo/);
  await page.locator('[name=layout]').selectOption('ticket');await page.locator('[name=returnToStart]').check();
+ await page.locator('[name=showTaxBreakdown]').check();assert.match(await page.locator('.tpv-receipt-preview').innerText(),/Base sin impuestos[\s\S]*7,44[\s\S]*Impuestos incluidos[\s\S]*1,56/);
+ await page.locator('[name=showTaxBreakdown]').uncheck();assert.doesNotMatch(await page.locator('.tpv-receipt-preview').innerText(),/Base sin impuestos/);await page.locator('[name=showTaxBreakdown]').check();
  await page.locator('[name=viewMode]').selectOption('list');await page.locator('[name=initialCategoryId]').selectOption('1');
  for(const key of ['showOriginalPrice','showLineDiscount','includeLineDiscountsInTotal'])await page.locator('[name=receipt-'+key+']').check();
  await page.getByRole('button',{name:'Guardar mostrador',exact:true}).click();await page.getByText('Mostrador guardado en tu cuenta.',{exact:true}).waitFor();
@@ -106,7 +108,7 @@ try{
   catalogue:{hideUnavailable:false,excludedCategories:[],extraDetails:false},
   stockPolicy:{allowOutOfStock:false},lineOptions:{allowPriceChanges:false,requireSaleNote:false,allowNameChanges:false},parking:{enabled:true,ttlDays:0},
   customerDisplay:{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23},
-  display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,requireQuantity:false,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
+  display:{showPrices:true,showStock:true,showReferences:true,beepOnAdd:false,ticketNewestFirst:false,returnToStart:true,requireQuantity:false,showTaxBreakdown:true,layout:'ticket',priceMode:'gross',variantOrder:'name:asc'},
   receipt:{title:'Justificante de compra',footer:'',fontFamily:'arial',fontSize:11,dateFormat:'native',showLogo:true,showBarcode:false,showUnitPrice:false,showLineTax:false,showOperator:false,showWebsite:false,showAfterSale:true,printAfterSale:true,showOrderReference:true,numberLines:false,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true,showReferences:true,showAddress:true,showPhone:true,showPayments:true,showDiscounts:true,showDate:true,showOriginalPrice:true,showLineDiscount:true,includeLineDiscountsInTotal:true}});
  await page.evaluate(()=>settingsFixture.workspace.mount(document.querySelector('#tpv')));await page.locator('.tpv-view-list').waitFor();
  assert.equal(await page.evaluate(()=>settingsFixture.queries.at(-1).categoryId),1);

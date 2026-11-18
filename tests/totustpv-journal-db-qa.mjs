@@ -89,8 +89,9 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118023253_totustpv_tax_summary.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
- check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
+ check(migratedQuantity.display_options,{requireQuantity:false,showTaxBreakdown:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
  await db.exec(`insert into private.totus_tpv_assignments(actor_id,connection_id,website_key,store_id,shop_id,drawer_id,can_sell,can_reconcile,can_open)
   values('${id(5)}','${id(1)}','test-store','${id(2)}',1,'${id(3)}',true,true,true);`);
@@ -391,6 +392,11 @@ try {
  for(const priceMode of ['gross','net'])check((await prefs(qaScope,{display:{priceMode}})).display.priceMode,priceMode);
  for(const priceMode of ['<script>',true,null,4,'none'])await denied(()=>prefs(qaScope,{display:{priceMode}}),/INVALID/);
  check((await prefs()).display.variantOrder,'name:asc');
+ check((await prefs()).display.showTaxBreakdown,false);
+ check((await prefs(qaScope,{display:{showTaxBreakdown:true}})).display.showTaxBreakdown,true);
+ check((await prefs(qaScope,{viewMode:'table'})).display.showTaxBreakdown,true);
+ for(const showTaxBreakdown of ['true',1,null,[],{}])await denied(()=>prefs(qaScope,{display:{showTaxBreakdown}}),/INVALID/);
+ check((await prefs(qaScope,{display:{showTaxBreakdown:false}})).display.showTaxBreakdown,false);
  check((await prefs()).display.requireQuantity,false);
  check((await prefs(qaScope,{display:{requireQuantity:true}})).display.requireQuantity,true);
  check((await prefs(qaScope,{viewMode:'table'})).display.requireQuantity,true);

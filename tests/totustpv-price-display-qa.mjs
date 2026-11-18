@@ -25,3 +25,14 @@ test('initial variant order has an explicit bounded contract independent of cata
  for(const value of [null,true,3,{},['stock:desc'],'cost:desc','stock']){assert.deepEqual(variantOrder(value),{field:'name',direction:'asc'});assert.equal(displayPreferences({variantOrder:value}).variantOrder,'name:asc');}
  assert.match(displayPreferencesHtml({variantOrder:'stock:desc'}),/value="stock:desc" selected/);
 });
+
+test('native tax summary is opt-in, preserves cents and never assumes a rate',async()=>{
+ const {taxSummary,taxSummaryHtml}=await import('../src/totustpv/tax-summary.js');
+ for(const [total,base] of [[801,662],[900,744],[12345,11000],[0,0],[100,100]])assert.deepEqual(taxSummary({totalCents:total,totalTaxExclCents:base}),{baseCents:base,taxCents:total-base,totalCents:total});
+ assert.equal(taxSummary({totalCents:801}),null);assert.equal(taxSummaryHtml({totalCents:801,totalTaxExclCents:662}), '');
+ assert.match(taxSummaryHtml({totalCents:801,totalTaxExclCents:662},true),/6,62/);
+ assert.match(taxSummaryHtml({totalCents:801},true),/no está disponible/);
+ for(const base of [-1,802,NaN,Infinity,'662',1.5,Number.MAX_SAFE_INTEGER])assert.throws(()=>taxSummary({totalCents:801,totalTaxExclCents:base}),{code:'TPV_TAX_SUMMARY_INVALID'});
+ assert.equal(displayPreferences().showTaxBreakdown,false);assert.equal(displayPreferencesFromForm(new Map([['showTaxBreakdown','on']])).showTaxBreakdown,true);
+ for(const value of ['true',1,null])assert.equal(displayPreferences({showTaxBreakdown:value}).showTaxBreakdown,false);
+});

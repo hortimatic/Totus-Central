@@ -268,7 +268,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    if(input.action==='sale-status'){
     await authorize({action:'reconcile'});
     const record=await ledger.get({scope,operationId:input.operationId});
-    return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,
+    return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,totalTaxExclCents:record.expected.totalTaxExclCents,
      currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,lines:record.expected.lines,
      paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels,method)),
      discountCents:record.expected.discountCents,
@@ -402,7 +402,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
     const document=await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind});
     return respond(['receipt','gift'].includes(input.kind)?{...document,ticket_number:check(await rpc('totus_tpv_receipt_number',{p_scope:scope,p_operation:sale.id,p_kind:'sale'})),merchant_logo_origin:TOTUS_QA_POLICY.origin,
-     merchant_origin:TOTUS_QA_POLICY.origin,operator_name:typeof sale.operatorName==='string'?sale.operatorName.slice(0,100):null}:document);
+     merchant_origin:TOTUS_QA_POLICY.origin,operator_name:typeof sale.operatorName==='string'?sale.operatorName.slice(0,100):null,
+     ...(input.kind==='receipt'?{total_tax_excl_cents:sale.expected.totalTaxExclCents}:{})}:document);
    }
    if(input.action==='catalogue'){
     need(input.sortField!=='cost'||row.canReadCosts===true,'TPV_COST_FORBIDDEN');

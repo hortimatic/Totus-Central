@@ -1,4 +1,5 @@
 const messages={
+ TPV_TAX_SUMMARY_INVALID:'No se ha podido verificar el desglose de impuestos. Conserva el ticket y recupera su cálculo antes de cobrar.',
  TPV_CENTRAL_CASH_FORBIDDEN:'Necesitas permiso de consulta de Cajas para ver estas sesiones del TPV.',
  TPV_CENTRAL_CASH_CONTEXT_STALE:'La conexión del establecimiento ha cambiado. Actualiza la consulta de Cajas.',
  TPV_CENTRAL_CASH_QUERY_INVALID:'Revisa el establecimiento, la caja y los filtros de la consulta.',

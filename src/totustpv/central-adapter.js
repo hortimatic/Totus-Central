@@ -5,6 +5,7 @@
 import {lineName} from './line-name.js';
 import {budgetDraft} from './budget-contract.js';
 import {saleNote} from './sale-note.js';
+import {taxSummary} from './tax-summary.js';
 import {parkingExpiry} from './parking-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
@@ -65,8 +66,12 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   const draft=value=>({...value,...parkingExpiry(value)});
   if(action==='drafts'){need(Array.isArray(result),'No se han podido consultar los tickets aparcados.');return result.map(draft);}
   return ['get-draft','park','claim-draft','release-draft','archive-draft'].includes(action)?draft(result):result;}
- const receipt=(row,extra={})=>({id:row.operationId||row.id,status:row.status,orderId:row.orderId,
-  reference:row.orderId?'Pedido #'+row.orderId:'Operación '+(row.operationId||row.id),totalCents:row.totalCents??prepared.get(row.operationId||row.id)?.totalCents??0,...extra});
+ const receipt=(row,extra={})=>{
+  const id=row.operationId||row.id,stored=prepared.get(id),base=row.totalTaxExclCents??stored?.totalTaxExclCents;
+  const result={id,status:row.status,orderId:row.orderId,reference:row.orderId?'Pedido #'+row.orderId:'Operación '+id,
+   totalCents:row.totalCents??stored?.totalCents??0,...(base===undefined?{}:{totalTaxExclCents:base}),...extra};
+  taxSummary(result);return result;
+ };
  const summary=row=>({...row,salesCents:Object.values(row.payments||{}).reduce((n,v)=>n+v,0),cashCents:row.payments?.cash||0,
   refundCashCents:row.refunds?.cash||row.refundPayments?.cash||0,unresolved:(row.unresolvedSales||row.pendingSales||0)+(row.pendingRefunds||0),
   differenceCents:row.countedCents==null?null:row.countedCents-row.expectedCashCents});
@@ -130,9 +135,10 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     throw error;
    }
    need(record.id===id&&record.status==='ready'&&Number.isSafeInteger(record.expected?.totalCents),'No se ha confirmado el cálculo nativo.');
+   taxSummary(record.expected);
    if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
    if(activeDraft)activeDraft={...activeDraft,version:record.expected.draftVersion,status:'checkout',checkoutId:id};
-   const quote={id,totalCents:record.expected.totalCents,currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
+   const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
     paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels||{cash:'',card:''},method)),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
    prepared.set(id,quote);return clone(quote);},
@@ -154,11 +160,13 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   },
   async recover({operationId}){const status=await call('sale-status',{},operationId);
    if(status.status==='ready'){
+    taxSummary(status);
     need(status.canSubmit!==false,'Este cobro lo preparó otro operador. No vuelvas a cobrarlo.');
     if(status.draftId)activeDraft=await call('get-draft',{draftId:status.draftId});
     prepared.set(operationId,status);return receipt(status,{payment:status,draft:activeDraft});}
    const result=['confirmed','cancelled'].includes(status.status)?status:await call('recover',{},operationId);
-   if(['confirmed','cancelled'].includes(result.status)){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}return receipt(result,{totalCents:status.totalCents});},
+   if(['confirmed','cancelled'].includes(result.status)){forget('prepare',operationId);forget('submitted-sale',operationId);activeDraft=null;}
+   return receipt(result,{totalCents:status.totalCents,...(status.totalTaxExclCents===undefined?{}:{totalTaxExclCents:status.totalTaxExclCents})});},
   async drafts(){return call('drafts');},
   async budgets(query={}){return call('budgets',{query});},
   async getBudget(id){return call('budget-get',{},id);},

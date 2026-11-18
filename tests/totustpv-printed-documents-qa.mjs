@@ -9,14 +9,18 @@ import {budgetDocumentHtml} from '../src/totustpv/budget-document.js';
 import {receiptLogoUrl,receiptWebsiteUrl} from '../src/totustpv/receipt-options.js';
 const document={existing_document:true,kind:'receipt',currency:'EUR',order_id:42,reference:'QA-42',ticket_number:{kind:'sale',number:46631,prefix:'V-',label:'V-46631'},created_at:'2026-11-16 12:00:00',
  merchant:{name:'Totus · laboratorio',address:'Calle de prueba',city:'Madrid'},lines:[{name:'Café ñandú <img src=x onerror=alert(1)>',reference:'REFERENCIA-LARGA-DE-PRUEBA-1234567890',quantity:1,line_cents:801}],
- payments:{bizum:801},total_cents:801,discount_cents:0};
+ payments:{bizum:801},total_cents:801,total_tax_excl_cents:662,discount_cents:0};
 const report={status:'closed',currency:'EUR',environment:'qa',sessionId:'00000000-0000-4000-8000-000000000001',storeName:'Tienda de prueba',drawerName:'Caja 1',
  openedAt:'2026-11-16T08:00:00Z',closedAt:'2026-11-16T12:00:00Z',generatedAt:'2026-11-16T12:01:00Z',openedByName:'Cajero QA',closedByName:'Cajero QA',
  openingCents:10000,expectedCashCents:9900,countedCents:9900,differenceCents:0,orderCount:1,refundCount:1,payments:{bizum:801},refunds:{bizum:801},
  movementCount:1,movements:[{kind:'cash-out',amountCents:100,reason:'Retirada de prueba <script>alert(1)</script>',recordedAt:'2026-11-16T11:00:00Z'}]};
+assert.doesNotMatch(receiptHtml(document),/Base sin impuestos|Impuestos incluidos/);
+assert.match(receiptHtml(document,{showTaxBreakdown:true}),/6,62/);
+assert.match(receiptHtml(document,{showTaxBreakdown:true}),/1,39/);
+assert.doesNotMatch(receiptHtml({...document,kind:'gift'},{showTaxBreakdown:true}),/Base sin impuestos|Impuestos incluidos|€/);
 const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
 const budget={reference:'P-000001',title:'Oferta comercial',storeName:'Tienda de prueba',status:'saved',createdAt:'2026-11-17T10:00:00Z',validUntil:'2026-12-17T10:00:00Z',publicNote:'Recogida en tienda',payload:{note:'PRIVATE NOTE NOT FOR PRINT'},snapshot:{currency:'EUR',totalCents:801,totalTaxExclCents:662,customer:null,merchant:{name:'Comercio ficticio',address:'Calle ficticia 1'},lines:[{name:'Artículo de presupuesto con nombre suficientemente largo para comprobar el ajuste de línea',qty:1,unitTaxInclMicros:8012100,lineTaxInclCents:801}]}};
-const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,line_discounts_complete:true,line_discount_cents:399,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,original_unit_tax_incl_micros:10000000,original_line_cents:2000,line_discount_cents:399,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOriginalPrice:true,showLineDiscount:true,showOperator:true,showWebsite:true,fontFamily:'monospace',fontSize:16};
+const itemPrices={...document,merchant_origin:'https://tienda.ejemplo.invalid',operator_name:'Operador <script> de prueba',total_cents:1601,total_tax_excl_cents:1323,line_discounts_complete:true,line_discount_cents:399,payments:{bizum:1601},lines:[{...document.lines[0],quantity:2,line_cents:1601,unit_tax_incl_micros:8006000,original_unit_tax_incl_micros:10000000,original_line_cents:2000,line_discount_cents:399,tax_cents:278}]},priceOptions={showUnitPrice:true,showLineTax:true,showOriginalPrice:true,showLineDiscount:true,showOperator:true,showWebsite:true,showTaxBreakdown:true,fontFamily:'monospace',fontSize:16};
 for(const url of ['javascript:alert(1)','https://tienda.invalid/path','https://tienda.invalid/?key=private','https://user:password@tienda.invalid'])assert.equal(receiptWebsiteUrl(url),null);
 assert.doesNotMatch(receiptHtml(itemPrices),/Te atendió|tienda\.ejemplo\.invalid/,'Merchant website and operator are opt-in');
 assert.match(receiptHtml(itemPrices,priceOptions),/Te atendió: Operador &lt;script&gt; de prueba/);
