@@ -463,6 +463,7 @@
         "tests/totustpv-cash-counting-qa.mjs",
         "tests/totustpv-cash-counting-browser-qa.mjs",
         "supabase/migrations/20261117093928_totustpv_cash_counting.sql",
+        "supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql",
         "tests/native-lab/cash-counting-browser.mjs",
         "tests/totustpv-category-contract-qa.mjs",
         "tests/totustpv-category-service-qa.mjs",
@@ -597,6 +598,7 @@
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
         "cash isolated by store drawer and session",
+        "Cashier cash reports include only the drawer whose reconciliation access was authorized, including explicit historical session queries",
         "uncertain remote order cannot be blindly resubmitted",
         "confirmation requires remote payment state lines and stock readback",
         "server-only PostgreSQL journal commits order confirmation and payment events atomically",

@@ -85,6 +85,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261117170825_totustpv_temporary_line_names.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117181754_totustpv_receipt_numbering.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117191716_totustpv_commercial_budgets.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -325,6 +326,8 @@ try {
  check(closedReport.status,'closed');check(closedReport.countedCents,10400);check(closedReport.differenceCents,0);check(closedReport.orderCount,1);
  check((await report({...draftScope,sessionId:undefined},draftScope.sessionId))[0].status,'closed');
  check((await report(draftScope,id(999))).length,0);
+ check((await report(draftScope)).every(row=>[draftScope.sessionId,historicalScope.sessionId].includes(row.sessionId)),true);
+ check((await report(draftScope,qaScope.sessionId)).length,0);
  await db.exec('set role authenticated');await denied(()=>report(draftScope),/permission denied/);await db.exec('reset role;set role service_role');
  await denied(()=>journal('get',id(255),{},historicalScope),/SCOPE_MISMATCH/);
  check((await configure({profile:{...profile,payment_labels:{...profile.payment_labels,bizum:'Bizum'}}})).configured,true);
