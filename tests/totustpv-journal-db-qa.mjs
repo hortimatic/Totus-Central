@@ -10,6 +10,7 @@ import {exerciseBudgetLedger} from './native-lab/budget-ledger-assertions.mjs';
 import {exerciseBarcodeCapture} from './native-lab/barcode-capture-assertions.mjs';
 import {exerciseBarcodeExecution} from './native-lab/barcode-execution-assertions.mjs';
 import {exerciseBarcodeSettings} from './native-lab/barcode-settings-assertions.mjs';
+import {exercisePaymentSettings} from './native-lab/payment-settings-assertions.mjs';
 import {exerciseCentralCashLedger} from './native-lab/central-cash-ledger-assertions.mjs';
 const db=new PGlite();
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -97,6 +98,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118035905_totustpv_barcode_capture.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118044052_totustpv_barcode_execution.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261118100416_totustpv_payment_settings.sql',import.meta.url),'utf8'));
  const migratedQuantity=(await db.query('select display_options,stock_policy from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)])).rows[0];
  check(migratedQuantity.display_options,{requireQuantity:false,showTaxBreakdown:false,showPrices:false,variantOrder:'price:desc'});check(migratedQuantity.stock_policy,{allowOutOfStock:true});
  await db.query('delete from private.totus_tpv_workspace_preferences where actor_id=$1',[id(9)]);
@@ -413,6 +415,7 @@ try {
  check((await prefs(qaScope,{viewMode:'table'})).display.variantOrder,'reference:desc');
  for(const variantOrder of [null,true,3,{},'stock','cost:desc','name;drop:asc'])await denied(()=>prefs(qaScope,{display:{variantOrder}}),/INVALID/);
  await exerciseBarcodeSettings({db,id,scope:qaScope,check,denied});
+ await exercisePaymentSettings({db,id,scope:qaScope,check,denied});
  await exerciseBarcodeCapture({db,id,scope:qaScope,check,denied});
  await exerciseBarcodeExecution({db,id,scope:qaScope,check,denied});
  check((await prefs()).stockPolicy,{allowOutOfStock:false});

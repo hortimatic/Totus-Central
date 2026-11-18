@@ -19,6 +19,7 @@ import {readBillingDocument} from '../../../src/totustpv/server/billing-service.
 import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
 import {lineName} from '../../../src/totustpv/line-name.js';
+import {paymentChoices,quotePaymentMethods} from '../../../src/totustpv/payment-options.js';
 import {saleNote,saleNoteHash} from '../../../src/totustpv/sale-note.js';
 import {nativeMicros} from '../../../src/totustpv/server/native-adapter.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
@@ -80,7 +81,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
     ['context','configure','workstations','update-workstation-access','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
-     'barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
+     'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
      'central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
@@ -112,6 +113,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'stock-receipt-get':['action','selection','operationId'],'stock-receipt-step':['action','selection','operationId'],
     'stock-receipt-cancel':['action','selection','operationId'],
     'barcode-labels':['action','selection','operationId','query'],
+    'payment-options':['action','selection','operationId','settings'],
     'barcode-options':['action','selection','operationId','settings'],barcodes:['action','selection','operationId'],
     'barcode-create':['action','selection','operationId'],'barcode-get':['action','selection','operationId','query'],
     'barcode-capture':['action','selection','operationId'],'barcode-confirm':['action','selection','operationId','accepted'],
@@ -237,7 +239,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
-    const readWithoutCash=['budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
+    const readWithoutCash=['payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
      'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
@@ -258,6 +260,11 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
     check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
    const barcodeAction=input.action==='barcodes'||input.action.startsWith('barcode-');
+   if(input.action==='payment-options'){
+    await authorize({action:'read'});
+    const saved=check(await scoped.rpc('totus_tpv_payment_options',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_options:input.settings??null}));
+    return respond({...saved,choices:paymentChoices(saved.options,(await selected()).row.nativeProfile.payment_labels)});
+   }
    if(input.action==='barcode-options'){
     await authorize({action:'read'});
     return respond(check(await scoped.rpc('totus_tpv_barcode_options',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_settings:input.settings??null})));
@@ -283,7 +290,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const record=await ledger.get({scope,operationId:input.operationId});
     return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,totalTaxExclCents:record.expected.totalTaxExclCents,
      currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,lines:record.expected.lines,
-     paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels,method)),
+     paymentMethods:quotePaymentMethods(record.expected),paymentLabels:record.expected.operatorPaymentPolicy?.labels||{},
      discountCents:record.expected.discountCents,
      canSubmit:record.scope.actorId===scope.actorId,draftId:record.expected.draftId,draftVersion:record.expected.draftVersion});
    }
@@ -453,9 +460,13 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await receipts.create(input.operationId,input.payload):input.action==='stock-receipt-step'?await receipts.advance(input.operationId):
      input.action==='stock-receipt-cancel'?await receipts.cancel(input.operationId):await receipts.get(input.operationId));
    }
-   const policy=async()=>{const fresh=(await selected()).row;return {enabled:true,revision:fresh.profileRevision,
+   const policy=async()=>{const fresh=(await selected()).row;
+    const saved=check(await scoped.rpc('totus_tpv_payment_options',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_options:null}));
+    need(Number.isSafeInteger(saved?.revision)&&saved.revision>=0,'TPV_PAYMENT_POLICY_INVALID');
+    const choices=paymentChoices(saved.options,fresh.nativeProfile.payment_labels);
+    return {enabled:true,revision:fresh.profileRevision,settingsRevision:saved.revision,drawerId:scope.drawerId,
     environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
-    modes:Object.fromEntries(Object.keys(fresh.nativeProfile.payment_labels).map(method=>[method,OPERATOR_PAYMENT_MODES[method]]))};};
+    methodOrder:choices.map(({id})=>id),modes:Object.fromEntries(choices.map(({id})=>[id,OPERATOR_PAYMENT_MODES[id]])),labels:Object.fromEntries(choices.map(({id,label})=>[id,label]))};};
    async function profile(){const fresh=(await selected()).row,p=fresh.nativeProfile;
     const currentStockPolicy=stockPolicy(check(await rpc('totus_tpv_stock_policy',{p_scope:scope})));
     const currentLineOptions=lineOptions(check(await rpc('totus_tpv_line_options',{p_scope:scope})));

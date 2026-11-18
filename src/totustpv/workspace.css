@@ -167,3 +167,9 @@
 .tpv-barcode-table{max-height:min(60vh,32rem);overflow:auto}.tpv-barcode-table thead th{position:sticky;top:0;background:var(--surface,#fff);z-index:1}
 .tpv-barcode-print{border-top:1px solid #dce3ec;padding-top:1rem;display:grid;gap:.8rem}.tpv-barcode-print label{display:grid;gap:.4rem}.tpv-barcode-print :is(select,input){padding:.65rem;border:1px solid #cbd5e1;border-radius:8px;font:inherit;max-width:100%}.tpv-barcode-print input{width:110px}
 .tpv-barcode-label-preview{overflow:auto;max-width:100%;padding:1rem;background:#f5f7fa;border-radius:12px}.tpv-barcode-label{display:flex;flex-direction:column;align-items:center;text-align:center;box-sizing:border-box;background:white;color:black;padding:2mm;gap:1mm;font:10px Arial,sans-serif}.tpv-barcode-label strong{font-size:10px}.tpv-barcode-label small{font-size:9px}.tpv-barcode-label code{font:9px monospace}.tpv-label-symbol svg{display:block;width:100%;height:100%}
+.totus-tpv .tpv-payment-settings > fieldset{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:16px;border:0;padding:0;margin:20px 0 12px;min-width:0}
+.totus-tpv .tpv-payment-settings > fieldset > fieldset{border:1px solid #dbe5f0;border-radius:14px;background:#f8faff;padding:16px;min-width:0;margin:0}
+.totus-tpv .tpv-payment-settings legend{font-weight:700;padding:0 6px;color:#183b61}
+.totus-tpv .tpv-payment-settings label{margin:8px 0;display:grid;gap:6px}
+.totus-tpv .tpv-payment-settings .tpv-check{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-weight:600}
+.totus-tpv .tpv-payment-settings > fieldset > button{grid-column:1/-1;justify-self:start;min-width:min(100%,240px)}

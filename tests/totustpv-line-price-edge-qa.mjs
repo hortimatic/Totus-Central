@@ -7,6 +7,7 @@ function fixture({enabled=false,requireSaleNote=false,capability={source:'native
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
  const factory=(url,key)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args)=>{calls.push({name,key,args});
   if(name==='totus_tpv_context')return {data:{actorId:actor,workstations:[row]}};
+  if(name==='totus_tpv_payment_options')return {data:{revision:0,options:{enabledMethods:['cash','card'],labels:{cash:'Efectivo',card:'Tarjeta'}}}};
   if(name==='totus_tpv_check')return {data:true};
   if(name==='totus_tpv_stock_policy')return {data:{allowOutOfStock:false}};
   if(name==='totus_tpv_line_options')return {data:{allowPriceChanges:enabled,requireSaleNote}};

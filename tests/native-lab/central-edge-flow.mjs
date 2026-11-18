@@ -1,4 +1,5 @@
 import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
+import {exercisePaymentSettingsBrowser} from './payment-settings-browser.mjs';
 import {exerciseNativeLineName} from './line-name-flow.mjs';
 import {exerciseDisabledStock} from './disabled-stock-flow.mjs';
 import {exerciseDisabledStockBrowser} from './disabled-stock-browser.mjs';
@@ -81,6 +82,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118035905_totustpv_barcode_capture.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118044052_totustpv_barcode_execution.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261118100416_totustpv_payment_settings.sql',import.meta.url),'utf8'));
   if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -99,6 +101,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
    totus_tpv_receipt_series:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_number:['p_scope','p_operation','p_kind'],totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
+   if(name==='totus_tpv_payment_options'){
+    assert.equal(key,'fixture-public');await db.exec('reset role;set role authenticated');
+    try{return {data:(await db.query('select public.totus_tpv_payment_options($1,$2,$3,$4::jsonb) result',[args.p_connection,args.p_shop,args.p_drawer,args.p_options===null?null:JSON.stringify(args.p_options)])).rows[0].result};}catch(error){return {error:{message:error.message}};}
+   }
    if(name==='totus_products_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}],websites:[{key:'qa-shop',connection_id:connection,origin:'https://preproduccion.hortimatic.com',status:'active',name:'QA local'}]}};}
    if(name==='totus_tpv_product_intake'&&args.p_action==='verified'&&args.p_data.stepKey===dropProductAck){dropProductAck=null;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
    if(name==='totus_directory_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}]}};}
@@ -166,6 +172,23 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
+  if(focus==='payments'){
+   const options=settings=>call({action:'payment-options',selection,operationId:randomUUID(),...(settings?{settings}:{})});
+   await options({enabledMethods:['card'],labels:{card:'Datáfono'}});
+   const prepare=async()=>{const operationId=randomUUID();return {operationId,result:await call({action:'prepare',selection,operationId,lines:[{productId:fixture.productId,attributeId:0,qty:1}]})};};
+   const first=await prepare();assert.deepEqual(Object.keys(first.result.expected.operatorPaymentPolicy.modes),['card']);
+   await options({enabledMethods:['card'],labels:{card:'Tarjeta en mostrador'}});
+   const request=prepared=>({action:'submit',selection,operationId:prepared.operationId,payments:{allocations:[{id:'card',method:'card',amountCents:prepared.result.expected.totalCents}],confirmation:{accepted:true,operationId:prepared.operationId,totalCents:prepared.result.expected.totalCents,currency:'EUR'}}});
+   const before=paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length;
+   const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(request(first))}));
+   assert.equal(response.status,400);assert.equal((await response.json()).error,'TPV_PAYMENT_POLICY_STALE');
+   assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,before);
+   const second=await prepare(),sold=await call(request(second));assert.equal(sold.status,'confirmed');
+   assert.equal((await call({action:'cash-summary',selection,operationId:randomUUID()})).expectedCashCents,10000);
+   console.log('PASS drawer payment policy: native quote, shared SQL settings, changed configuration refuses stale tender before native sale, fresh card-only sale confirmed and physical cash unchanged. Local HTTP only.');
+   await exercisePaymentSettingsBrowser({handle,actor,preferences});
+   return {focus,remoteShopTouched:false};
+  }
   if(focus==='disabled-stock'){
    await exerciseDisabledStock({call,handle,selection,fixture,paths,inspect:inspectDisabledStock});
    return await exerciseDisabledStockBrowser({handle,actor,fixture,selection,preferences,inspect:inspectDisabledStock,paths});

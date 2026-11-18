@@ -9,6 +9,15 @@ const expected={totalCents:801,operatorPaymentPolicy:{revision:1,modes:policy.mo
 const requested={allocations:[{id:'card-one',method:'card',amountCents:801}],
  confirmation:{operationId:id(6),totalCents:801,currency:'EUR',accepted:true}};
 const fixture=(overrides={})=>createOperatorPaymentVerifier({authorize:async()=>({...scope}),readPolicy:async()=>structuredClone(policy),...overrides});
+
+test('drawer payment changes invalidate previously prepared tender even if the method remains enabled',async()=>{
+ const current={...policy,settingsRevision:2,drawerId:scope.drawerId};
+ const prepared={...expected,operatorPaymentPolicy:{...current}};
+ await fixture({readPolicy:async()=>current}).verify({scope,operationId:id(6),expected:prepared,requested});
+ for(const patch of [{settingsRevision:3},{settingsRevision:undefined},{settingsRevision:-1},{drawerId:id(99)}])
+  await assert.rejects(fixture({readPolicy:async()=>({...current,...patch})}).verify({scope,operationId:id(6),expected:prepared,requested}),/POLICY_STALE/);
+ await assert.rejects(fixture({readPolicy:async()=>current}).verify({scope,operationId:id(6),expected,requested}),/POLICY_STALE/);
+});
 test('independent-terminal declaration is accepted without any bank/network adapter; physical cash stays unchanged',async()=>{
  const allocations=await fixture().verify({scope,operationId:id(6),expected,requested});
  assert.deepEqual(allocations,[{id:'card-one',method:'card',amountCents:801,status:'settled'}]);

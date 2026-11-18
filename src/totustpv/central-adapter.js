@@ -7,6 +7,7 @@ import {budgetDraft} from './budget-contract.js';
 import {saleNote} from './sale-note.js';
 import {taxSummary} from './tax-summary.js';
 import {parkingExpiry} from './parking-options.js';
+import {quotePaymentMethods} from './payment-options.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
@@ -139,7 +140,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
    if(activeDraft)activeDraft={...activeDraft,version:record.expected.draftVersion,status:'checkout',checkoutId:id};
    const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
-    paymentMethods:['cash','card','bizum','transfer'].filter(method=>Object.hasOwn(record.expected.nativePaymentLabels||{cash:'',card:''},method)),
+    paymentMethods:quotePaymentMethods(record.expected),
+    paymentLabels:clone(record.expected.operatorPaymentPolicy?.labels||{}),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
    prepared.set(id,quote);return clone(quote);},
   async discardQuote(id){const pending=saved()['submitted-sale'];if(pending?.scope===scopeKey()&&pending.id===id){
@@ -254,6 +256,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    id=await operation('stock',values),result=await call('stock-receive',values,id);if(result.status==='verified')forget('stock',id);return result;},
   async stockReceipts(){return call('stock-receipts');},
   async barcodeOptions(settings){return call('barcode-options',settings===undefined?{}:{settings});},
+  async paymentOptions(settings){return call('payment-options',settings===undefined?{}:{settings});},
   async barcodeLabels(id,query={}){return call('barcode-labels',{query},id);},
   async barcodeJobs(){return call('barcodes');},
   async createBarcodeJob(){const id=await operation('barcode',{}),result=await call('barcode-create',{},id);forget('barcode',id);return result;},

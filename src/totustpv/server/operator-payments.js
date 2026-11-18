@@ -33,6 +33,11 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
    policy.environment===scope.environment&&preparedPolicy.environment===scope.environment&&
    policy.connectionId===scope.connectionId&&policy.shopId===scope.shopId&&policy.storeId===scope.storeId&&
    policy.currency===scope.currency,'TPV_PAYMENT_POLICY_STALE');
+  if(policy.settingsRevision!==undefined||preparedPolicy.settingsRevision!==undefined){
+   need(Number.isSafeInteger(policy.settingsRevision)&&policy.settingsRevision>=0&&
+    policy.settingsRevision===preparedPolicy.settingsRevision&&policy.drawerId===scope.drawerId&&
+    preparedPolicy.drawerId===scope.drawerId,'TPV_PAYMENT_POLICY_STALE');
+  }
   need(new Set(requested.allocations.map(row=>row.method)).size===requested.allocations.length,
    'TPV_DUPLICATE_PAYMENT_METHOD');
   const accepted=requested.allocations.map(row=>{

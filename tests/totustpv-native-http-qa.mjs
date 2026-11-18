@@ -64,7 +64,9 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--central-barcodes-only')){
+ if(process.argv.includes('--payment-settings-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'payments'});
+ }else if(process.argv.includes('--central-barcodes-only')){
   process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/barcode-durable-provider.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024}));
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'barcodes',changeCurrentBarcode:async(id,expected,replacement)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-current-code.php',String(id),expected,replacement],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),setExternalBarcode:async item=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-external-code.php',String(item.product_id),String(item.attribute_id),item.code],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
  }else if(process.argv.includes('--barcodes-only')){
