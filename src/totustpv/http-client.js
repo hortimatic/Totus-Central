@@ -1,4 +1,12 @@
 const messages={
+ TPV_PAYMENT_REFERENCE_REQUIRED:'Añade la referencia de la operación del cobro antes de confirmar.',
+ TPV_PAYMENT_REFERENCE_INVALID:'Revisa la referencia de la operación. No introduzcas el número de tarjeta ni su código de seguridad.',
+ TPV_PAYMENT_REFERENCE_FORBIDDEN:'Este medio no admite referencias. Vuelve al ticket y calcula el cobro con la configuración actual.',
+ TPV_CASH_REFERENCE_FORBIDDEN:'El cobro en efectivo no necesita referencia. Vuelve al ticket y calcula de nuevo el cobro.',
+ TPV_PAYMENT_POLICY_STALE:'Los medios de cobro de esta caja han cambiado. Vuelve al ticket, calcula de nuevo y revisa el importe antes de confirmar.',
+ TPV_PAYMENT_METHOD_NOT_CONFIGURED:'Este medio de cobro ya no está disponible. Vuelve al ticket y calcula de nuevo para elegir uno habilitado.',
+ TPV_NATIVE_PAYMENT_REFERENCE_UNAVAILABLE:'La conexión de esta tienda todavía no permite guardar referencias de cobro. Pide al responsable que actualice el conector antes de continuar.',
+ TPV_NATIVE_PAYMENT_REFERENCE_MISMATCH:'No se ha podido verificar la referencia guardada en la tienda. No repitas el cobro ni la venta; recupera el resultado de esta misma operación y, si sigue pendiente, pide al responsable que la revise.',
  TPV_BARCODE_DISABLED:'Activa la generación de códigos en su configuración antes de preparar la lista.',
  TPV_BARCODE_FORBIDDEN:'Necesitas permiso de Productos para realizar esta acción en la tienda seleccionada.',
  TPV_BARCODE_ALREADY_ACTIVE:'Ya hay un trabajo de códigos en curso. Selecciónalo en Trabajos guardados para continuar.',
