@@ -14,6 +14,7 @@ export async function exercisePaymentReference({call,handle,selection,fixture,db
  const recovered=await call({action:'recover',selection,operationId:id});assert.equal(recovered.status,'confirmed');assert.equal(posts(),before+1);
  await call(request('CHANGED-REFERENCE'));assert.equal(posts(),before+1);
  await db.exec('reset role');const saved=(await db.query('select payments from private.totus_tpv_operations where id=$1',[id])).rows[0];assert.equal(saved.payments[0].reference,reference);
+ const returnable=await call({action:'returnable',selection,operationId:randomUUID(),saleId:id});assert.deepEqual(returnable.originalPaymentReferences,{card:reference});assert.equal(posts(),before+1);
  const document=await call({action:'document',selection,operationId:id,kind:'receipt'});assert.equal(document.payment_intent[0].external_reference,reference);
  const gift=await call({action:'document',selection,operationId:id,kind:'gift'});assert.equal(Object.hasOwn(gift,'payment_intent'),false);
  assert.equal((await call({action:'cash-summary',selection,operationId:randomUUID()})).expectedCashCents,10000);

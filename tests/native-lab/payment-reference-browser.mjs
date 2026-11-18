@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';import {startLocalServer} from '../local-static-server.mjs';
 export async function exercisePaymentReferenceBrowser({handle,actor,preferences,fixture,paths}){
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
- const page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[];let loseReply=true;
+ const page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[];let loseReply=true,browserSaleId;
  const salePosts=()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,before=salePosts();
  page.on('pageerror',error=>errors.push(error.message));
  try{
   await page.route('**/*',async route=>new URL(route.request().url()).origin==='http://127.0.0.1:4173'?route.continue():route.abort('blockedbyclient'));
   await page.route('**/__reference_preferences',async route=>{const {drawer,value}=JSON.parse(route.request().postData());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(await preferences(drawer,value))});});
   await page.route('**/__reference_fixture',async route=>{const payload=JSON.parse(route.request().postData()),response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(payload)})),body=await response.text();
+   if(payload.action==='submit'&&response.status===200)browserSaleId=payload.operationId;
    if(payload.action==='submit'&&response.status===200&&loseReply){loseReply=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'TPV_STORAGE_UNAVAILABLE'})});}
    return route.fulfill({status:response.status,contentType:'application/json',body});
   });
@@ -45,7 +46,15 @@ export async function exercisePaymentReferenceBrowser({handle,actor,preferences,
    await paper.screenshot({path:'artifacts/totustpv-payment-reference/receipt-58mm.png',clip:{x:0,y:0,width:220,height:await paper.locator('body').evaluate(el=>Math.ceil(el.getBoundingClientRect().height))}});
   }finally{await paper.close();}
   await page.locator('[data-tpv-action="close-document"]').click();await page.getByText('Documentos',{exact:true}).click();await page.locator('[data-tpv-document="gift"]').click();assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/BROWSER-OP-0042|€/);await page.locator('[data-tpv-action="close-document"]').click();
-  await page.setViewportSize({width:1440,height:950});await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
+  await page.setViewportSize({width:1440,height:950});
+  const nativeWritesBeforeLookup=paths.filter(row=>row.method==='POST').length;
+  await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();await page.locator('[data-tpv-return="'+browserSaleId+'"]').click();
+  const originalReferences=page.getByRole('region',{name:'Referencias del cobro original',exact:true});await originalReferences.waitFor();assert.match(await originalReferences.innerText(),/Tarjeta · BROWSER-OP-0042/);
+  for(const width of [1440,390]){await page.setViewportSize({width,height:950});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false);await originalReferences.screenshot({path:'artifacts/totustpv-payment-reference/return-reference-'+width+'.png'});}
+  assert.equal(paths.filter(row=>row.method==='POST').length,nativeWritesBeforeLookup,'Looking up an original payment must not create a native command');
+  await page.locator('[data-tpv-form="refund"] input[name^="qty-"]').first().fill('1');await page.locator('[data-tpv-form="refund"] [name=reason]').fill('Comprobación de referencia original sin reintegro');await page.getByRole('button',{name:'Calcular devolución',exact:true}).click();
+  await page.getByRole('button',{name:'Cancelar preparación',exact:true}).waitFor();assert.match(await originalReferences.innerText(),/BROWSER-OP-0042/);assert.equal(paths.filter(row=>row.method==='POST').length,nativeWritesBeforeLookup,'Preparing the return must not execute a native refund');
+  await page.getByRole('button',{name:'Cancelar preparación',exact:true}).click();await page.setViewportSize({width:1440,height:950});await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByRole('button',{name:'Nuevo ticket',exact:true}).click();
   for(const mode of ['optional','hidden']){
    await settings();const form=page.locator('[data-tpv-form="payment-settings"]');await form.locator('[name="reference:card"]').selectOption(mode);await form.getByRole('button',{name:'Guardar medios de cobro'}).click();await page.getByText('Medios de cobro guardados para esta caja.',{exact:true}).waitFor();
    await page.getByRole('button',{name:'Venta',exact:true}).click();if(mode==='optional'){await page.locator('[data-tpv-search]').fill(fixture.reference);await page.locator(`[data-tpv-add="${fixture.productId}:0"]`).click();}

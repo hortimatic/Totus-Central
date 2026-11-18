@@ -1,3 +1,4 @@
+import {documentPaymentReferences} from '../payment-reference.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uint=value=>Number.isSafeInteger(value)&&value>=0;
 const positive=value=>uint(value)&&value>0;
@@ -81,7 +82,10 @@ export function createRefundService({rpc,transport,scope}){
   }
  }
  return Object.freeze({
-  async returnable(saleId){const data=await available(saleId);return {saleId,orderId:data.sale.orderId,pendingRefund:data.sale.pendingRefund,...data.snapshot};},
+  async returnable(saleId){const data=await available(saleId);
+   const payment_intent=Array.isArray(data.sale.payments)?data.sale.payments.map(row=>row&&typeof row==='object'?{method:row.method,...(Object.hasOwn(row,'reference')?{external_reference:row.reference}:{})}:null):null;
+   return {saleId,orderId:data.sale.orderId,pendingRefund:data.sale.pendingRefund,...data.snapshot,
+    originalPaymentReferences:documentPaymentReferences({kind:'receipt',payment_intent})};},
   async prepare({operationId,saleId,items,payments,reason}){
    const data=await available(saleId),prepared=refundIntent({scope,sale:data.sale,available:data.snapshot,items,payments,reason});
    const record=await journal('prepare',operationId,{intent:prepared.intent,totalCents:prepared.totalCents,lineAmounts:prepared.lineAmounts});

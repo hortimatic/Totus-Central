@@ -95,7 +95,7 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   case 'customer-write':return {verified:true,persisted:true,record_id:'7'};
   case 'product-intake-prepare':{const row={id:body.operationId,status:'ready',name:body.payload.name};productDrafts.set(row.id,row);if(productReplyLost){productReplyLost=false;throw Error('Lost product preparation reply');}return row;}
   case 'product-intake-get':{if(productMissing||!productDrafts.has(body.operationId)){const error=Error('Not found');error.code='TPV_PRODUCT_NOT_FOUND';throw error;}return productDrafts.get(body.operationId);}
-  case 'returnable':return {orderId:42,remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
+  case 'returnable':return {orderId:42,originalPaymentReferences:{card:'OP-ORIGINAL-42'},remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
    returned_quantity:0,remaining_quantity:2,allocated_cents:801,refunded_cents:0}]};
   case 'prepare-refund':return {id:body.operationId,status:'ready',totalCents:401};
   default:throw Error('Unexpected action '+body.action);
@@ -134,7 +134,7 @@ test('uncertain cash intent keeps its identity and prevents changed retries; sto
 
 test('a partial return can choose an original payment method only within its remaining collected balance',async()=>{
  const f=fixture(),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:10000});
- const source=await adapter.returnable({saleId:'sale'});assert.deepEqual(source.availablePayments,{cash:400,card:401});
+ const source=await adapter.returnable({saleId:'sale'});assert.deepEqual(source.availablePayments,{cash:400,card:401});assert.deepEqual(source.originalPaymentReferences,{card:'OP-ORIGINAL-42'});
  const values={saleId:'sale',operationId:'refund',items:[{productId:'77',qty:1,restock:false}],reason:'Defectuoso'};
  await assert.rejects(adapter.prepareRefund({...values,refundMethod:'cash'}),/saldo suficiente/);
  assert.equal(f.requests.filter(row=>row.action==='prepare-refund').length,0);

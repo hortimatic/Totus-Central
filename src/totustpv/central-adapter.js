@@ -8,7 +8,7 @@ import {saleNote} from './sale-note.js';
 import {taxSummary} from './tax-summary.js';
 import {parkingExpiry} from './parking-options.js';
 import {quotePaymentMethods} from './payment-options.js';
-import {paymentReference} from './payment-reference.js';
+import {paymentReference,documentPaymentReferences} from './payment-reference.js';
 import {catalogueSearchFields,DEFAULT_SEARCH_FIELDS} from './search-preferences.js';
 import {catalogueFilters as normalizeCatalogueFilters} from './catalogue-preferences.js';
 const need=(ok,message)=>{if(!ok)throw new Error(message);};
@@ -232,7 +232,10 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    try{result=await call('customer-write',values,id);}catch(error){if(error.code==='TPV_CUSTOMER_FIELDS_REJECTED')forget('customer-write',id);throw error;}
    need((result.persisted===true||result.unchanged===true)&&result.verified===true,'No se ha confirmado la ficha en la tienda.');forget('customer-write',id);return result;},
   async returnable({saleId}){const source=await call('returnable',{saleId});returnSources.set(saleId,source);
+   const references=source.originalPaymentReferences;
+   const payment_intent=references&&typeof references==='object'&&!Array.isArray(references)?Object.entries(references).map(([method,external_reference])=>({method,external_reference})):null;
    return {saleId,reference:'Pedido #'+source.orderId,pendingRefund:source.pendingRefund,availablePayments:clone(source.remaining_payments),
+    originalPaymentReferences:documentPaymentReferences({kind:'receipt',payment_intent}),
     lines:source.items.map(line=>({productId:String(line.detail_id),name:line.name,remainingQty:line.remaining_quantity}))};},
   async prepareRefund({operationId,saleId,items,reason,refundMethod='original'}){const source=returnSources.get(saleId);need(source,'Vuelve a consultar la venta.');
    const chosen=items.map(item=>({detailId:Number(item.productId),qty:item.qty,restock:item.restock}));
