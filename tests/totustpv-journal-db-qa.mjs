@@ -1,3 +1,4 @@
+import {exerciseOperatorSettings} from './native-lab/operator-settings-assertions.mjs';
 import {exerciseOperatorChoices} from './native-lab/operator-choices-assertions.mjs';
 import {exerciseCashVisibility} from './native-lab/cash-visibility-assertions.mjs';
 import {exerciseAccessBatches} from './native-lab/access-batch-assertions.mjs';
@@ -807,5 +808,7 @@ try {
  await exerciseCashVisibility({db,id,scope:draftScope,manager:id(5)});
  await db.exec(await readFile('supabase/migrations/20261119035641_totustpv_operator_choices.sql','utf8'));
  await exerciseOperatorChoices({db,id,connection:qaConnection,manager:id(5)});
+ await db.exec(await readFile('supabase/migrations/20261119041459_totustpv_operator_switch_settings.sql','utf8'));
+ await exerciseOperatorSettings({db,id,connection:qaConnection,manager:id(5)});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

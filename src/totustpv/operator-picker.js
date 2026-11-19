@@ -4,6 +4,7 @@ export function operatorChoices(value,owner){
  if(value?.actorId!==owner||!Array.isArray(value.items)||value.items.length>2000||value.items.some(r=>!uuid(r?.operatorId)||typeof r.name!=='string'||!r.name.trim()||r.name.length>200||/[\x00-\x1f\x7f]/.test(r.name)||typeof r.loginEmail!=='string'||r.loginEmail.length>254||!/^([^\s@]+)@([^\s@]+)$/.test(r.loginEmail))||new Set(value.items.map(r=>r.operatorId)).size!==value.items.length)throw Error('No se han podido comprobar los operadores de este puesto.');
  return value.items.map(r=>({operatorId:r.operatorId,name:r.name,loginEmail:r.loginEmail})).sort((a,b)=>a.name.localeCompare(b.name,'es')||a.operatorId.localeCompare(b.operatorId));
 }
+export function operatorAvailability(value,owner){const items=operatorChoices(value,owner);if(value.enabled!==undefined&&typeof value.enabled!=='boolean'||value.enabled===false&&items.length)throw Error('No se ha podido comprobar la disponibilidad del cambio de operador.');return {enabled:value.enabled!==false,items};}
 export function createOperatorPicker(){let active=null;
  function cancel(){active?.finish(null);}
  async function choose({items=[],unavailable=false}={}){

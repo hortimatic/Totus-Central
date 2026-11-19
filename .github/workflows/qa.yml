@@ -21,7 +21,7 @@ jobs:
       - run: node --test tests/totustpv-disabled-stock-qa.mjs
       - run: node --test tests/totustpv-billing-service-qa.mjs tests/totustpv-billing-edge-qa.mjs
       - run: node --test tests/totustpv-category-contract-qa.mjs tests/totustpv-category-service-qa.mjs tests/totustpv-product-intake-contract-qa.mjs tests/totustpv-product-intake-service-qa.mjs tests/totustpv-product-intake-edge-qa.mjs
-      - run: node --test tests/totustpv-operator-picker-qa.mjs tests/totustpv-cash-visibility-qa.mjs tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs tests/totustpv-search-preferences-qa.mjs tests/totustpv-catalogue-preferences-qa.mjs
+      - run: node --test tests/totustpv-operator-settings-qa.mjs tests/totustpv-operator-picker-qa.mjs tests/totustpv-cash-visibility-qa.mjs tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs tests/totustpv-search-preferences-qa.mjs tests/totustpv-catalogue-preferences-qa.mjs
       - run: node --test tests/totustpv-transport-qa.mjs
       - run: node --test tests/totustpv-barcode-options-qa.mjs tests/totustpv-barcode-capture-qa.mjs tests/totustpv-barcode-receipt-qa.mjs tests/totustpv-barcode-service-qa.mjs tests/totustpv-barcode-edge-qa.mjs tests/totustpv-barcode-panel-qa.mjs tests/totustpv-barcode-labels-qa.mjs
       - run: node --test tests/totustpv-stock-policy-qa.mjs
@@ -56,6 +56,7 @@ jobs:
       - run: node tests/totustpv-online-orders-browser-qa.mjs
       - run: node tests/totustpv-operator-handoff-browser-qa.mjs
       - run: node tests/totustpv-operator-picker-browser-qa.mjs
+      - run: node tests/totustpv-operator-settings-browser-qa.mjs
       - run: node tests/totustpv-basket-preview-browser-qa.mjs
       - run: node tests/totustpv-offline-prepared-browser-qa.mjs
       - run: node tests/totustpv-payment-settings-browser-qa.mjs

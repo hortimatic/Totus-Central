@@ -94,6 +94,7 @@ const centralCashUI=createCentralCashUI({actor:()=>state.user?.id,client:tpvClie
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
+ operatorSettingsStore:async(drawer,settings=null)=>{try{return await rpc('totus_tpv_operator_settings',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings});}catch(error){throw Error(/TPV_OPERATOR_SETTINGS_STALE/.test(error.message)?'La configuración de operadores ha cambiado. Vuelve a consultarla antes de guardar.':/FORBIDDEN/.test(error.message)?'No tienes permiso para configurar los operadores de esta caja.':'No se ha podido consultar o guardar la configuración de operadores. Vuelve a intentarlo.');}},
  readOperatorChoices:drawer=>rpc('totus_tpv_operator_choices',{p_connection:drawer?.connectionId??null,p_shop:drawer?.shopId??null,p_drawer:drawer?.id??null}),
  onChangeOperator:async(target=null)=>{
   const owner=state.user?.id,previousSession=state.session;
