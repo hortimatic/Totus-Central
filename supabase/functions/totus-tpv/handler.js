@@ -462,7 +462,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     return respond({...catalogueForActor(data,row.canReadCosts),image_origin:TOTUS_QA_POLICY.origin});
    }
    if(['returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action)){
-    const refunds=createRefundService({rpc,transport,scope});
+    const refunds=createRefundService({rpc,transport,scope,readPolicy:async()=>{const result=await rpc('totus_tpv_return_policy_for_scope',{p_scope:scope});need(!result?.error&&result?.data,'TPV_REFUND_POLICY_UNAVAILABLE');return result.data;}});
     if(input.action==='returnable')return respond(await refunds.returnable(input.saleId));
     if(input.action==='prepare-refund')return respond(await refunds.prepare({operationId:input.operationId,saleId:input.saleId,items:input.items,payments:input.payments,reason:input.reason}));
     if(input.action==='submit-refund')return respond(await refunds.submit({operationId:input.operationId,confirmation:input.confirmation}));

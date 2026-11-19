@@ -104,6 +104,8 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  receiptNumbering:(drawer,settings=null)=>rpc('totus_tpv_receipt_series',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  menuLinksStore:(drawer,links=null)=>rpc('totus_tpv_menu_links',{p_actor:state.user?.id,p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_links:links}),
+ canReturnPolicy:()=>can('ventas','edit'),
+ returnPolicyStore:(drawer,settings=null)=>rpc('totus_tpv_return_policy',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  canCustomer:action=>can('clientes',action),
  canBilling:()=>can('facturacion','view'),onBilling:openTpvBilling,
  canCentralCash:()=>can('cajas','view'),onCash:async target=>{const owner=state.user?.id;await navigateModule('cajas',null,()=>{

@@ -113,6 +113,8 @@ try{
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const searchCodes=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/search-fixture.php',String(fixture.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture:{...fixture,variant,searchCodes},profile:configured.result,base,focus:'search'});
+ }else if(process.argv.includes('--return-policy-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'return-policy'});
  }else if(process.argv.includes('--cash-counting-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'cash-counting'});
  }else if(process.argv.includes('--products-only')){

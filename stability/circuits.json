@@ -869,6 +869,29 @@
         "only validated HTTPS or Central paths without embedded credentials are rendered with escaped labels and no opener ownership",
         "links open in a separate tab preserving the current ticket and stale save responses cannot populate another account"
       ]
+    },
+    {
+      "id": "totustpv-return-policy",
+      "paths": [
+        "src/totustpv/return-policy.js",
+        "src/totustpv/server/refund-service.js",
+        "src/totustpv/workspace.js",
+        "src/totustpv/http-client.js",
+        "supabase/functions/totus-tpv/handler.js",
+        "supabase/migrations/20261119001830_totustpv_return_policy.sql"
+      ],
+      "tests": [
+        "tests/totustpv-refund-intent-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "invariants": [
+        "return policy is scoped to the authorized drawer and only an authenticated sales editor may change it",
+        "disabling partial returns requires every native remaining line and quantity before preparation and again before dispatch",
+        "confirmed and uncertain refund recovery preserves the original operation and never repeats a financial command"
+      ]
     }
   ]
 }

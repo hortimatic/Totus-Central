@@ -93,6 +93,8 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118110722_totustpv_payment_reference_ledger.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118112532_totustpv_receipt_payment_references.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119000655_totustpv_menu_links.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119001830_totustpv_return_policy.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
  if(focus==='products')await loadProductJournal(db);
@@ -111,7 +113,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_tpv_catalogue_intake:['p_action','p_id','p_scope','p_data'],
    totus_prestashop_product_create_journal:['p_action','p_request_id','p_data'],
    totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
-   totus_tpv_receipt_series:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_number:['p_scope','p_operation','p_kind'],totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
+   totus_tpv_return_policy_for_scope:['p_scope'],totus_tpv_return_policy:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_series:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_number:['p_scope','p_operation','p_kind'],totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
    if(name==='totus_tpv_payment_options'){
     assert.equal(key,'fixture-public');await db.exec('reset role;set role authenticated');
@@ -252,6 +254,29 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    const productResult=await exerciseProductIntake({call:(action,values,id)=>call({action,selection,operationId:id,...values}),db,scope:selection,fixture:fixture.productSetup,paths,nativeRead,
     loseBaseReply:()=>{dropProductReply=true;},loseStageAck:key=>{dropProductAck=key;}});
    await exerciseNativeProductBrowser({handle,actor,fixture,preferences});return productResult;
+  }
+  if(focus==='return-policy'){
+   const saleId=randomUUID(),prepared=await call({action:'prepare',selection,operationId:saleId,lines:[{productId:fixture.productId,attributeId:0,qty:2}]});
+   assert.equal(prepared.expected.totalCents,1602);
+   const sold=await call({action:'submit',selection,operationId:saleId,payments:{allocations:[{id:'policy-cash',method:'cash',amountCents:1602,receivedCents:2000}],confirmation:{operationId:saleId,totalCents:1602,currency:'EUR',accepted:true}}});
+   assert.equal(sold.status,'confirmed');
+   const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId}),detailId=available.items[0].detail_id;
+   const policy=async allowPartial=>{const reply=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_return_policy',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:{allowPartial}});assert.deepEqual(reply,{data:{allowPartial}});};
+   await policy(false);const posts=nativePosts;
+   assert.equal(available.items[0].remaining_quantity,2,JSON.stringify(available));
+   const policyRead=await factory('https://local-edge.invalid','fixture-secret').rpc('totus_tpv_return_policy_for_scope',{p_scope:{actorId:actor,connectionId:connection,connectionRevision:5,shopId:1,drawerId:drawer,sessionId:session,storeId:store,currency:'EUR',environment:'qa'}});assert.deepEqual(policyRead,{data:{allowPartial:false}});
+   await assert.rejects(call({action:'prepare-refund',selection,operationId:randomUUID(),saleId,items:[{detailId,qty:1,restock:false}],payments:[{method:'cash',amountCents:801}]}),/PARTIAL_REFUND_FORBIDDEN/);
+   assert.equal(nativePosts,posts,'Rejected partial selection creates no native refund');
+   await policy(true);const refundId=randomUUID();
+   const ready=await call({action:'prepare-refund',selection,operationId:refundId,saleId,items:[{detailId,qty:1,restock:false}],payments:[{method:'cash',amountCents:801}]});assert.equal(ready.status,'ready');
+   await policy(false);
+   await assert.rejects(call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:801,currency:'EUR'}}),/PARTIAL_REFUND_FORBIDDEN/);
+   assert.equal(nativePosts,posts,'A policy changed after preparation prevents dispatch');
+   await policy(true);
+   const done=await call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:801,currency:'EUR'}});assert.equal(done.status,'confirmed');
+   const after=nativePosts;await policy(false);
+   assert.equal((await call({action:'recover-refund',selection,operationId:refundId})).status,'confirmed');assert.equal(nativePosts,after);
+   console.log('PASS native return policy: partial preparation and dispatch denied when disabled; enabled partial confirmed once; changed policy preserves confirmed recovery. Loopback shop only.');return {focus,saleId,refundId};
   }
   const saleId=randomUUID(),prepared=await call({action:'prepare',selection,operationId:saleId,
    lines:[{productId:fixture.productId,attributeId:0,qty:1}]});

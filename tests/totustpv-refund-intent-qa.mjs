@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {refundIntent,createRefundService} from '../src/totustpv/server/refund-service.js';
+import {refundIntent,createRefundService,requireCompleteReturn} from '../src/totustpv/server/refund-service.js';
 const saleId='00000000-0000-4000-8000-000000000001';
 function fixture(returned=0){return {scope:{currency:'EUR'},sale:{id:saleId,status:'confirmed',scope:{currency:'EUR'},orderId:7,expected:{currencyId:1}},
  available:{sale_operation_id:saleId,order_id:7,currency_id:1,state_fingerprint:'a'.repeat(64),remaining_payments:{cash:returned?400:801},
@@ -26,4 +26,24 @@ test('return lookup projects only safe immutable original references and never s
  const result=await service.returnable(saleId);assert.deepEqual(result.originalPaymentReferences,{card:'OP-ORIGINAL-42'});assert.equal(result.state_fingerprint,f.available.state_fingerprint);assert.doesNotMatch(JSON.stringify(result),/providerSecret|not-for-browser/);
  for(const payments of [[{method:'cash',reference:'OP-42'}],[{method:'card',reference:'4111111111111111'}],[{method:'card',reference:'<script>'}],null]){sale.payments=payments;assert.deepEqual((await service.returnable(saleId)).originalPaymentReferences,{});}
  assert.equal(reads,5);
+});
+
+test('disabled partial returns require every remaining native line and exact remaining quantities',()=>{
+ const f=fixture(),policy={allowPartial:false};
+ assert.throws(()=>requireCompleteReturn(policy,f.available,f.items),/PARTIAL_REFUND_FORBIDDEN/);
+ requireCompleteReturn(policy,f.available,[{detailId:42,qty:2}]);
+ const multiple={items:[...f.available.items,{detail_id:43,remaining_quantity:1}]};
+ assert.throws(()=>requireCompleteReturn(policy,multiple,[{detailId:42,qty:2}]),/PARTIAL_REFUND_FORBIDDEN/);
+ requireCompleteReturn(policy,multiple,[{detailId:42,qty:2},{detailId:43,qty:1}]);
+ requireCompleteReturn({allowPartial:true},f.available,f.items);
+ assert.throws(()=>requireCompleteReturn(null,f.available,f.items),/POLICY_UNAVAILABLE/);
+});
+
+test('disabled partial return is rejected before a journal preparation or native write',async()=>{
+ const f=fixture();let writes=0;
+ const service=createRefundService({scope:f.scope,readPolicy:async()=>({allowPartial:false}),rpc:async name=>{
+  if(name==='totus_tpv_sale_for_return')return {data:f.sale};writes++;throw Error('Unexpected write');
+ },transport:{readNativeReturnable:async()=>f.available,nativeCommand:()=>assert.fail('Unexpected native write'),readNativeOperation:()=>assert.fail('Unexpected operation read')}});
+ await assert.rejects(service.prepare({operationId:saleId,saleId,items:f.items,payments:f.payments,reason:f.reason}),/PARTIAL_REFUND_FORBIDDEN/);
+ assert.equal(writes,0);
 });

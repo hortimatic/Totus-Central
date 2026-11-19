@@ -99,6 +99,8 @@ const messages={
  TPV_CASH_BALANCE_INVALID:'La retirada supera el efectivo disponible de esta caja.',
  TPV_UNRESOLVED_SALES:'Recupera las ventas o devoluciones pendientes antes de cerrar.',
  TPV_DOCUMENT_VERIFIED_SALE_REQUIRED:'El documento estará disponible cuando se verifique la venta.',
+ TPV_PARTIAL_REFUND_FORBIDDEN:'Esta caja solo permite devolver todas las unidades pendientes del pedido. Selecciona todas las unidades o consulta al responsable.',
+ TPV_REFUND_POLICY_UNAVAILABLE:'No se ha podido comprobar la configuración de devoluciones. Actualiza el puesto antes de continuar.',
  TPV_REFUND_QUANTITY_EXCEEDED:'La cantidad supera las unidades que todavía se pueden devolver.',
  TPV_REFUND_PAYMENT_INVALID:'El reintegro no coincide con los importes disponibles de la venta original.',
  TPV_DISCOUNT_FORBIDDEN:'Necesitas permiso de edición de Ventas para aplicar descuentos.',

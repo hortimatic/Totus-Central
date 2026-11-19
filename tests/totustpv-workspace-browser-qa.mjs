@@ -49,6 +49,12 @@ try{
  await page.locator('.tpv-history article').nth(1).getByRole('button',{name:'Devolver'}).click();
  await page.locator('[name="qty-demo-1"]').fill('0');
  await page.locator('[name="restock-demo-1"]').uncheck();
+ await page.getByRole('button',{name:'Seleccionar todas las unidades pendientes',exact:true}).click();
+ assert.equal(await page.locator('[name="qty-demo-1"]').inputValue(),'1');
+ assert.equal(await page.locator('[name="restock-demo-1"]').isChecked(),false,'Selecting all units never changes restocking');
+ assert.equal(await page.locator('[name=refundAccepted]').isChecked(),false,'Selecting units never confirms a refund');
+ await page.getByRole('button',{name:'Quitar selección de unidades',exact:true}).click();
+ assert.equal(await page.locator('[name="qty-demo-1"]').inputValue(),'0');
  await page.locator('[name=refundAccepted]').check();
  await page.getByRole('button',{name:'Registrar devolución de práctica'}).click();
  await page.getByRole('alert').filter({hasText:'Selecciona líneas'}).waitFor();
