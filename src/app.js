@@ -94,6 +94,7 @@ const centralCashUI=createCentralCashUI({actor:()=>state.user?.id,client:tpvClie
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
+ onOnlineOrders:()=>headerTools.openOnlineOrders(),canOnlineOrders:()=>can('ventas','view'),
  createLiveAdapter:()=>{const actorId=state.user.id;return createCentralTpvAdapter({actorId,storage:localStorage,invoke:tpvClient(actorId),canReadCentralCatalogue:()=>state.user?.id===actorId&&can('totustpv','view')&&can('productos','view'),centralCatalogueSource:selection=>{if(state.user?.id!==actorId||!can('totustpv','view'))throw Error('La sesión del TPV ha cambiado.');return productosUI.catalogueSnapshot(selection);}});},
  readConfiguration:createTpvConfigurationReader({actor:()=>state.user,rpc,
   readAssignments:({connectionId,revision})=>invokeTotusTpv({action:'workstations',connectionId,revision}),

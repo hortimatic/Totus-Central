@@ -21,14 +21,14 @@ try{for(const width of [320,390,768,1440,1920,2560]){
   }});q.ui.start();
   const {activityChartHtml}=await import('../src/dashboard-activity.js');document.querySelector('main').innerHTML=activityChartHtml({monthly:false,points:[{key:'2026-11-13',sales:100,fiscal:20,internal:5}]});
  });
- const bell=page.getByRole('button',{name:'Pedidos online: 2 sin leer',exact:true});await bell.waitFor();await bell.click();
+ const bell=page.getByRole('button',{name:'Pedidos online: 2 sin leer',exact:true});await bell.waitFor();await page.evaluate(()=>onlineQA.ui.openOnlineOrders());await page.getByRole('dialog',{name:'Avisos de pedidos online',exact:true}).waitFor();await page.keyboard.press('Escape');await bell.click();
  const panel=page.getByRole('dialog',{name:'Avisos de pedidos online',exact:true});await panel.getByRole('button',{name:'Ver pedido, datos e imágenes'}).first().waitFor();
  await page.screenshot({path:'qa-artifacts/header-online-orders/notice-'+width+'.png',fullPage:true});
  assert((await panel.innerText()).includes('Persona QA'));assert.equal(await panel.locator('img').count(),0,'Notice content is escaped');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Header fits '+width);
  await panel.getByRole('button',{name:'Activar avisos automáticos',exact:true}).click();await panel.getByRole('button',{name:'Pausar detección',exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>onlineQA.watch.interval_minutes),2);assert.deepEqual(await page.evaluate(()=>onlineQA.watch.stores),['hortimatic','newoldsmok']);
- assert.deepEqual(await page.evaluate(()=>onlineQA.watch.offline_modules.hortimatic),['tpvtienda','bo_order']);
+ assert.deepEqual(await page.evaluate(()=>onlineQA.watch.offline_modules.hortimatic),['tpvtienda','bo_order','totuscentralconnector']);
  await panel.locator('[data-watch-settings]>summary').click();await panel.locator('[data-watch-minutes]').selectOption('5');await panel.getByRole('button',{name:'Guardar detección',exact:true}).click();await page.waitForFunction(()=>onlineQA.watch.interval_minutes===5);
  assert.equal(await panel.locator('[data-watch-minutes]').inputValue(),'5');
  await panel.getByRole('button',{name:'Marcar leídos',exact:true}).click();await page.getByRole('button',{name:'Pedidos online: 0 sin leer',exact:true}).waitFor();
@@ -39,8 +39,9 @@ try{for(const width of [320,390,768,1440,1920,2560]){
  await page.locator('[data-header=calendar]').click();assert((await page.locator('.header-calendar-agenda').innerText()).includes('Preparar pedido QA'));await page.getByRole('button',{name:'Personalizar reloj y calendario',exact:true}).click();assert.deepEqual(await page.evaluate(()=>onlineQA.opened.at(-1)),['configuracion','clock']);
  assert(await page.locator('[data-activity-toggle=balance]').evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=20&&r.height>=20;}),'Economic series have usable checkbox targets');
  await page.locator('[data-activity-toggle=balance]').uncheck();assert.equal(await page.locator('[data-activity-series=balance]').evaluate(el=>getComputedStyle(el).display),'none');await page.locator('[data-activity-toggle=balance]').check();assert.notEqual(await page.locator('[data-activity-series=balance]').evaluate(el=>getComputedStyle(el).display),'none');
+ await page.evaluate(()=>{onlineQA.owner='B';});await assert.rejects(page.evaluate(()=>onlineQA.ui.openOnlineOrders()),/No tienes acceso/);
  await page.evaluate(()=>{onlineQA.owner='B';onlineQA.ui.stop();onlineQA.ui.start();});await page.getByRole('button',{name:'Pedidos online: 2 sin leer',exact:true}).waitFor();
- await page.evaluate(()=>{onlineQA.allowed=false;onlineQA.ui.refreshAccess();});assert.equal(await page.locator('.header-online-bell').isVisible(),false,'Permission revocation clears header access');
+ await page.evaluate(()=>{onlineQA.allowed=false;onlineQA.ui.refreshAccess();});assert.equal(await page.locator('.header-online-bell').isVisible(),false,'Permission revocation clears header access');await assert.rejects(page.evaluate(()=>onlineQA.ui.openOnlineOrders()),/No tienes acceso/);
  await page.screenshot({path:'qa-artifacts/header-online-orders/'+width+'.png',fullPage:true});assert.deepEqual(errors,[]);report.push({width,api:'simulated',passed:['notice_details','store_filter','durable_seen','owner_isolation','permission_revocation','clock_settings','task_titles','chart_series','no_overflow']});await page.close();
 }console.log('Header online orders, settings, task titles and selectable economic series: six widths PASS; simulated API.');}
 finally{await browser.close();await server?.close();await writeFile('qa-artifacts/header-online-orders/report.json',JSON.stringify(report,null,2));}

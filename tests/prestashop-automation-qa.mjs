@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {validatePrestaAutomation,onlineOrder,headerOnlineOrder,prestashopNotice,automationResult} from '../src/prestashop-automation-core.js';
 const rule={name:'Pedidos web',recipe:'online_orders',stores:['hortimatic'],channel_id:'11111111-1111-4111-8111-111111111111',interval_hours:2,online_modules:{hortimatic:['webcheckout']},enabled:true,sharing_confirmed:true};
 test('header excludes verified POS and manual origins without relying on payment',()=>{
- for(const module of ['tpvtienda','bo_order','custom_pos','manualorder',''])assert.equal(headerOnlineOrder({module,payment:'Tarjeta'},['tpvtienda','bo_order']),false,module);
+ for(const module of ['tpvtienda','bo_order','custom_pos','manualorder','totuscentralconnector','TOTUSCENTRALCONNECTOR',''])assert.equal(headerOnlineOrder({module,payment:'Tarjeta'},['tpvtienda','bo_order']),false,module);
  for(const module of ['redsys','ps_wirepayment','bankwire','custom_web_checkout'])assert.equal(headerOnlineOrder({module,payment:'Efectivo'},['tpvtienda','bo_order']),true,module);
  assert.equal(headerOnlineOrder({module:'redsys'},[]),false,'An unconfigured physical origin never guesses online');
 });
@@ -33,4 +33,11 @@ test('online processing skips TPV and already delivered orders and sends complet
 test('hourly sales includes the final minute when saved SQL time values contain seconds',async()=>{
  const read=async(resource,p)=>({ok:true,store:'hortimatic',resource,page:p.page,possibly_more:false,rows:resource==='orders'?[{id:'1',reference:'Dentro',date_add:'2026-11-05 20:30:59',valid:'1',id_currency:'1',total_paid_tax_incl:'1.00'},{id:'2',reference:'Fuera',date_add:'2026-11-05 20:31:00'}]:[{id:'1',iso_code:'EUR'}]});
  const r=await automationResult({...rule,recipe:'sales_window',daily_start:'20:00:00',daily_end:'20:30:00',min_count:1},'hortimatic',{}, {read});assert.equal(r.count,1);assert.match(r.body,/Dentro/);assert(!r.body.includes('Fuera'));
+});
+
+
+test('header scheduler excludes TotusTPV origin even when legacy physical-origin settings omit it',async()=>{
+ const sent=[],rows=[{id:'201',module:'totuscentralconnector'},{id:'202',module:'redsys'},{id:'203',module:'bo_order'}].map(o=>({...o,id_currency:'1',id_customer:'1',id_address_delivery:'1',current_state:'2',total_paid_tax_incl:'12.10',date_add:'2026-11-19 09:00:00'}));
+ const read=async(resource,p)=>({ok:true,store:'hortimatic',resource,page:p.page,possibly_more:false,rows:resource==='orders'?rows:resource==='order_details'?[{id:'40',id_order:p.order_id,product_quantity:'1',product_name:'Pedido de prueba'}]:resource==='currencies'?[{id:p.record_id,iso_code:'EUR'}]:[{id:p.record_id,name:'Pagado'}]});
+ const result=await automationResult({...rule,delivery_mode:'header',offline_modules:{hortimatic:['tpvtienda']},min_count:1},'hortimatic',{}, {read,seen:[],onOrder:async order=>sent.push(order.id)});assert.equal(result.count,1);assert.deepEqual(sent,['202']);
 });

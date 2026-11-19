@@ -29,7 +29,7 @@ export function onlineOrder(order,modules){
 export function headerOnlineOrder(order,offlineModules){
  const source=string(order?.module);
  return Boolean(source)&&Array.isArray(offlineModules)&&offlineModules.length>0
-  &&!offlineModules.includes(source)&&!/(?:tpv|pos|bo_order|manual)/i.test(source);
+  &&!offlineModules.includes(source)&&source.toLowerCase()!=='totuscentralconnector'&&!/(?:tpv|pos|bo_order|manual)/i.test(source);
 }
 export function orderOriginSamples(store,rows){
  const groups=new Map();for(const row of rows){const module=string(row.module);if(!module)continue;let g=groups.get(module);if(!g)groups.set(module,g={store,module,payments:[],count:0,examples:[]});g.count++;if(row.payment&&!g.payments.includes(row.payment))g.payments.push(row.payment);if(g.examples.length<3)g.examples.push({id:string(row.id),reference:string(row.reference),date:string(row.date_add),total:string(row.total_paid_tax_incl)});}

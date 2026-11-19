@@ -63,6 +63,7 @@ export function createHeaderTools({rpc,actor,can=()=>true,onNavigate,onOpenOrder
  const key=e=>{if(e.key==='Escape'&&host&&!host.querySelector('[data-calendar]').hidden){e.preventDefault();close(true);}};
  const visible=()=>{if(document.visibilityState==='visible'){tick();check();}};
  return {
+  openOnlineOrders(){return onlineOrders.open();},
   openOnlineSettings(){return onlineOrders.openSettings();},
   refreshAccess(){badges();onlineOrders.refreshAccess();},
   setChatUnread(value){if(value!==null)chat=Math.max(0,Number(value)||0);badges();},

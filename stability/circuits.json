@@ -973,6 +973,28 @@
         "Counter inherits the signed-in Central profile appearance without editing shared application styles; reload retains the chosen theme and colors.",
         "Opening and active-counter tabs stay readable within their touch targets on desktop and mobile, without horizontal overflow."
       ]
+    },
+    {
+      "id": "totustpv-shared-online-orders",
+      "paths": [
+        "src/header-online-orders.js",
+        "src/header-tools.js",
+        "src/header-order-watch.js",
+        "src/prestashop-automation-core.js",
+        "tests/totustpv-online-orders-browser-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-online-orders-browser-qa.mjs",
+        "tests/header-online-orders-browser-qa.mjs",
+        "tests/header-tools-browser-qa.mjs",
+        "tests/prestashop-automation-qa.mjs",
+        "tests/totustpv-central-browser-qa.mjs"
+      ],
+      "invariants": [
+        "TPV opens the existing authorized online-order bell without another scheduler, settings write or dispatch and preserves its pending ticket.",
+        "Known TotusTPV native module is a physical origin, including legacy header-watch exclusions; payment labels never classify an order.",
+        "Fullscreen exits before showing the shared panel; existing guarded navigation and permission/session cleanup remain in force."
+      ]
     }
   ]
 }
