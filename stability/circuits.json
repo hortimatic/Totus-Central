@@ -483,7 +483,8 @@
         "src/stitch-layout.js",
         "src/column-settings.js",
         "src/state.js",
-        "tools/version-entry-assets.mjs"
+        "tools/version-entry-assets.mjs",
+        "src/components.js"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -706,7 +707,9 @@
         "tests/totustpv-budget-contract-qa.mjs",
         "tests/native-lab/budget-ledger-assertions.mjs",
         "tests/totustpv-commercial-quote-qa.mjs",
-        "tests/native-lab/commercial-"
+        "tests/native-lab/commercial-",
+        "src/components.js",
+        "supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -791,7 +794,9 @@
         "tests/totustpv-offline-panel-browser-qa.mjs",
         "tests/totustpv-offline-catalogue-browser-qa.mjs",
         "tests/totustpv-offline-catalogue-adapter-qa.mjs",
-        "tests/totustpv-catalogue-background-qa.mjs"
+        "tests/totustpv-catalogue-background-qa.mjs",
+        "tests/totustpv-operator-checkout-browser-qa.mjs",
+        "tests/totustpv-operator-checkout-native-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -805,7 +810,8 @@
         "optional required quantity selection preserves the ticket on cancellation; product minima, remaining stock, scoped preferences and account disposal remain enforced",
         "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative",
         "Private sale notes are sealed with the owned cart, required by server policy when configured, read back from a single private native Message, and excluded from customer documents and display",
-        "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding, keep cart reductions separate and disclose no amounts in gift documents"
+        "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding, keep cart reductions separate and disclose no amounts in gift documents",
+        "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización."
       ]
     },
     {

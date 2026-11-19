@@ -1,3 +1,4 @@
+import {operatorAcknowledgement} from '../operator-acknowledgement.js';
 /** Real cashier-declared payments for cash and an independent card terminal.
  * This adapter does not charge/refund a bank and does not claim provider proof.
  * The checkout journal durably binds accepted allocations and dispatched_by to
@@ -20,7 +21,7 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
   scope=structuredClone(scope);expected=structuredClone(expected);requested=structuredClone(requested);
   need(uuid(operationId)&&uuid(scope?.actorId),'TPV_PAYMENT_IDENTITY_INVALID');
   need(keys(requested,['allocations','confirmation'])&&keys(requested.confirmation,
-   ['operationId','totalCents','currency','accepted'])&&requested.confirmation.accepted===true&&
+   ['operationId','totalCents','currency','accepted','operatorAcknowledgement'])&&requested.confirmation.accepted===true&&
    requested.confirmation.operationId===operationId&&requested.confirmation.totalCents===expected?.totalCents&&
    requested.confirmation.currency===scope.currency,'TPV_OPERATOR_CONFIRMATION_REQUIRED');
   need(Array.isArray(requested.allocations)&&requested.allocations.length>0&&requested.allocations.length<=4,
@@ -30,6 +31,8 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
   need(fresh.actorId===scope.actorId,'TPV_PAYMENT_ACTOR_MISMATCH');
   const policy=await readPolicy({scope:structuredClone(scope)});
   const preparedPolicy=expected.operatorPaymentPolicy;
+  const acknowledgement=operatorAcknowledgement(requested.confirmation.operatorAcknowledgement,scope.actorId);
+  need(!policy.requireOperatorAtCheckout||!!acknowledgement,'TPV_CHECKOUT_OPERATOR_REQUIRED');
   need(policy?.enabled===true&&positive(policy.revision)&&preparedPolicy?.revision===policy.revision&&
    policy.environment===scope.environment&&preparedPolicy.environment===scope.environment&&
    policy.connectionId===scope.connectionId&&policy.shopId===scope.shopId&&policy.storeId===scope.storeId&&

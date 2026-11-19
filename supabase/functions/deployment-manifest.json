@@ -189,6 +189,7 @@
         "src/totustpv/server/native-transport.js",
         "src/totustpv/server/official-products.js",
         "src/totustpv/server/operator-payments.js",
+        "src/totustpv/operator-acknowledgement.js",
         "src/totustpv/server/payment-readback.js",
         "src/totustpv/server/product-intake-service.js",
         "src/totustpv/server/qa-policy.js",

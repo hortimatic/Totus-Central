@@ -110,7 +110,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
     assertSameCheckoutScope(scope,freshScope);
     requireValue(now() < record.quoteExpiresAt, 'TPV_QUOTE_EXPIRED');
     const claim = await ledger.claimSubmission({scope:freshScope,operationId:record.id,revision:record.revision,
-      expected:copy(record.expected),payments:copy(payments)});
+      expected:copy(record.expected),payments:copy(payments),...(command.payments?.confirmation?.operatorAcknowledgement?{operatorAcknowledgement:copy(command.payments.confirmation.operatorAcknowledgement)}:{})});
     if (claim?.won !== true) return result({...record,...claim?.record},{retryOrderForbidden:true});
     requireValue(typeof claim.token === 'string' && claim.token.length >= 16, 'TPV_DISPATCH_CLAIM_INVALID');
     const dispatched = {...record,status:'dispatched',payments:copy(payments)};

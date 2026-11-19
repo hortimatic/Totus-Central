@@ -57,6 +57,7 @@ jobs:
       - run: node tests/totustpv-operator-handoff-browser-qa.mjs
       - run: node tests/totustpv-operator-picker-browser-qa.mjs
       - run: node tests/totustpv-operator-settings-browser-qa.mjs
+      - run: node tests/totustpv-operator-checkout-browser-qa.mjs
       - run: node tests/totustpv-basket-preview-browser-qa.mjs
       - run: node tests/totustpv-offline-prepared-browser-qa.mjs
       - run: node tests/totustpv-payment-settings-browser-qa.mjs

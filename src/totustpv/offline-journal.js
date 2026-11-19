@@ -1,3 +1,4 @@
+import {operatorAcknowledgement} from './operator-acknowledgement.js';
 import {saleModifiers} from './sale-modifiers.js';
 import {saleNote} from './sale-note.js';
 import {offlineCommercial} from './offline-commercial.js';
@@ -15,9 +16,10 @@ function scopeKey(scope){
  return JSON.stringify(['actorId','connectionId','storeId','shopId','drawerId','deviceId'].map(key=>scope[key]));
 }
 const canonical=value=>JSON.stringify(value,(_,item)=>item&&typeof item==='object'&&!Array.isArray(item)?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))):item);
-function validateTicket(ticket){
+function validateTicket(ticket,actorId){
+   operatorAcknowledgement(ticket?.operatorAcknowledgement,actorId);
    if(ticket?.commercial!==undefined){const c=offlineCommercial(ticket.commercial);need((ticket.customerId===undefined||ticket.customerId===c.customerId)&&(ticket.addressId===undefined||ticket.addressId===c.invoiceAddressId)&&c.totalCents===ticket.totalCents&&c.currency===ticket.currency&&Array.isArray(ticket.lines)&&c.lines.length===ticket.lines.length&&ticket.lines.every(line=>c.lines.some(native=>native.productId===line.productId&&native.attributeId===(line.attributeId??0)&&native.qty===line.qty)),'El desglose no corresponde al ticket guardado.');}
-   need(ticket&&typeof ticket==='object'&&!Array.isArray(ticket)&&Object.keys(ticket).every(key=>['lines','customerId','addressId','totalCents','currency','payments','catalogueRevision','cashSessionId','commercial','note','adjustment','coupon'].includes(key)),'Datos de ticket local no válidos.');
+   need(ticket&&typeof ticket==='object'&&!Array.isArray(ticket)&&Object.keys(ticket).every(key=>['lines','customerId','addressId','totalCents','currency','payments','catalogueRevision','cashSessionId','commercial','note','adjustment','coupon','operatorAcknowledgement'].includes(key)),'Datos de ticket local no válidos.');
    need(ticket.note===undefined||typeof ticket.note==='string'&&ticket.note.length>0&&saleNote(ticket.note)===ticket.note,'La nota del ticket local no es válida.');
    need(Array.isArray(ticket.lines)&&ticket.lines.length>0&&ticket.lines.length<=200&&Array.isArray(ticket.payments)&&ticket.payments.length<=4&&ticket.currency==='EUR'&&Number.isSafeInteger(ticket.totalCents)&&ticket.totalCents>=0,'El ticket local no está completo.');
    need(ticket.lines.every(line=>fields(line,['productId','attributeId','qty','unitCents','name','discount','displayName'])&&positive(line.productId)&&positive(line.qty)&&line.qty<=10000&&(line.attributeId===undefined||Number.isSafeInteger(line.attributeId)&&line.attributeId>=0)&&(line.unitCents===undefined||Number.isSafeInteger(line.unitCents)&&line.unitCents>=0)&&(line.name===undefined||typeof line.name==='string'&&line.name.length<=512)),'Los artículos del ticket local no son válidos.');
@@ -46,12 +48,12 @@ export function createOfflineJournal({scope,indexedDB=globalThis.indexedDB,name=
    try{action(store,value=>{result=value;},fail);}catch(error){fail(error);}
   });}finally{db.close();}
  }
- function validateStored(row,id){need(row.partition===partition&&row.id===id&&uuid(id)&&positive(row.revision)&&['queued','dispatching','uncertain','synced','conflict'].includes(row.status),'El registro local requiere revisión.');validateTicket(row.ticket);need(row.fingerprint===canonical(row.ticket),'Los datos del ticket local han cambiado. Conserva el registro para su revisión.');}
+ function validateStored(row,id){need(row.partition===partition&&row.id===id&&uuid(id)&&positive(row.revision)&&['queued','dispatching','uncertain','synced','conflict'].includes(row.status),'El registro local requiere revisión.');validateTicket(row.ticket,scope.actorId);need(row.fingerprint===canonical(row.ticket),'Los datos del ticket local han cambiado. Conserva el registro para su revisión.');}
  function getThen(store,id,action,fail){const request=store.get([partition,id]);request.onsuccess=()=>{try{if(request.result)validateStored(request.result,id);action(request.result);}catch(error){fail(error);}};}
  return Object.freeze({
   async capture({id,ticket}){
    need(uuid(id),'El ticket local necesita un identificador válido.');
-   validateTicket(ticket);
+   validateTicket(ticket,scope.actorId);
    const value=structuredClone(ticket),fingerprint=canonical(value);need(fingerprint.length<=250000,'El ticket es demasiado grande para guardarlo.');
    return transaction(true,(store,done,fail)=>getThen(store,id,prior=>{
     if(prior){need(prior.fingerprint===fingerprint,'Este identificador ya corresponde a otro ticket.');done(prior);return;}

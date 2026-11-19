@@ -131,7 +131,7 @@ const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totus
  canCreateProduct:()=>can('productos','view')&&can('productos','create')&&can('totustpv','create'),
  canReadCost:()=>can('productos','view'),
  readSetup:()=>totusTpvSetup.read(),
- confirm:(message,options={})=>confirmAction(message,{title:'TotusTPV',acceptLabel:options.acceptLabel||'Salir'}),
+ confirm:(message,options={})=>confirmAction(message,{title:'TotusTPV',acceptLabel:options.acceptLabel||'Salir',acceptTone:options.acceptTone||'danger'}),
  onConfigure:()=>can('apis','view')?navigateModule('apis'):false,canConfigure:()=>can('apis','view')});
 async function invokeTotusTpv(body){
  return tpvClient(state.user?.id)(body);

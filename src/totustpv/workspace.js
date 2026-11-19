@@ -60,7 +60,7 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  onConfigure=null,canConfigure=()=>false,onChangeOperator=null,readOperatorChoices=null,onOnlineOrders=null,canOnlineOrders=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,cashVisibilityStore=null,operatorSettingsStore=null,drawerManagement=()=>null,workspacePreferences=null,receiptNumbering=null,menuLinksStore=null,returnPolicyStore=null,canReturnPolicy=()=>false,signaturePolicyStore=null,canSignatureSettings=()=>false,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
- let operatorRules={switchEnabled:true,revision:0};
+ let operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false};
  let cashVisibilityRules={hideSummary:false};
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
  let includeDisabledStock=false;
@@ -84,7 +84,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  let catalogueStatus={phase:'idle'};
  function catalogueStatusText(){const state=catalogueStatus;if(globalThis.navigator?.onLine===false)return 'Sin conexión · consulta el catálogo guardado.';if(state.phase==='preparing')return state.products?`Guardando catálogo · ${state.completedProducts} de ${state.products} productos`:'Preparando catálogo guardado…';if(state.phase==='updated')return 'Catálogo guardado actualizado';if(state.phase==='retry')return 'No se pudo actualizar el catálogo guardado. Volveremos a intentarlo automáticamente.';return 'Catálogo guardado pendiente de actualizar';}
  const catalogueBackground=createCatalogueBackground({onState:state=>{catalogueStatus=state;const node=host?.querySelector('[data-tpv-catalogue-status]');if(node)node.textContent=catalogueStatusText();},current:()=>host&&allowed()&&mountedActor===identity()&&live()&&session&&adapter.prepareOfflineCatalogue?{key:JSON.stringify([generation,identity(),session.id,session.storeId,session.drawerId,selectedCustomer]),prepare:options=>adapter.prepareOfflineCatalogue(options)}:null,canRun:()=>!busy&&!payment&&!returnForm&&globalThis.navigator?.onLine!==false});
- const offlinePanel=createOfflinePanel({storage,getAdapter:()=>adapter,isCurrent:()=>!!host&&allowed()&&mountedActor===identity()&&live(),getScope:()=>{const drawer=context?.drawers.find(row=>row.id===session?.drawerId);return {actorId:identity(),connectionId:drawer?.connectionId,storeId:session?.storeId,shopId:drawer?.shopId,drawerId:session?.drawerId,cashSessionId:session?.id};}});
+ const offlinePanel=createOfflinePanel({storage,getOperatorAcknowledgement:confirmPendingOperator,getAdapter:()=>adapter,isCurrent:()=>!!host&&allowed()&&mountedActor===identity()&&live(),getScope:()=>{const drawer=context?.drawers.find(row=>row.id===session?.drawerId);return {actorId:identity(),connectionId:drawer?.connectionId,storeId:session?.storeId,shopId:drawer?.shopId,drawerId:session?.drawerId,cashSessionId:session?.id};}});
  const signaturePanel=createSignaturePanel({actor:()=>identity(),storage:storage||{getItem:key=>globalThis.localStorage.getItem(key),setItem:(key,value)=>globalThis.localStorage.setItem(key,value),removeItem:key=>globalThis.localStorage.removeItem(key)},getAdapter:()=>adapter,getSettings:()=>signatureRules,canWrite:()=>live()&&!!session&&canSell(),getScope:()=>{const drawer=context?.drawers.find(row=>row.id===(session?.drawerId||selectedDrawer));return {connectionId:drawer?.connectionId,shopId:drawer?.shopId,drawerId:drawer?.id,sessionId:session?.id};}});
  function stationPermission(key){if(!live())return true;const drawer=context?.drawers.find(row=>row.id===(session?.drawerId||selectedDrawer||context.drawers[0]?.id));return !!drawer&&drawer[key]===true;}
  const canSell=()=>can('create')&&stationPermission('canSell'),canManageCash=()=>can('create')&&stationPermission('canOpen'),
@@ -118,7 +118,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   return Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,typeof value!=='function'?value:
    async(...args)=>{if(born!==generation)throw new Error('La vista ha cambiado.');guard();
     const result=await value(...args);if(born!==generation)throw new Error('La vista ha cambiado.');guard();return result;}]));}
- function bindPractice(){operatorRules={switchEnabled:true,revision:0};let practiceStorage=storage;
+ function bindPractice(){operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false};let practiceStorage=storage;
   try{practiceStorage??=globalThis.localStorage;}catch{throw new Error('Este navegador no permite guardar la práctica. Revisa sus permisos de almacenamiento.');}
   return bindAdapter(createTpvPracticeAdapter({actorId:identity(),storage:practiceStorage}));}
  const guard=()=>{if(!host||!allowed()||mountedActor!==identity())throw new Error('La sesión ha cambiado. Vuelve a entrar en TotusTPV.');};
@@ -338,6 +338,20 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    else if(result.synced)notice=result.synced===1?'Venta guardada sincronizada.':result.synced+' ventas guardadas sincronizadas.';
   });
  }
+ async function confirmCheckoutOperator(description){
+  const owner=identity();
+  const accepted=await askCurrent('¿Confirmas que '+(actor()?.full_name||actor()?.email||'tu cuenta de Central')+' registra '+description+'?',{acceptLabel:'Confirmar operador',acceptTone:'primary'});
+  if(!accepted)return false;
+  if(owner!==identity()||!host||!allowed())throw Error('La sesión ha cambiado. Vuelve a abrir el ticket.');
+  return {actorId:owner,accepted:true};
+ }
+ async function confirmPendingOperator(pending){
+  const run=generation,owner=identity(),drawer=context?.drawers.find(d=>d.id===session?.drawerId);
+  if(operatorSettingsStore&&drawer){const loaded=operatorSettings(await operatorSettingsStore(drawer));if(run!==generation||owner!==identity()||!host)throw Error('La sesión ha cambiado.');operatorRules=loaded;}
+  if(!operatorRules.requireAtCheckout)return undefined;
+  const total=pending.reduce((sum,row)=>sum+(row.totalCents??row.ticket.totalCents),0);
+  return confirmCheckoutOperator(pending.length===1?'el ticket pendiente '+pending[0].id.slice(0,8)+' de '+money(total):pending.length+' tickets pendientes de esta caja por '+money(total));
+ }
  function localJournal(deviceId){const drawer=context.drawers.find(row=>row.id===session.drawerId);return createOfflineJournal({scope:{actorId:identity(),connectionId:drawer.connectionId,storeId:session.storeId,shopId:drawer.shopId,drawerId:session.drawerId,deviceId}});}
  async function recover(operationId){incidentForm=false;
   const resultGeneration=generation,resultActor=identity(),resultSession=session?.id;
@@ -356,7 +370,9 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
      notice=saved.status==='conflict'?'La venta necesita revisión. Conecta para comprobar su resultado.':'La venta está guardada. La sincronización continuará cuando vuelva la conexión.';
      return;
     }
-    const run=generation,owner=identity(),cashSession=session.id,delivery=await adapter.offlineDelivery({deviceId});
+    const acknowledgement=saved.ticket.operatorAcknowledgement?undefined:await confirmPendingOperator([saved]);
+    if(acknowledgement===false)return;
+    const run=generation,owner=identity(),cashSession=session.id,delivery=await adapter.offlineDelivery({deviceId,...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})});
     const sync=createOfflineSync({journal,adapter:delivery,isCurrent:()=>run===generation&&owner===identity()&&allowed()&&!!host&&session?.id===cashSession});
     const checked=await sync.synchronize(operationId);
     if(checked.status==='conflict'){receipt={...receipt,id:operationId,status:'uncertain',localQueued:false,needsReview:true,totalCents:saved.ticket.totalCents};throw Error('El cálculo o los datos de esta venta necesitan revisión. Conserva el ticket y no vuelvas a cobrarlo.');}
@@ -646,7 +662,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(!form.querySelector('.tpv-menu-link-row:not([hidden])'))form.querySelector('.tpv-menu-link-row').hidden=false;
    form.querySelector('[data-tpv-action="add-menu-link"]').hidden=false;if(changed)rememberForm(form);return;
   }
-  if(action==='exit'){if(!await requestLeave())return;operatorRules={switchEnabled:true,revision:0};accessBatch.reset();barcodePanel.reset();adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();stockIntake.reset();productIntake.reset();draftInfo=null;parked=[];render();return;}
+  if(action==='exit'){if(!await requestLeave())return;operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false};accessBatch.reset();barcodePanel.reset();adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();stockIntake.reset();productIntake.reset();draftInfo=null;parked=[];render();return;}
   if(['sale','history','session','stock','drafts'].includes(action))return work(()=>changeTab(action));
   if(action==='park')return work(async()=>{if(!parkingRules.enabled)throw Error('El aparcado está desactivado para tu cuenta y esta caja. Puedes consultar los tickets anteriores desde Más acciones.');if(!live()||!canSell()||!lines.length||payment||returnForm)throw new Error('Termina el cobro o la devolución antes de aparcar otro ticket.');
    const {adjustment,coupon,note}=ticketAdjustments(),label=formValues.ticket?.draftLabel?.trim()||draftInfo?.label||'Ticket '+new Date().toLocaleString('es-ES');
@@ -784,10 +800,10 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     signatureRules=observed;notice='Configuración de firma guardada para esta caja.';
    }else if(kind==='operator-settings'){
     if(!live()||!operatorSettingsStore||!canAssign())throw Error('No tienes permiso para configurar los operadores de esta caja.');
-    const run=generation,owner=identity(),drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer)),settings={switchEnabled:fields.get('switchEnabled')==='on',expectedRevision:operatorRules.revision};
+    const run=generation,owner=identity(),drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer)),settings={switchEnabled:fields.get('switchEnabled')==='on',requireAtCheckout:fields.get('requireAtCheckout')==='on',expectedRevision:operatorRules.revision};
     const observed=operatorSettings(await operatorSettingsStore(drawer,settings));
     if(run!==generation||owner!==identity()||!host)throw Error('La sesión ha cambiado. Vuelve a consultar los operadores.');
-    if(observed.switchEnabled!==settings.switchEnabled)throw Error('No se ha confirmado la configuración de operadores. Vuelve a consultarla.');
+    if(observed.switchEnabled!==settings.switchEnabled||observed.requireAtCheckout!==settings.requireAtCheckout)throw Error('No se ha confirmado la configuración de operadores. Vuelve a consultarla.');
     operatorRules=observed;notice=observed.switchEnabled?'Cambio de operador activado en esta caja.':'Cambio de operador desactivado en esta caja.';
    }else if(kind==='cash-visibility'){
     if(!live()||!cashVisibilityStore||!canAssign())throw Error('No tienes permiso para configurar la visibilidad de esta caja.');
@@ -860,8 +876,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     const payments=[];if(cash>0)payments.push({method:'cash',amountCents:cash,receivedCents:inputCents(fields.get('received'))});
     if(method!=='cash'){const external=method==='mixed'?fields.get('externalMethod'):method,reference=referenceForTender(payment.referencePolicy,external,fields.get('reference:'+external)??undefined);
      payments.push({method:external,amountCents:payment.totalCents-cash,simulatedAccepted:fields.get('cardAccepted')==='on',...(reference===undefined?{}:{reference})});}
-    const submissionGeneration=generation,operator=identity(),operationId=payment.id,submit=()=>adapter.submit({operationId,payments,scenario:fields.get('scenario')});
-    const ticket=live()&&adapter.localSaleTicket?await adapter.localSaleTicket({operationId,payments}):null;
+    const submissionGeneration=generation,operator=identity(),operationId=payment.id;
+    const acknowledgement=live()&&(operatorRules.requireAtCheckout||payment.requireOperatorAtCheckout)?await confirmCheckoutOperator('esta venta de '+money(payment.totalCents)):undefined;
+    if(acknowledgement===false)return;
+    if(submissionGeneration!==generation||operator!==identity()||!host||!allowed())return;
+    const submit=()=>adapter.submit({operationId,payments,scenario:fields.get('scenario'),...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})});
+    const ticket=live()&&adapter.localSaleTicket?await adapter.localSaleTicket({operationId,payments,...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})}):null;
     let submitted;
     if(ticket){const deviceId=offlineDevice(storage),journal=localJournal(deviceId);
      submitted=await submitWithLocalReceipt({journal,operationId,ticket,submit,isOnline:()=>payment?.localEstimate!==true&&globalThis.navigator?.onLine!==false,isCurrent:()=>submissionGeneration===generation&&operator===identity()&&allowed()&&!!host&&session?.id===ticket.cashSessionId});
@@ -1006,7 +1026,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    includeDisabledStock=false;
    stockIntake.reset();
    catalogueTable.setColumns();catalogueSort={field:'name',direction:'asc'};variantGroupId=0;variantProductName='';variantView='';parentCatalogueSort=null;
-   operatorRules={switchEnabled:true,revision:0};cashVisibilityRules={hideSummary:false};drawerPayments=null;customMenuLinks=[];returnRules={allowPartial:true};signatureRules=signatureOptions();orderLookup='';focusOrderLookup=false;stockRules=stockPolicy();priceRules=lineOptions();parkingRules=parkingOptions();displayOptions=displayPreferences();searchOptions=searchPreferences();catalogueOptions=cataloguePreferences();receiptStyle=receiptOptions();cashStyle=cashOptions();customerScreenOptions=customerDisplayOptions();incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
+   operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false};cashVisibilityRules={hideSummary:false};drawerPayments=null;customMenuLinks=[];returnRules={allowPartial:true};signatureRules=signatureOptions();orderLookup='';focusOrderLookup=false;stockRules=stockPolicy();priceRules=lineOptions();parkingRules=parkingOptions();displayOptions=displayPreferences();searchOptions=searchPreferences();catalogueOptions=cataloguePreferences();receiptStyle=receiptOptions();cashStyle=cashOptions();customerScreenOptions=customerDisplayOptions();incidentForm=false;categories=[];categoryId=0;initialCategoryId=0;catalogueView='grid';adapter=null;context=null;session=null;lines=[];receipt=null;payment=null;notice='';failure='';tab='sale';returnForm=null;paymentValues={};
    formValues={};formDirty=false;selectedStore='';selectedDrawer='';search='';products=[];history=[];summary=null;setup=null;productPage=0;variantProduct=0;stockProduct=null;configuration=null;configurationId=null;documentPreview=null;selectedCustomer=null;customers.reset();reports.reset();parked=[];draftInfo=null;budgetPage={items:[],hasMore:false};selectedBudget=null;budgetEditing=false;budgetQuery='';
    if(!allowed()){host.innerHTML='<p role="alert">Necesitas acceso a Ventas y Cajas para usar TotusTPV.</p>';return;}
    abort=new AbortController();for(const [type,handler] of [['click',click],['submit',submit],['change',change],['input',input],['keydown',keydown]])

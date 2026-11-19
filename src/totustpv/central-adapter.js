@@ -1,3 +1,4 @@
+import {operatorAcknowledgement} from './operator-acknowledgement.js';
 import {cashSummaryPresentation} from './cash-visibility.js';
 import {originalRefundPayments} from './refund-payments.js';
 import {createOfflineWorkstationCache} from './offline-workstation-cache.js';
@@ -187,24 +188,25 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     return rows;
    }});
   },
-  offlineDelivery({deviceId}){
+  offlineDelivery({deviceId,operatorAcknowledgement:manualAcknowledgement}){
+   const manualAck=operatorAcknowledgement(manualAcknowledgement,actorId);
    need(typeof deviceId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(deviceId)&&session&&selected,'Abre la caja y prepara este dispositivo antes de sincronizar.');
    const original=canonical(selection());
    const guard=()=>need(canonical(selection())===original,'El puesto ha cambiado. Vuelve a las ventas pendientes de su caja original.');
    const send=async(action,operationId,values={})=>{guard();const result=await call(action,values,operationId);guard();return result;};
    const receive=async(operationId,ticket)=>{const saved=await send('offline-receive',operationId,{deviceId,ticket});
     need(saved?.id===operationId&&saved.deviceId===deviceId&&canonical(saved.ticket)===canonical(ticket),'No se ha podido verificar el ticket pendiente guardado en Central.');return saved;};
-   const result=async(action,operationId)=>{const observed=await send(action,operationId);
+   const result=async(action,operationId,ticket)=>{const ack=operatorAcknowledgement(manualAck??ticket?.operatorAcknowledgement,actorId);const observed=await send(action,operationId,ack?{operatorAcknowledgement:ack}:{});
     need(observed?.operationId===operationId,'La respuesta no corresponde a esta venta pendiente.');if(observed.status==='confirmed'&&observed.verified===true){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}return observed;};
    return Object.freeze({
-    async dispatch({operationId,ticket}){await receive(operationId,ticket);return result('offline-sync',operationId);},
+    async dispatch({operationId,ticket}){await receive(operationId,ticket);return result('offline-sync',operationId,ticket);},
     async recover({operationId,ticket}){
      let saved=await send('offline-get',operationId);
      if(!saved)saved=await receive(operationId,ticket);
      need(saved.id===operationId&&saved.deviceId===deviceId&&canonical(saved.ticket)===canonical(ticket),'El ticket guardado no coincide con esta venta local.');
      // Before binding, the server resumes deterministic cart/quote steps. Once
      // bound, recovery consults the same financial operation without a new sale.
-     return result(saved.checkoutId?'offline-recover':'offline-sync',operationId);
+     return result(saved.checkoutId?'offline-recover':'offline-sync',operationId,ticket);
     }
    });
   },
@@ -273,17 +275,18 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
     paymentMethods:quotePaymentMethods(record.expected),
     paymentLabels:clone(record.expected.operatorPaymentPolicy?.labels||{}),
-    referencePolicy:clone(record.expected.operatorPaymentPolicy?.referencePolicy||{}),
+    requireOperatorAtCheckout:record.expected.operatorPaymentPolicy?.requireOperatorAtCheckout===true,referencePolicy:clone(record.expected.operatorPaymentPolicy?.referencePolicy||{}),
     lines:clone(record.expected.lines||[]),discountCents:record.expected.discountCents||0};
    localSnapshots.set(id,{expected:clone(record.expected),intent:clone(intent),scope:scopeKey()});
    prepared.set(id,quote);return clone(quote);},
-  localSaleTicket({operationId,payments}){
+  localSaleTicket({operationId,payments,operatorAcknowledgement:acknowledgement}){
+   const ack=operatorAcknowledgement(acknowledgement,actorId);
    const snapshot=localSnapshots.get(operationId);if(!snapshot)return null;
    const local=prepared.get(operationId);need(!local?.localEstimate||!offlineAccessDenied&&Date.now()<local.quoteExpiresAt,'El cálculo sin conexión ha caducado. Vuelve al ticket y calcula de nuevo antes de cobrar.');
    need(snapshot.scope===scopeKey()&&session,'La caja del ticket ha cambiado.');
    need(payments.every(row=>row.method==='cash'||row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const commercial=commercialFromExpected(snapshot.expected),intent=snapshot.intent;
-   return {commercial,cashSessionId:session.id,currency:commercial.currency,totalCents:commercial.totalCents,lines:clone(intent.lines),...(intent.note?{note:intent.note}:{}),...(intent.adjustment?{adjustment:clone(intent.adjustment)}:{}),...(intent.coupon?{coupon:intent.coupon}:{}),payments:payments.map(row=>({method:row.method,amountCents:row.amountCents,...(row.method==='cash'?{receivedCents:row.receivedCents}:{}),...(row.reference===undefined?{}:{reference:paymentReference(row.reference)})}))};
+   return {...(ack?{operatorAcknowledgement:ack}:{}),commercial,cashSessionId:session.id,currency:commercial.currency,totalCents:commercial.totalCents,lines:clone(intent.lines),...(intent.note?{note:intent.note}:{}),...(intent.adjustment?{adjustment:clone(intent.adjustment)}:{}),...(intent.coupon?{coupon:intent.coupon}:{}),payments:payments.map(row=>({method:row.method,amountCents:row.amountCents,...(row.method==='cash'?{receivedCents:row.receivedCents}:{}),...(row.reference===undefined?{}:{reference:paymentReference(row.reference)})}))};
   },
   leaveLocalTicket(id){
    const snapshot=localSnapshots.get(id);
@@ -299,12 +302,12 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);localSnapshots.delete(id);},
   async pendingSale(){const data=saved(),scope=scopeKey();for(const kind of ['submitted-sale','prepare'])if(data[kind]?.scope===scope)return data[kind].id;
    let rows;try{rows=await call('history');}catch(error){if(error?.code==='TPV_CONNECTION_UNAVAILABLE')return null;throw error;}return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
-  async submit({operationId,payments}){const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
+  async submit({operationId,payments,operatorAcknowledgement:acknowledgement}){const ack=operatorAcknowledgement(acknowledgement,actorId);const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
    need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
     ...(row.reference===undefined?{}:{reference:paymentReference(row.reference)}),
     ...(row.method==='cash'?{receivedCents:row.receivedCents}:{})}));
-   const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true}};
+   const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true,...(ack?{operatorAcknowledgement:ack}:{})}};
    need(await operation('submitted-sale',request,operationId)===operationId,'Hay otro cobro pendiente de recuperar.');
    const change=payments.filter(row=>row.method==='cash').reduce((n,row)=>n+row.receivedCents-row.amountCents,0);
    try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}

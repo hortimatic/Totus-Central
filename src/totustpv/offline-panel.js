@@ -4,7 +4,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 import {offlineDevice} from './offline-device.js';
 export {offlineDevice} from './offline-device.js';
-export function createOfflinePanel({getScope,getAdapter,isCurrent,storage}){
+export function createOfflinePanel({getScope,getAdapter,isCurrent,storage,getOperatorAcknowledgement=async()=>undefined}){
  let rows=[],journal=null,sync=null,scope=null,version=0;
  const current=()=>scope&&isCurrent()&&JSON.stringify(getScope())===JSON.stringify(scope);
  async function refresh(){
@@ -14,18 +14,28 @@ export function createOfflinePanel({getScope,getAdapter,isCurrent,storage}){
   for(;;){const page=await journal.list({after,limit:100});if(run!==version||!current())throw Error('La sesión ha cambiado.');all.push(...page);if(page.length<100)break;after=page.at(-1).id;}
   rows=all;
  }
+ async function bindSync(acknowledgement){
+  const run=version,boundScope=scope,boundJournal=journal;
+  const delivery=await getAdapter().offlineDelivery({deviceId:offlineDevice(storage),...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})});
+  if(run!==version||!current())throw Error('La sesión ha cambiado.');
+  const scopedJournal={...boundJournal,get:async id=>{const row=await boundJournal.get(id);if(row&&row.ticket.cashSessionId!==boundScope.cashSessionId)throw Error('Esta venta pertenece a otra sesión de caja.');return row;},list:options=>boundJournal.list(options)};
+  sync=createOfflineSync({journal:scopedJournal,adapter:delivery,isCurrent:()=>run===version&&current(),shouldSynchronize:row=>row.ticket.cashSessionId===boundScope.cashSessionId});
+ }
+ async function confirmPending(selected){
+  const run=version,ack=await getOperatorAcknowledgement(selected.map(row=>({id:row.id,totalCents:row.ticket.totalCents})));
+  if(run!==version||!current())throw Error('La sesión ha cambiado.');
+  if(ack===false)return false;
+  await bindSync(ack);return true;
+ }
  return {async open(){
    const run=++version;scope=structuredClone(getScope());if(!scope?.cashSessionId)throw Error('Abre la caja para consultar sus ventas pendientes.');
    const deviceId=offlineDevice(storage);journal=createOfflineJournal({scope:{...scope,deviceId}});
-   const delivery=await getAdapter().offlineDelivery({deviceId});
-   if(run!==version||!current())throw Error('La sesión ha cambiado.');
-   const boundScope=scope,boundJournal=journal;
-   // Other cash sessions are visible but must never be sent through this one.
-   const scopedJournal={...journal,get:async id=>{const row=await boundJournal.get(id);if(row&&row.ticket.cashSessionId!==boundScope.cashSessionId)throw Error('Esta venta pertenece a otra sesión de caja.');return row;},list:async options=>(await journal.list(options))};
-   sync=createOfflineSync({journal:scopedJournal,adapter:delivery,isCurrent:()=>run===version&&current(),shouldSynchronize:row=>row.ticket.cashSessionId===boundScope.cashSessionId});await refresh();
+   await bindSync();await refresh();
   },async synchronize(){
    if(!current())throw Error('La caja ha cambiado.');
    if(globalThis.navigator?.onLine===false)throw Error('Las ventas siguen guardadas. Conecta para sincronizarlas.');
+   await refresh();const pending=rows.filter(row=>row.ticket.cashSessionId===scope.cashSessionId&&!['synced','conflict'].includes(row.status));
+   if(pending.length&&!await confirmPending(pending))return;
    await sync.synchronizePending();await refresh();
   },
   async recheck(id){
@@ -33,6 +43,7 @@ export function createOfflinePanel({getScope,getAdapter,isCurrent,storage}){
    if(globalThis.navigator?.onLine===false)throw Error('Conecta para volver a comprobar esta venta.');
    const row=rows.find(row=>row.id===id),run=version;
    if(!row||row.status!=='conflict'||row.ticket.cashSessionId!==scope.cashSessionId)throw Error('Selecciona una incidencia de esta sesión de caja.');
+   if(!await confirmPending([row]))return;
    const changed=await journal.recheck(id,row.revision);
    if(run!==version||!current())throw Error('La caja ha cambiado.');
    if(changed.updated)await sync.synchronize(id);

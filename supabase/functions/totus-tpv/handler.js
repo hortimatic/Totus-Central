@@ -93,7 +93,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
      'signature-prepare','signature-find','signature-get','signature-sign','signature-cancel','central-cash-context','central-cash-read','billing-context','billing-list','billing-signature','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
-   const permitted={'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId'],'offline-recover':['action','selection','operationId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
+   const permitted={'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId','operatorAcknowledgement'],'offline-recover':['action','selection','operationId','operatorAcknowledgement'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
     'central-cash-context':['action'],'central-cash-read':['action','selection','section','query'],
     'billing-context':['action'],'billing-list':['action','selection','query'],'billing-signature':['action','selection','operationId'],
@@ -336,7 +336,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     const record=await ledger.get({scope,operationId:input.operationId});
     return respond({id:record.id,status:record.status,orderId:record.orderId,totalCents:record.expected.totalCents,totalTaxExclCents:record.expected.totalTaxExclCents,
      currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,lines:record.expected.lines,
-     paymentMethods:quotePaymentMethods(record.expected),paymentLabels:record.expected.operatorPaymentPolicy?.labels||{},referencePolicy:record.expected.operatorPaymentPolicy?.referencePolicy||{},
+     paymentMethods:quotePaymentMethods(record.expected),paymentLabels:record.expected.operatorPaymentPolicy?.labels||{},referencePolicy:record.expected.operatorPaymentPolicy?.referencePolicy||{},requireOperatorAtCheckout:record.expected.operatorPaymentPolicy?.requireOperatorAtCheckout===true,
      discountCents:record.expected.discountCents,
      ...(record.status==='ready'&&record.scope.actorId===scope.actorId&&record.expected.localSaleIntent?{localSnapshot:{expected:commercialFromExpected(record.expected),intent:record.expected.localSaleIntent}}:{}),
      canSubmit:record.scope.actorId===scope.actorId,draftId:record.expected.draftId,draftVersion:record.expected.draftVersion});
@@ -514,8 +514,10 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const policy=async()=>{const fresh=(await selected()).row;
     const saved=check(await scoped.rpc('totus_tpv_payment_options',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_options:null}));
     need(Number.isSafeInteger(saved?.revision)&&saved.revision>=0,'TPV_PAYMENT_POLICY_INVALID');
+    const operators=check(await scoped.rpc('totus_tpv_operator_settings',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_settings:null}));
+    need(typeof operators?.requireAtCheckout==='boolean','TPV_OPERATOR_SETTINGS_UNAVAILABLE');
     const choices=paymentChoices(saved.options,fresh.nativeProfile.payment_labels);
-    return {enabled:true,revision:fresh.profileRevision,settingsRevision:saved.revision,drawerId:scope.drawerId,
+    return {enabled:true,requireOperatorAtCheckout:operators.requireAtCheckout,revision:fresh.profileRevision,settingsRevision:saved.revision,drawerId:scope.drawerId,
     environment:'qa',connectionId:scope.connectionId,shopId:scope.shopId,storeId:scope.storeId,currency:scope.currency,
     methodOrder:choices.map(({id})=>id),referencePolicy:paymentReferencePolicy(saved.options.referencePolicy,Object.keys(fresh.nativeProfile.payment_labels)),modes:Object.fromEntries(choices.map(({id})=>[id,OPERATOR_PAYMENT_MODES[id]])),labels:Object.fromEntries(choices.map(({id,label})=>[id,label]))};};
    async function profile(){const fresh=(await selected()).row,p=fresh.nativeProfile;
@@ -619,7 +621,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const checkout=createCheckoutService({authorize,ledger,native,settlements});
    if(offlineRecord){
     if(input.action==='offline-recover'&&!offlineRecord.checkoutId)return respond({operationId:input.operationId,status:'pending',verified:false});
-    const command={operationId:input.operationId,selection:input.selection,payments:{allocations:offlineRecord.ticket.payments.map(row=>({id:row.method,...row})),confirmation:{accepted:true,operationId:input.operationId,totalCents:offlineRecord.ticket.totalCents,currency:'EUR'}}};
+    const command={operationId:input.operationId,selection:input.selection,payments:{allocations:offlineRecord.ticket.payments.map(row=>({id:row.method,...row})),confirmation:{accepted:true,operationId:input.operationId,totalCents:offlineRecord.ticket.totalCents,currency:'EUR',...((input.operatorAcknowledgement??offlineRecord.ticket.operatorAcknowledgement)?{operatorAcknowledgement:input.operatorAcknowledgement??offlineRecord.ticket.operatorAcknowledgement}:{})}}};
     let record=await ledger.get({scope,operationId:input.operationId});
     if(record.status==='ready'&&record.quoteExpiresAt<=Date.now()){
      let fresh;

@@ -73,3 +73,11 @@ test('underpayment, duplicate methods, unconfigured transfer and imaginary nonca
   [{id:'a',method:'transfer',amountCents:801}],[{id:'a',method:'cash',amountCents:801,receivedCents:800}]])
   await assert.rejects(fixture().verify({scope,operationId:id(6),expected,requested:{...requested,allocations}}));
 });
+
+test('checkout operator confirmation uses the currently authenticated owner when the current drawer requires it',async()=>{
+ const verifier=fixture({readPolicy:async()=>({...policy,requireOperatorAtCheckout:true})});
+ const verify=confirmation=>verifier.verify({scope,operationId:id(6),expected,requested:{...requested,confirmation:{...requested.confirmation,...confirmation}}});
+ await assert.rejects(verify({}),/CHECKOUT_OPERATOR_REQUIRED/);
+ for(const operatorAcknowledgement of [null,{actorId:id(99),accepted:true},{actorId:scope.actorId,accepted:false},{actorId:scope.actorId,accepted:true,password:'bad'}])await assert.rejects(verify({operatorAcknowledgement}),/CHECKOUT_OPERATOR_INVALID/);
+ assert.equal((await verify({operatorAcknowledgement:{actorId:scope.actorId,accepted:true}})).length,1);
+});

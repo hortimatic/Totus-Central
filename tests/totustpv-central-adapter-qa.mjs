@@ -188,6 +188,7 @@ test('offline delivery recovers a lost receipt in its original workstation and n
  await assert.rejects(delivery.dispatch({operationId:operation,ticket}),/Receipt response lost/);
  assert.equal((await delivery.recover({operationId:operation,ticket})).status,'confirmed');await delivery.recover({operationId:operation,ticket});
  assert.equal(requests.filter(r=>r.action==='offline-receive').length,1);assert.equal(requests.filter(r=>r.action==='offline-sync').length,1);assert.equal(requests.filter(r=>r.action==='offline-recover').length,1);
+ const manual=adapter.offlineDelivery({deviceId:device,operatorAcknowledgement:{actorId:actor,accepted:true}});await manual.recover({operationId:operation,ticket});assert.deepEqual(requests.at(-1).operatorAcknowledgement,{actorId:actor,accepted:true});assert.deepEqual(saved.ticket,ticket,'Manual attribution does not rewrite legacy offline data');assert.throws(()=>adapter.offlineDelivery({deviceId:device,operatorAcknowledgement:{actorId:device,accepted:true}}),/OPERATOR_INVALID/);
  const count=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket:{...ticket,totalCents:101}}),/no coincide/);assert.equal(requests.length,count+1);
  await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const before=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket}),/puesto ha cambiado/);assert.equal(requests.length,before);
 });
