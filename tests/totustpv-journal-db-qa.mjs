@@ -1,3 +1,4 @@
+import {exerciseCashVisibility} from './native-lab/cash-visibility-assertions.mjs';
 import {exerciseAccessBatches} from './native-lab/access-batch-assertions.mjs';
 import {exerciseSignatures} from './native-lab/signature-assertions.mjs';
 import {exerciseMenuLinks} from './native-lab/menu-links-assertions.mjs';
@@ -801,5 +802,7 @@ try {
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
  await exerciseAccessBatches({db,id,connection:qaConnection,manager:id(5)});
+ await db.exec(await readFile('supabase/migrations/20261119031450_totustpv_cash_visibility.sql','utf8'));
+ await exerciseCashVisibility({db,id,scope:draftScope,manager:id(5)});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

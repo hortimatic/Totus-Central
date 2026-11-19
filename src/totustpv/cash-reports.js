@@ -5,7 +5,8 @@ const date=value=>value?new Date(value).toLocaleString('es-ES'):'—';
 const label=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transfer:'Transferencia'}[method]||method);
 export function cashReportHtml(report){
  if(!report||report.currency!=='EUR'||report.environment!=='qa'||!['open','closed'].includes(report.status)||
-  !Number.isSafeInteger(report.expectedCashCents))throw Error('Informe de caja no válido.');
+  report.cashSummaryHidden!==true&&!Number.isSafeInteger(report.expectedCashCents))throw Error('Informe de caja no válido.');
+ if(report.cashSummaryHidden===true)return `<article class="tpv-cash-report"><h4>${report.status==='closed'?'Cierre de caja':'Informe de caja abierta'}</h4><p><strong>${esc(report.storeName)} · ${esc(report.drawerName)}</strong><br>Apertura: ${esc(date(report.openedAt))}<br>Cierre: ${esc(date(report.closedAt))}</p><p role="status">Los importes de este resumen están ocultos para tu cuenta. El cierre y los importes reales se conservan.</p>${report.unresolvedSales||report.pendingRefunds?'<p>Hay operaciones pendientes de recuperar.</p>':''}</article>`;
  const methods=[...new Set([...Object.keys(report.payments||{}),...Object.keys(report.refunds||{})])];
  return `<article class="tpv-cash-report"><h4>${report.status==='closed'?'Cierre de caja':'Informe de caja abierta'}</h4>
   <p><strong>${esc(report.storeName)} · ${esc(report.drawerName)}</strong><br>Apertura: ${esc(date(report.openedAt))} · ${esc(report.openedByName)}<br>Cierre: ${esc(date(report.closedAt))}${report.closedAt?' · '+esc(report.closedByName):''}</p>

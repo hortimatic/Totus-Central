@@ -1,3 +1,4 @@
+import {cashSummaryPresentation} from './cash-visibility.js';
 import {originalRefundPayments} from './refund-payments.js';
 import {createOfflineWorkstationCache} from './offline-workstation-cache.js';
 import {offlineBasketCommercial} from './offline-basket-commercial.js';
@@ -98,9 +99,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    totalCents:row.totalCents??stored?.totalCents??0,...(base===undefined?{}:{totalTaxExclCents:base}),...extra};
   taxSummary(result);return result;
  };
- const summary=row=>({...row,salesCents:Object.values(row.payments||{}).reduce((n,v)=>n+v,0),cashCents:row.payments?.cash||0,
-  refundCashCents:row.refunds?.cash||row.refundPayments?.cash||0,unresolved:(row.unresolvedSales||row.pendingSales||0)+(row.pendingRefunds||0),
-  differenceCents:row.countedCents==null?null:row.countedCents-row.expectedCashCents});
+ const summary=cashSummaryPresentation;
  async function restoreClaimedDraft(result){
   if(['sold','archived'].includes(result.status)){activeDraft=null;throw new Error('Este ticket ya se ha vendido o archivado. Consulta su historial.');}
   need(result.status==='claimed'&&result.mine,'Otro operador está utilizando este ticket.');activeDraft=result;
