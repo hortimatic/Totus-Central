@@ -19,7 +19,7 @@ import {createProductIntakeService} from '../../../src/totustpv/server/product-i
 import {createCatalogueIntakeService} from '../../../src/totustpv/server/catalogue-intake-service.js';
 import {createCommercialBudgetService} from '../../../src/totustpv/server/commercial-budget-service.js';
 import {budgetDraft} from '../../../src/totustpv/budget-contract.js';
-import {readBillingDocument} from '../../../src/totustpv/server/billing-service.js';
+import {readBillingDocument,readBillingSignature} from '../../../src/totustpv/server/billing-service.js';
 import {stockPolicy} from '../../../src/totustpv/stock-policy.js';
 import {lineOptions,lineAdjustment} from '../../../src/totustpv/line-options.js';
 import {lineName} from '../../../src/totustpv/line-name.js';
@@ -91,12 +91,12 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
-     'signature-prepare','signature-find','signature-get','signature-sign','signature-cancel','central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+     'signature-prepare','signature-find','signature-get','signature-sign','signature-cancel','central-cash-context','central-cash-read','billing-context','billing-list','billing-signature','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
    const permitted={'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId'],'offline-recover':['action','selection','operationId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
     'central-cash-context':['action'],'central-cash-read':['action','selection','section','query'],
-    'billing-context':['action'],'billing-list':['action','selection','query'],
+    'billing-context':['action'],'billing-list':['action','selection','query'],'billing-signature':['action','selection','operationId'],
     'billing-document':['action','selection','operationId','kind','refundId'],
     'update-workstation-access':['action','selection','operationId','revision','operatorId','assignmentRevision','permissions','active'],
     open:['action','selection','operationId','openingCents'],catalogue:['pricingQuantity','action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId','inventoryOnly'],
@@ -163,6 +163,10 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     if(input.action==='billing-list'){
      need(input.query===undefined||input.query&&typeof input.query==='object'&&!Array.isArray(input.query),'TPV_BILLING_QUERY_INVALID');
      return respond(check(await rpc('totus_tpv_billing_read',{p_scope:scope,p_sale:null,p_query:input.query??{}})));
+    }
+    if(input.action==='billing-signature'){
+     need(uuid(input.operationId),'TPV_BILLING_QUERY_INVALID');
+     return respond(await readBillingSignature({rpc,scope,operationId:input.operationId}));
     }
     need(uuid(input.operationId)&&['billing','invoice','credit-note'].includes(input.kind)&&
      (input.kind==='credit-note'?uuid(input.refundId):input.refundId===undefined),'TPV_BILLING_QUERY_INVALID');

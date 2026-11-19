@@ -10,6 +10,7 @@ function fixture({denied=false,stale=false}={}){
   calls.push({name,key,args});
   if(name==='totus_tpv_billing_context'){assert.equal(key,'public-fixture');contexts++;return denied?{error:{message:'TPV_BILLING_FORBIDDEN'}}:{data:{actorId:actor,sources:[{...row,connectionRevision:stale&&contexts>1?2:1}]}};}
   if(name==='totus_tpv_billing_read')return {data:args.p_sale?{id:sale,orderId:10,sourceActorId:actor,refundSources:[]}:{items:[],hasMore:false,cursor:null}};
+  if(name==='totus_tpv_billing_signature'){assert.equal(key,'private-fixture');assert.equal(args.p_scope.actorId,actor);return {data:null};}
   if(name==='totus_api_server')return {data:{id:connection,revision:1,verified_revision:1,protocol:'prestashop',enabled:true,
    real_data_authorized:true,endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:'fixture-only'}};
   if(name==='totus_api_call')return {data:true};throw Error('Unexpected RPC '+name);
@@ -40,4 +41,12 @@ test('absent billing rights and forged scope fail before privileged credentials/
 test('permission/context is rechecked immediately before native document delivery',async()=>{
  const f=fixture({stale:true});const result=await f.invoke({action:'billing-document',selection:{connectionId:connection,shopId:1},operationId:sale,kind:'invoice'});
  assert.equal(result.body.error,'TPV_BILLING_CONTEXT_STALE');assert.equal(f.requests.length,0);
+});
+
+
+test('billing signature archive needs billing permission but no workstation, cash session, shop credentials or native request',async()=>{
+ const input={action:'billing-signature',selection:{connectionId:connection,shopId:1},operationId:sale};
+ const f=fixture(),result=await f.invoke(input);assert.equal(result.status,200,JSON.stringify(result.body));assert.deepEqual(result.body,{available:false});assert.equal(f.requests.length,0);assert.equal(f.calls.some(c=>['totus_api_server','totus_tpv_context','totus_tpv_cash'].includes(c.name)),false);
+ const denied=fixture({denied:true});assert.equal((await denied.invoke(input)).body.error,'TPV_BILLING_FORBIDDEN');assert.equal(denied.calls.some(c=>c.key==='private-fixture'),false);
+ for(const extra of [{sourceActorId:actor},{kind:'invoice'},{selection:{...input.selection,drawerId:actor}}]){const invalid=fixture();assert.equal((await invalid.invoke({...input,...extra})).status,400);assert.equal(invalid.calls.some(c=>c.name==='totus_tpv_billing_signature'),false);}
 });

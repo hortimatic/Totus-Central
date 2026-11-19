@@ -27,7 +27,7 @@ export function createTpvBillingUI({actor,client}){
   const {document:doc,sale}=detail;
   const discount=Math.round(Number(doc.discount_tax_incl||0)*100),shipping=Math.round(Number(doc.shipping_tax_incl||0)*100);
   return '<button type="button" class="btn secondary" data-billing-back '+(busy?'disabled':'')+'>← Volver a las ventas</button><header class="section-head card-pad"><div><div class="eyebrow">Factura original</div><h3>'+esc(doc.formatted_number)+'</h3><p>Pedido #'+esc(doc.order_id)+' · '+esc(doc.order_reference)+'</p><p class="small">'+esc(doc.issued_at)+' · '+esc(sale.drawerName)+' · '+esc(sale.operatorName)+'</p></div><strong>'+esc(amount(doc.total_cents,doc.currency))+'</strong></header>'+
-   '<div class="inline-actions"><button type="button" class="btn primary" data-billing-pdf="invoice" '+(busy?'disabled':'')+'>Descargar factura</button>'+sale.refunds.map((row,index)=>'<button type="button" class="btn secondary" data-billing-pdf="credit-note" data-billing-refund="'+esc(row.id)+'" '+(busy?'disabled':'')+'>Abono '+(index+1)+' · '+esc(amount(row.totalCents,doc.currency))+'</button>').join('')+'</div>'+
+   '<div class="inline-actions"><button type="button" class="btn secondary" data-billing-signature '+(busy?'disabled':'')+'>Factura firmada</button><button type="button" class="btn primary" data-billing-pdf="invoice" '+(busy?'disabled':'')+'>Descargar factura</button>'+sale.refunds.map((row,index)=>'<button type="button" class="btn secondary" data-billing-pdf="credit-note" data-billing-refund="'+esc(row.id)+'" '+(busy?'disabled':'')+'>Abono '+(index+1)+' · '+esc(amount(row.totalCents,doc.currency))+'</button>').join('')+'</div>'+
    '<div class="table-wrap"><table><thead><tr><th>Artículo</th><th>Cantidad</th><th>Precio con IVA</th><th>Total</th></tr></thead><tbody>'+doc.lines.map(row=>'<tr><td>'+esc(row.name)+'</td><td>'+esc(row.quantity)+'</td><td>'+esc(new Intl.NumberFormat('es-ES',{style:'currency',currency:doc.currency,maximumFractionDigits:6}).format(Number(row.unit_tax_incl)))+'</td><td>'+esc(amount(Math.round(Number(row.line_tax_incl)*100),doc.currency))+'</td></tr>').join('')+'</tbody></table></div>'+
    '<div class="metric-list">'+(discount?'<div class="metric-box"><span>Descuento general</span><b>−'+esc(amount(discount,doc.currency))+'</b></div>':'')+
    (shipping?'<div class="metric-box"><span>Transporte incluido</span><b>'+esc(amount(shipping,doc.currency))+'</b></div>':'')+
@@ -53,6 +53,11 @@ export function createTpvBillingUI({actor,client}){
    if(button.hasAttribute('data-billing-back')){detail=null;render();}
    if(button.hasAttribute('data-billing-next')&&cursor){const next=cursor;void run(async token=>{await load(token,next);if(valid(token))previous.push(next);});}
    if(button.hasAttribute('data-billing-prev')&&previous.length){const back=previous.length>1?previous[previous.length-2]:null;void run(async token=>{await load(token,back);if(valid(token))previous.pop();});}
+   if(button.hasAttribute('data-billing-signature')&&detail){const saleId=detail.sale.id;void run(async token=>{
+    const doc=await call({action:'billing-signature',selection:selection(),operationId:saleId});if(!valid(token))return;
+    if(doc.available===false){message='Esta factura todavía no tiene una copia firmada guardada en Central.';return;}
+    if(doc.available!==true||doc.orderId!==detail.sale.orderId||doc.mime!=='application/pdf'||doc.filename!=='totus-invoice-'+doc.orderId+'-firmada.pdf')throw Error('No se ha podido comprobar la factura firmada.');
+    const bytes=Uint8Array.from(atob(doc.base64),c=>c.charCodeAt(0));download(new Blob([bytes],{type:'application/pdf'}),doc.filename);message='Factura firmada preparada para descargar.';});}
    if(button.hasAttribute('data-billing-pdf')&&detail){const saleId=detail.sale.id,kind=button.dataset.billingPdf,refundId=button.dataset.billingRefund;
     void run(async token=>{const doc=await call({action:'billing-document',selection:selection(),operationId:saleId,kind,...(refundId?{refundId}:{})});if(!valid(token))return;
      const bytes=Uint8Array.from(atob(doc.base64),c=>c.charCodeAt(0));

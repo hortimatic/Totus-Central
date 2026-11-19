@@ -27,3 +27,17 @@ test('native metadata/PDF source identities come only from the server journal, w
  await assert.rejects(()=>readBillingDocument({rpc,scope:{},operationId:'sale',kind:'credit-note',refundId:'foreign',transport}),/TPV_BILLING_RETURN_NOT_FOUND/);
  assert.ok(requests.filter(row=>row.name).every(row=>row.name==='totus_tpv_billing_read'));
 });
+
+
+test('billing signature archive verifies exact signed bytes and needs no native transport',async()=>{
+ const {readBillingSignature}=await import('../src/totustpv/server/billing-service.js');
+ const {signatureHash}=await import('../src/totustpv/signature-document.js');
+ const bytes=Buffer.from('%PDF-1.4\nsigned-fixture'),sha256=await signatureHash(bytes),originalSha256='1'.repeat(64);
+ const record={operationId:'sale',orderId:10,status:'signed',original:{sha256:originalSha256},signed:{mime:'application/pdf',filename:'totus-invoice-10-firmada.pdf',base64:bytes.toString('base64'),sha256,originalSha256},actorName:'Operador',signedAt:'2026-11-19T02:00:00Z'};
+ let value=record;const calls=[],rpc=async(name,args)=>{calls.push({name,args});return {data:value};};
+ const result=await readBillingSignature({rpc,scope:{actorId:'reader'},operationId:'sale'});assert.equal(result.available,true);assert.equal(result.base64,record.signed.base64);assert.equal(result.filename,record.signed.filename);assert.equal(result.original,undefined);
+ assert.equal(calls.length,1);assert.equal(calls[0].name,'totus_tpv_billing_signature');assert.equal(calls[0].args.p_scope.actorId,'reader');
+ value=null;assert.deepEqual(await readBillingSignature({rpc,scope:{},operationId:'sale'}),{available:false});
+ for(const change of [{operationId:'other'},{orderId:11},{status:'prepared'},{signed:{...record.signed,sha256:'0'.repeat(64)}},{signed:{...record.signed,originalSha256:'0'.repeat(64)}}]){value={...record,...change};await assert.rejects(()=>readBillingSignature({rpc,scope:{},operationId:'sale'}));}
+ await assert.rejects(()=>readBillingSignature({rpc:async()=>({error:{message:'TPV_BILLING_FORBIDDEN'}}),scope:{},operationId:'sale'}),/TPV_BILLING_FORBIDDEN/);
+});

@@ -144,7 +144,8 @@
         "supabase/functions/totus-tpv/",
         "supabase/migrations/20261117234736_totustpv_billing_bridge.sql",
         "tests/totustpv-billing-",
-        "connectors/prestashop/src/NativeBilling.php"
+        "connectors/prestashop/src/NativeBilling.php",
+        "supabase/migrations/20261119020406_totustpv_billing_signature_archive.sql"
       ],
       "tests": [
         "tests/totustpv-billing-db-qa.mjs",
@@ -159,7 +160,8 @@
         "native invoice identity and historical amounts must match a confirmed scoped Central sale",
         "existing invoice and confirmed credit-note reads never issue documents, allocate numbers or duplicate revenue",
         "QA commercial documents remain outside business fiscal totals",
-        "late responses cannot cross account or disposed page boundaries"
+        "late responses cannot cross account or disposed page boundaries",
+        "Signed invoice archives use existing billing authorization, preserve exact stored PDF bytes and require no cashier session or native credential fetch."
       ]
     },
     {

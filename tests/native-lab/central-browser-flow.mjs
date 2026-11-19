@@ -12,7 +12,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
  await prepareZXingModule({overrides:{wasmBinary:wasm.buffer.slice(wasm.byteOffset,wasm.byteOffset+wasm.byteLength)},fireImmediately:true});
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
  try{for(const width of focus==='customers'?[1440]:[1440,390]){
-  const page=await browser.newPage({viewport:{width,height:950}});const errors=[],closeRequests=[];let lostClose=false,lostSignatureSave=false;const signatureCalls=[];
+  const page=await browser.newPage({viewport:{width,height:950}});const errors=[],closeRequests=[];let lostClose=false,lostSignatureSave=false;const signatureCalls=[];let signedArchiveBytes=null;
   page.on('pageerror',error=>errors.push(error.message));
   // The browser must not contact a remote shop even for a public logo/photo.
   // Keep the production origin in the response, but deliver native fixture
@@ -250,7 +250,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   if(signaturePolicy){
    await page.locator('.tpv-history summary').click();await page.getByRole('button',{name:'Factura firmada',exact:true}).click();await page.getByText('Factura firmada conservada en Central.',{exact:true}).waitFor();
    assert.equal(await page.getByRole('button',{name:'Recoger firma',exact:true}).count(),0,'Closed-cash history offers only the conserved signature');
-   const [archive]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Descargar factura firmada',exact:true}).click()]);assert.equal(archive.suggestedFilename(),'totus-invoice-'+orderId+'-firmada.pdf');
+   const [archive]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'Descargar factura firmada',exact:true}).click()]);assert.equal(archive.suggestedFilename(),'totus-invoice-'+orderId+'-firmada.pdf');signedArchiveBytes=await readFile(await archive.path());
    await page.getByRole('button',{name:'Volver a documentos',exact:true}).click();
   }
   const writesBeforeLookup=nativeWriteCount();
@@ -267,6 +267,17 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.equal(nativeWriteCount(),writesBeforeHistory,'Historical documents only read existing native records');
   await page.getByRole('button',{name:'Caja',exact:true}).click();await page.getByRole('button',{name:'Abrir caja',exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+  if(signaturePolicy){
+   const prepared=signatureCalls.find(row=>row.action==='signature-prepare'),selection={connectionId:prepared.selection.connectionId,shopId:prepared.selection.shopId};
+   const billingPage=await browser.newPage({viewport:{width,height:950}});billingPage.on('pageerror',error=>errors.push(error.message));
+   await billingPage.route('**/__billing_native',async route=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:route.request().postData()}));await route.fulfill({status:response.status,contentType:'application/json',body:await response.text()});});
+   await billingPage.goto('http://127.0.0.1:4173/tests/totustpv-billing.html');
+   await billingPage.evaluate(async({actor,selection,saleId})=>{const {createTpvBillingUI}=await import('/src/totustpv/billing-ui.js');window.nativeBilling=createTpvBillingUI({actor:()=>actor,client:()=>async input=>{const response=await fetch('/__billing_native',{method:'POST',body:JSON.stringify(input)}),body=await response.json();if(!response.ok)throw Error(body.error);return body;}});await nativeBilling.mount(document.querySelector('#billing'),{...selection,saleId});},{actor,selection,saleId:prepared.saleId});
+   const [billingArchive]=await Promise.all([billingPage.waitForEvent('download'),billingPage.getByRole('button',{name:'Factura firmada',exact:true}).click()]);
+   assert.equal(billingArchive.suggestedFilename(),'totus-invoice-'+orderId+'-firmada.pdf');assert.deepEqual(await readFile(await billingArchive.path()),signedArchiveBytes,'Facturación downloads the same conserved signed PDF after cash closure');
+   await billingPage.getByText('Factura firmada preparada para descargar.',{exact:true}).waitFor();assert.equal(await billingPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+   await billingPage.screenshot({path:`artifacts/native-lab/tpv-firma-facturacion-${width}.png`,fullPage:true});await billingPage.close();assert.equal(nativeWriteCount(),writesBeforeHistory);assert.equal(await cashSessionCount(),sessionsBeforeHistory);
+  }
   assert.deepEqual(errors,[]);await page.close();
  }
  console.log(focus==='customers'?'PASS customer UI → shared directory writer and SQL journal → native customer/address → selected for checkout. Local only.':

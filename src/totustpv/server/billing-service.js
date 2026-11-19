@@ -1,3 +1,4 @@
+import {signatureDocumentBlob} from '../signature-document.js';
 const need=(ok,code)=>{if(!ok)throw Error(code);};
 const positive=value=>Number.isSafeInteger(value)&&value>0;
 const text=(value,max)=>typeof value==='string'&&Array.from(value).length<=max&&!/[\x00-\x1f\x7f]/.test(value);
@@ -46,4 +47,15 @@ export async function readBillingDocument({rpc,scope,operationId,kind,refundId,t
   typeof document.base64==='string'&&document.base64.length<=12000000&&/^[A-Za-z0-9+/]*={0,2}$/.test(document.base64)&&
   document.base64.startsWith('JVBERi0'),'TPV_BILLING_DOCUMENT_MISMATCH');
  return {mime:document.mime,base64:document.base64,orderId:sale.orderId,kind};
+}
+
+/** The archive is already held by Central. It never requests shop credentials. */
+export async function readBillingSignature({rpc,scope,operationId}){
+ const response=await rpc('totus_tpv_billing_signature',{p_scope:scope,p_sale:operationId});
+ if(response?.error)throw Error(/^TPV_[A-Z0-9_]+$/.test(response.error.message||'')?response.error.message:'TPV_STORAGE_UNAVAILABLE');
+ const record=response?.data;if(record===null)return {available:false};
+ need(record?.operationId===operationId&&record.status==='signed'&&positive(record.orderId),'TPV_BILLING_DOCUMENT_MISMATCH');
+ await signatureDocumentBlob(record,'signed');
+ return {available:true,mime:'application/pdf',base64:record.signed.base64,filename:record.signed.filename,orderId:record.orderId,
+  signedAt:record.signedAt,actorName:record.actorName};
 }
