@@ -36,3 +36,9 @@ test('payment reference failures explain correction or recovery without exposing
  await assert.rejects(client({action:'submit'}),error=>error.code===code&&message.test(error.message)&&!error.message.includes('private-server-detail'));assert.equal(requests,1);
  }
 });
+
+
+test('signature storage failure explains recovery without asking for another sale',async()=>{
+ const client=createTpvHttpClient({owner:'operator-a',currentActor:()=> 'operator-a',url:'https://fixture.supabase.co',key:'fixture-public',auth:{getSession:async()=>({data:{session:{user:{id:'operator-a'},access_token:'opaque-fixture'}}})},request:async()=>new Response(JSON.stringify({error:'TPV_SIGNATURE_STORAGE_UNAVAILABLE',detail:'private'}),{status:503})});
+ await assert.rejects(client({action:'signature-sign'}),error=>error.code==='TPV_SIGNATURE_STORAGE_UNAVAILABLE'&&/Recuperar resultado/.test(error.message)&&!error.message.includes('private'));
+});

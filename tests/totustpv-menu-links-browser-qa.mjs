@@ -9,6 +9,8 @@ try{const context=await browser.newContext();await context.route('**/*',route=>{
   window.menuFixture={actor:'owner',saved:new Map(),failNext:false,writes:0};const drawer={id:'drawer',storeId:'store',connectionId:'connection',shopId:1,name:'Caja A',canSell:true,canOpen:true,canReconcile:true};
   menuFixture.workspace=createTpvWorkspace({actor:()=>({id:menuFixture.actor,active:true}),can:()=>true,autoOpen:true,
    createLiveAdapter:()=>({mode:'qa',context:async()=>({stores:[{id:'store',name:'Tienda A'}],drawers:[drawer],sessions:[{id:'session',storeId:'store',drawerId:'drawer',status:'open'}]}),selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[{id:'1:0',name:'Artículo conservado',stock:10,priceCents:150}]}),
+   canSignatureSettings:()=>menuFixture.editReturns!==false,
+   signaturePolicyStore:async(drawer,value)=>{if(value){menuFixture.signaturePolicy=structuredClone(value);if(menuFixture.loseSignaturePolicy){menuFixture.loseSignaturePolicy=false;throw Error('Respuesta de firma perdida');}}return menuFixture.signaturePolicy||{enabled:false,acceptanceText:''};},
    canReturnPolicy:()=>menuFixture.editReturns!==false,
    returnPolicyStore:async(drawer,value)=>{if(value){menuFixture.returnPolicy=structuredClone(value);if(menuFixture.losePolicy){menuFixture.losePolicy=false;throw Error('Respuesta de devoluciones perdida');}}return menuFixture.returnPolicy||{allowPartial:true};},
    menuLinksStore:async(drawer,value)=>{const key=menuFixture.actor+':'+drawer.id;if(value){menuFixture.writes++;menuFixture.saved.set(key,structuredClone(value));if(menuFixture.failNext){menuFixture.failNext=false;throw Error('Respuesta perdida: vuelve a guardar los mismos accesos.');}}if(!value&&menuFixture.deferRead){menuFixture.deferRead=false;const result=structuredClone(menuFixture.saved.get(key)||[]);await new Promise(resolve=>menuFixture.releaseRead=resolve);return result;}if(value&&menuFixture.deferNext){menuFixture.deferNext=false;const result=structuredClone(menuFixture.saved.get(key));await new Promise(resolve=>menuFixture.release=resolve);return result;}return menuFixture.saved.get(key)||[];}});
@@ -16,6 +18,12 @@ try{const context=await browser.newContext();await context.route('**/*',route=>{
  });
  await page.locator('[data-tpv-add]').waitFor();await page.locator('[data-tpv-add]').click();
  await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ assert.equal(await page.locator('[name=signatureEnabled]').isChecked(),false);
+ await page.locator('[name=signatureEnabled]').check();await page.locator('[name=signatureAcceptanceText]').fill('He recibido la factura de prueba.');await page.evaluate(()=>menuFixture.loseSignaturePolicy=true);
+ await page.getByRole('button',{name:'Guardar firma de facturas',exact:true}).click();await page.getByRole('alert').filter({hasText:'Respuesta de firma perdida'}).waitFor();
+ assert.equal(await page.locator('[name=signatureAcceptanceText]').inputValue(),'He recibido la factura de prueba.');
+ await page.getByRole('button',{name:'Guardar firma de facturas',exact:true}).click();await page.getByText('Configuración de firma guardada para esta caja.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>menuFixture.signaturePolicy.enabled),true);
  assert.equal(await page.locator('[name=allowPartial]').isChecked(),true);
  await page.locator('[name=allowPartial]').uncheck();await page.evaluate(()=>menuFixture.losePolicy=true);
  await page.getByRole('button',{name:'Guardar devoluciones',exact:true}).click();await page.getByRole('alert').filter({hasText:'Respuesta de devoluciones perdida'}).waitFor();
@@ -25,6 +33,7 @@ try{const context=await browser.newContext();await context.route('**/*',route=>{
  await page.evaluate(()=>menuFixture.editReturns=false);
  await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
  assert.equal(await page.locator('[name=allowPartial]').isDisabled(),true);
+ assert.equal(await page.locator('[name=signatureEnabled]').isDisabled(),true);assert.equal(await page.getByRole('button',{name:'Guardar firma de facturas',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Guardar devoluciones',exact:true}).count(),0);
  await page.evaluate(()=>menuFixture.editReturns=true);
  await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();

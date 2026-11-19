@@ -46,6 +46,9 @@ jobs:
       - run: node tests/totustpv-offline-catalogue-browser-qa.mjs
       - run: node --test tests/totustpv-menu-links-qa.mjs
       - run: node tests/totustpv-menu-links-browser-qa.mjs
+      - run: node --test tests/totustpv-signature-capture-qa.mjs tests/totustpv-signature-options-qa.mjs tests/totustpv-signature-pdf-qa.mjs tests/totustpv-signature-service-qa.mjs tests/totustpv-signature-edge-qa.mjs
+      - run: node tests/totustpv-signature-capture-browser-qa.mjs
+      - run: node tests/totustpv-signature-panel-browser-qa.mjs
       - run: node tests/totustpv-workspace-browser-qa.mjs
       - run: node tests/totustpv-basket-preview-browser-qa.mjs
       - run: node tests/totustpv-offline-prepared-browser-qa.mjs

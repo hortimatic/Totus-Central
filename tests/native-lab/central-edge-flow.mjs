@@ -1,3 +1,5 @@
+import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
+import {createSignaturePdfRenderer} from '../../src/totustpv/server/signature-pdf.js';
 import {exerciseOfflineCheckout} from './offline-checkout-flow.mjs';
 import {exerciseCentralBarcodes} from './barcode-central-flow.mjs';
 import {exerciseReceiptVariants} from './receipt-variants-flow.mjs';
@@ -95,6 +97,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119000655_totustpv_menu_links.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119001830_totustpv_return_policy.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119010349_totustpv_document_signatures.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
   await db.exec(await readFile(new URL('../../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
  if(focus==='products')await loadProductJournal(db);
@@ -102,7 +105,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
    [actor,connection,store,drawer,'qa-shop',JSON.stringify(profile),JSON.stringify({sell:true,open:true,reconcile:true})]);
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
-  const argsByRpc={totus_tpv_refresh_quote:['p_scope','p_operation_id','p_revision','p_expected','p_expires_at'],totus_tpv_barcode_options:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_barcode_jobs:['p_action','p_id','p_scope','p_data'],totus_tpv_barcode_execution:['p_action','p_id','p_scope','p_data'],totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
+  const argsByRpc={totus_tpv_signature_policy:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_signature_journal:['p_action','p_id','p_scope','p_data'],totus_tpv_refresh_quote:['p_scope','p_operation_id','p_revision','p_expected','p_expires_at'],totus_tpv_barcode_options:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_barcode_jobs:['p_action','p_id','p_scope','p_data'],totus_tpv_barcode_execution:['p_action','p_id','p_scope','p_data'],totus_tpv_central_cash_context:[],totus_tpv_central_cash_read:['p_selection','p_section','p_query'],totus_tpv_billing_context:[],totus_tpv_billing_read:['p_scope','p_sale','p_query'],totus_tpv_context:[],totus_tpv_stock_policy:['p_scope'],totus_tpv_line_options:['p_scope'],totus_tpv_cash_reports:['p_scope','p_session_id'],totus_tpv_orders:['p_scope','p_order_id','p_sale_id'],totus_tpv_history:['p_scope','p_before'],totus_tpv_check:['p_scope','p_action'],
    totus_tpv_journal:['p_action','p_operation_id','p_scope','p_data'],totus_tpv_cash:['p_action','p_request_id','p_scope','p_data'],
    totus_tpv_budgets:['p_action','p_scope','p_id','p_data'],totus_tpv_commercial_options:['p_scope'],totus_tpv_budget_checkout:['p_scope','p_id','p_version','p_action'],
    totus_tpv_native_command:['p_action','p_id','p_scope','p_data'],totus_tpv_sale_for_return:['p_scope','p_sale_id'],totus_tpv_offline_inbox:['p_action','p_id','p_scope','p_data'],
@@ -141,11 +144,13 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:value??null});
    assert.equal(response.error,undefined,response.error?.message);return response.data;
   };
+  const signaturePolicy=async(drawer,value)=>{const result=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_signature_policy',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:value??null});assert.equal(result.error,undefined,result.error?.message);return result.data;};
+  if(focus==='signatures')await signaturePolicy({connectionId:connection,shopId:1,id:drawer},{enabled:true,acceptanceText:'Recepcion de la factura de prueba.'});
   await preferences({connectionId:connection,shopId:1,id:drawer},{customerDisplay:{enabled:true,showPrices:true,showCustomer:true,color:'#1773c9',fontSize:23},receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret',
    ...(focus==='products'?{TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:'1',TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED:'1'}:{})}[key])};
-  const handle=createCentralTpvHandler({factory,env,onError:error=>console.log('Local handler diagnostic:',error.name,
+  const handle=createCentralTpvHandler({factory,env,signatureRenderer:createSignaturePdfRenderer({PDFDocument,StandardFonts,rgb}),onError:error=>console.log('Local handler diagnostic:',error.name,
    String(error.message).replaceAll(fixture.key,'[synthetic key]').replaceAll(Buffer.from(fixture.key+':').toString('base64'),'[synthetic auth]')),
    resolve:async()=>['93.184.216.34'],request:async(url,init)=>{
    const target=new URL(url);assert.equal(target.origin,'https://preproduccion.hortimatic.com');
@@ -173,8 +178,8 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     cartOptions={gift:body.cart?.gift,recyclable:body.cart?.recyclable};}
    return response;
   }});
-  if(['customers','browser'].includes(focus)){
-   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,focus,preferences,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
+  if(['customers','browser','signatures'].includes(focus)){
+   await exerciseCentralBrowser({handle,actor,productId:fixture.productId,reference:fixture.reference,variant:fixture.variant,focus,preferences,signaturePolicy:focus==='signatures'?signaturePolicy:null,nativeWriteCount:()=>nativePosts,cashSessionCount:async()=>Number((await db.query('select count(*) n from private.totus_tpv_sessions where connection_id=$1 and drawer_id=$2',[connection,drawer])).rows[0].n)});
    if(focus==='customers')assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,0);
    return {focus,remoteShopTouched:false};
   }

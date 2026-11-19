@@ -230,7 +230,11 @@
         "src/totustpv/server/commercial-quote-contract.js",
         "src/totustpv/server/offline-price-comparison.js",
         "src/totustpv/server/native-subtotal.js",
-        "src/totustpv/offline-rounding.js"
+        "src/totustpv/offline-rounding.js",
+        "src/totustpv/signature-capture.js",
+        "src/totustpv/server/signature-pdf.js",
+        "src/totustpv/server/signature-service.js",
+        "src/totustpv/signature-document.js"
       ]
     }
   ]

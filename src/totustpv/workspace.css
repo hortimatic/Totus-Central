@@ -183,3 +183,5 @@
 .tpv-menu-link-row[hidden],.tpv-menu-link-actions button[hidden]{display:none}.tpv-menu-link-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto;align-items:end;padding:10px 0;border-bottom:1px solid var(--line)}.tpv-menu-link-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}@media(max-width:600px){.tpv-menu-link-row{grid-template-columns:minmax(0,1fr)}.tpv-menu-link-row>button{justify-self:end}.tpv-menu-link-actions>.primary{flex:1}}
 
 .tpv-actions>div{box-sizing:border-box;width:min(320px,calc(100vw - 24px));min-width:0;max-width:calc(100vw - 24px);max-height:60dvh;overflow-y:auto;overscroll-behavior:contain}.tpv-actions .btn{white-space:normal;overflow-wrap:anywhere}
+
+.tpv-signature-panel{display:grid;gap:12px;min-width:0}.tpv-signature-panel .pdf-preview{min-width:0;overflow:auto}.tpv-signature-panel .pdf-page{display:block;max-width:100%;height:auto;margin:auto}.tpv-signature-ink{background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden}.tpv-signature-ink svg{display:block;width:100%;height:auto;max-height:200px}

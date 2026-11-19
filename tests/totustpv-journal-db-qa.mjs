@@ -1,3 +1,4 @@
+import {exerciseSignatures} from './native-lab/signature-assertions.mjs';
 import {exerciseMenuLinks} from './native-lab/menu-links-assertions.mjs';
 import {exerciseQuoteRefresh} from './native-lab/quote-refresh-assertions.mjs';
 import {exerciseOfflineInbox} from './native-lab/offline-inbox-assertions.mjs';
@@ -110,6 +111,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261119000655_totustpv_menu_links.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261119001830_totustpv_return_policy.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261119010349_totustpv_document_signatures.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
 
@@ -386,6 +388,8 @@ try {
  await db.exec('reset role;set role authenticated');
  await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
  await exerciseMenuLinks({db,id,scope:qaScope,prefs});
+ await exerciseSignatures({db,id,scope:qaScope,saleId:returnedSale,orderId:911});
+ await db.exec('reset role;set role authenticated');
  check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
  check((await prefs()).customerDisplay,{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23});
  check((await prefs()).cash.denominations,[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1]);

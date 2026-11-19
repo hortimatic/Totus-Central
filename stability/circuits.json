@@ -910,6 +910,30 @@
         "final tender summary displays the verified payable total and separates cash allocated received money change and external amount",
         "displayed discounts are already included and never deducted twice; existing cashTenderPreview remains the sole tender calculation"
       ]
+    },
+    {
+      "id": "totustpv-document-signatures",
+      "paths": [
+        "src/totustpv/signature-",
+        "src/totustpv/server/signature-",
+        "supabase/migrations/20261119010349_totustpv_document_signatures.sql",
+        "tests/totustpv-signature-",
+        "tests/native-lab/signature-assertions.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-signature-capture-qa.mjs",
+        "tests/totustpv-signature-options-qa.mjs",
+        "tests/totustpv-signature-pdf-qa.mjs",
+        "tests/totustpv-signature-service-qa.mjs",
+        "tests/totustpv-signature-edge-qa.mjs",
+        "tests/totustpv-signature-capture-browser-qa.mjs",
+        "tests/totustpv-signature-panel-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs"
+      ],
+      "invariants": [
+        "Stored original PDF is immutable and hash verified; signature appends an acknowledgment page without changing issued invoice amounts.",
+        "Scoped authorized signature retries recover the same archive without new sale, payment or native write."
+      ]
     }
   ]
 }

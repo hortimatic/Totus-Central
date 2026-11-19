@@ -130,6 +130,9 @@ try{
   console.log('PASS native variant catalogue: zero aggregate, negative unavailable variant, positive available variant. Fictional local product; no sale or remote shop.');
  }else if(process.argv.includes('--catalogue-only')){
   await exerciseNativeCatalogue({api,php,ini,env});
+ }else if(process.argv.includes('--signatures-only')){
+  fixture.variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'signatures'});
  }else if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
   if(process.argv.includes('--browser-only'))fixture.variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:process.argv.includes('--customers-only')?'customers':'browser'});

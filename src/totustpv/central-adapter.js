@@ -333,6 +333,11 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(new TextEncoder().encode(JSON.stringify(payload)).byteLength<=60000,'El presupuesto contiene demasiado texto. Reduce los nombres o el número de artículos.');
    const id=await operation('budget',payload),result=await call('budget-create',{payload},id);need(result.id===id&&result.status==='saved','No se ha confirmado el guardado del presupuesto.');forget('budget',id);return result;
   },
+  async findInvoiceSignature(saleId){return call('signature-find',{},saleId);},
+  async prepareInvoiceSignature({operationId,saleId}){return call('signature-prepare',{saleId},operationId);},
+  async getInvoiceSignature(operationId){return call('signature-get',{},operationId);},
+  async signInvoice({operationId,originalSha256,ink,accepted}){return call('signature-sign',{originalSha256,ink,accepted},operationId);},
+  async cancelInvoiceSignature(operationId){return call('signature-cancel',{},operationId);},
   async openBudget({id,version}){need(!activeDraft,'Aparca o descarta el ticket actual antes de abrir un presupuesto.');
    const result=await call('budget-open',{version},id);need(result.budget?.id===id&&result.draft,'No se ha confirmado la conversión del presupuesto.');
    if(result.draft.status==='checkout')return {budget:result.budget,checkoutId:result.draft.checkoutId};

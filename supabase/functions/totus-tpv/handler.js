@@ -1,3 +1,4 @@
+import {createSignatureService} from '../../../src/totustpv/server/signature-service.js';
 import {commercialFromExpected} from '../../../src/totustpv/offline-commercial.js';
 import {saleModifiers,sameSaleModifiers} from '../../../src/totustpv/sale-modifiers.js';
 import {compareOfflinePrices} from '../../../src/totustpv/server/offline-price-comparison.js';
@@ -61,7 +62,7 @@ const headers={'Content-Type':'application/json','Cache-Control':'no-store',
  * entrypoint/tests, never by request JSON. Production shop writes are blocked
  * independently by the transport and QA database authorization.
  */
-export function createCentralTpvHandler({factory,env,request=fetch,resolve,onError=()=>{}}){
+export function createCentralTpvHandler({factory,env,request=fetch,resolve,onError=()=>{},signatureRenderer=null}){
  return async function handle(req){
   let audit=null,stage='request';
   const respond=async(body,status=200)=>{
@@ -90,9 +91,9 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
-     'central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
+     'signature-prepare','signature-find','signature-get','signature-sign','signature-cancel','central-cash-context','central-cash-read','billing-context','billing-list','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
-   const permitted={'offline-sync':['action','selection','operationId'],'offline-recover':['action','selection','operationId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
+   const permitted={'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId'],'offline-recover':['action','selection','operationId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
     'central-cash-context':['action'],'central-cash-read':['action','selection','section','query'],
     'billing-context':['action'],'billing-list':['action','selection','query'],
@@ -245,7 +246,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
-    const readWithoutCash=['payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
+    const readWithoutCash=['signature-find','signature-get','payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
      'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
@@ -280,6 +281,14 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    async function authorize({action}){const fresh=await selected();
     need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
     check(await rpc('totus_tpv_check',{p_scope:fresh.scope,p_action:action}));return fresh.scope;}
+   if(['signature-find','signature-get','signature-sign','signature-cancel'].includes(input.action)){
+    await authorize({action:['signature-find','signature-get'].includes(input.action)?'read':'sell'});
+    const signatures=createSignatureService({rpc,scope,render:signatureRenderer});
+    if(input.action==='signature-find')return respond(await signatures.find(input.operationId));
+    if(input.action==='signature-get')return respond(await signatures.get(input.operationId));
+    if(input.action==='signature-cancel')return respond(await signatures.cancel(input.operationId));
+    return respond(await signatures.sign({operationId:input.operationId,originalSha256:input.originalSha256,ink:input.ink,accepted:input.accepted}));
+   }
    const barcodeAction=input.action==='barcodes'||input.action.startsWith('barcode-');
    if(input.action==='payment-options'){
     await authorize({action:'read'});
@@ -437,6 +446,10 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      stateRows=Array.isArray(states)&&states.length===0?[]:states.states;
     need(Array.isArray(countriesRows)&&countriesRows.length<500&&Array.isArray(stateRows)&&stateRows.length<200,
      'TPV_CUSTOMER_METADATA_INCOMPLETE');return respond({countries:countriesRows,states:stateRows});
+   }
+   if(input.action==='signature-prepare'){
+    need(uuid(input.saleId),'TPV_SIGNATURE_REQUEST_INVALID');
+    return respond(await createSignatureService({rpc,transport,scope,render:signatureRenderer}).prepare({operationId:input.operationId,saleId:input.saleId}));
    }
    if(input.action==='document'){
     const rows=check(await rpc('totus_tpv_orders',{p_scope:scope,p_order_id:null,p_sale_id:input.operationId})),sale=rows[0];
