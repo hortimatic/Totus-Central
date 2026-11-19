@@ -1,3 +1,4 @@
+import {exerciseGiftDiscountSettings} from './native-lab/gift-discount-settings-assertions.mjs';
 import {exerciseReceiptDiscountDisplay} from './native-lab/receipt-discount-display-assertions.mjs';
 import {exerciseOperatorCheckout} from './native-lab/operator-checkout-assertions.mjs';
 import {exerciseOperatorSettings} from './native-lab/operator-settings-assertions.mjs';
@@ -816,5 +817,7 @@ try {
  await exerciseOperatorCheckout({db,id,scope:qaScope,expected,payments});
  await db.exec(await readFile('supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql','utf8'));
  await exerciseReceiptDiscountDisplay({db,id,scope:qaScope});
+ await db.exec(await readFile('supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql','utf8'));
+ await exerciseGiftDiscountSettings({db,id,scope:qaScope});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

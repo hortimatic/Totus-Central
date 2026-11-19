@@ -5,6 +5,28 @@
     "to": "original native package is QA-only; isolated installation does not authorize remote activation",
     "authorization": "Diego autorizó expresamente instalar el conector propio necesario el 16/11/2026; confirmó después guardar los permisos concretos de la cuenta #2 TotusTPV en preproducción. No autoriza producción ni módulos de terceros.",
     "evidence": "docs/TOTUSTPV_ACTIVACION_QA_20261116.md",
-    "tests": ["tests/totustpv-php-boundary-qa.mjs"]
+    "tests": [
+      "tests/totustpv-php-boundary-qa.mjs"
+    ]
+  },
+  {
+    "circuit": "totustpv-foundation",
+    "from": "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding, keep cart reductions separate and disclose no amounts in gift documents",
+    "to": "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding and keep cart reductions separate; gift documents hide all monetary data by default, with only validated recorded discount amounts allowed by the explicit gift-discount preference, never prices, paid totals, taxes, payments or customer data.",
+    "authorization": "La función solicitada de añadir descuentos al ticket regalo se limita a una preferencia explícita desactivada por defecto; no permite presentar precios, total pagado, impuestos, cobros ni datos de cliente.",
+    "evidence": "tests/totustpv-gift-discounts-qa.mjs",
+    "tests": [
+      "tests/totustpv-gift-discounts-qa.mjs"
+    ]
+  },
+  {
+    "circuit": "totustpv-foundation",
+    "from": "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo y el regalo nunca revela importes ni grupos.",
+    "to": "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo; el regalo oculta grupos, precios, cobros, total pagado y clientes, y sólo presenta descuentos monetarios comprobados con su opción explícita activada.",
+    "authorization": "La función solicitada de añadir descuentos al ticket regalo se limita a una preferencia explícita desactivada por defecto; no permite presentar precios, total pagado, impuestos, cobros ni datos de cliente.",
+    "evidence": "tests/totustpv-gift-discounts-qa.mjs",
+    "tests": [
+      "tests/totustpv-gift-discounts-qa.mjs"
+    ]
   }
 ]

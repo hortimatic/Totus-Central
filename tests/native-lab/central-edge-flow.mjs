@@ -1,3 +1,4 @@
+import {exerciseNativeGiftDiscounts} from './gift-discounts-flow.mjs';
 import {exerciseReceiptDiscountDisplay} from './receipt-discount-display-flow.mjs';
 import {exerciseNativeOperatorCheckout} from './operator-checkout-flow.mjs';
 import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';
@@ -109,6 +110,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await db.exec(await readFile(new URL('../../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql',import.meta.url),'utf8'));
  if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -203,6 +205,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(focus==='operator-checkout')return await exerciseNativeOperatorCheckout({call,handle,selection,fixture,db,paths,actor,saleReplyWasLost:()=>dropReferenceSaleReply===false,loseSaleReply:()=>{dropReferenceSaleReply=true;},configure:async settings=>{const result=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_operator_settings',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:settings});assert.equal(result.error,undefined,result.error?.message);return result.data;}});
   if(focus==='receipt-discount-display')return await exerciseReceiptDiscountDisplay({call,selection,fixture,preferences,changeGroup:fixture.changeGroup,nativePosts:()=>nativePosts});
+  if(focus==='gift-discounts')return await exerciseNativeGiftDiscounts({call,selection,fixture,preferences,paths});
   if(focus==='offline')return await exerciseOfflineCheckout({call,handle,selection,fixture,paths,actor,db,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
   if(focus==='payment-reference'){
    const result=await exercisePaymentReference({call,handle,selection,fixture,db,paths,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
