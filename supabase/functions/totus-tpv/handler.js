@@ -264,7 +264,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
-    const readWithoutCash=['signature-find','signature-get','payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','customers','customer-metadata',
+    const readWithoutCash=['signature-find','signature-get','payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','web-orders','web-receipt','customers','customer-metadata',
      'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.

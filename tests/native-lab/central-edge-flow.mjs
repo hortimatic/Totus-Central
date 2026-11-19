@@ -205,10 +205,10 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    const target=new URL(resource,base);target.searchParams.set('output_format','JSON');target.searchParams.set('id_shop','1');target.searchParams.set('display','full');const response=await fetch(target,{headers:{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')},redirect:'error'});assert.equal(response.status,200);return response.json();
   }});
   if(focus==='budgets')return await exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss:()=>{dropBudgetConfirm=true;},simulateBudgetCreateFailure:()=>{dropBudgetCreate=true;},simulateBudgetCreateRace:()=>{raceBudgetCreate=true;}});
+  if(focus==='web-tickets')return await exerciseWebOrderTickets({call,handle,selection:{connectionId:connection,shopId:1,drawerId:drawer},fixture,preferences,paths,db,setCustomerAccess:allowed=>{denyWebCustomers=!allowed;}});
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(focus==='operator-checkout')return await exerciseNativeOperatorCheckout({call,handle,selection,fixture,db,paths,actor,saleReplyWasLost:()=>dropReferenceSaleReply===false,loseSaleReply:()=>{dropReferenceSaleReply=true;},configure:async settings=>{const result=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_operator_settings',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:settings});assert.equal(result.error,undefined,result.error?.message);return result.data;}});
   if(focus==='receipt-discount-display')return await exerciseReceiptDiscountDisplay({call,selection,fixture,preferences,changeGroup:fixture.changeGroup,nativePosts:()=>nativePosts});
-  if(focus==='web-tickets')return await exerciseWebOrderTickets({call,selection,fixture,preferences,paths,db,setCustomerAccess:allowed=>{denyWebCustomers=!allowed;}});
   if(focus==='gift-discounts')return await exerciseNativeGiftDiscounts({call,selection,fixture,preferences,paths});
   if(focus==='offline')return await exerciseOfflineCheckout({call,handle,selection,fixture,paths,actor,db,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
   if(focus==='payment-reference'){
