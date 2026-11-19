@@ -166,6 +166,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   assert.match(await page.locator('.tpv-document').innerText(),/Te atendió: Operador original de la venta/);
   assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/Te atendió: Cajero del laboratorio/);
   assert.match(await page.locator('.tpv-document').innerText(),/https:\/\/preproduccion\.hortimatic\.com/);
+  if(width===390){const detail=page.locator('.tpv-receipt-vouchers');await detail.waitFor();assert.match(await detail.innerText(),/0,50/);assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/desglose histórico.*no está disponible/);assert.match(await page.locator('.tpv-document dl').last().innerText(),/Total.*7,01/s);await page.locator('.tpv-document').screenshot({path:'artifacts/native-lab/tpv-native-vouchers-390.png'});}
   await page.waitForFunction(()=>{const logo=document.querySelector('.tpv-receipt-logo');return logo?.complete&&logo.naturalWidth>0;});
   await page.waitForFunction(()=>{const barcode=document.querySelector('.tpv-reference-barcode');return barcode?.complete&&barcode.naturalWidth>0;});
   const barcodeImage=await page.locator('.tpv-reference-barcode').getAttribute('src');
@@ -177,6 +178,7 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   else assert.equal(await page.locator('.tpv-receipt-customer').count(),0,'Anonymous counter identity stays omitted even when the saved customer option is enabled');
   await page.getByRole('button',{name:'Cerrar documento',exact:true}).click();
   await page.locator('.tpv-receipt summary').click();
+  if(width===390){await page.getByRole('button',{name:'Ticket regalo',exact:true}).click();await page.getByRole('heading',{name:'Ticket regalo',exact:true}).waitFor();assert.equal(await page.locator('.tpv-receipt-vouchers').count(),0);assert.doesNotMatch(await page.locator('.tpv-document').innerText(),/€|Vales y descuentos del ticket/);await page.getByRole('button',{name:'Cerrar documento',exact:true}).click();await page.locator('.tpv-receipt summary').click();}
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Factura PDF',exact:true}).click();
   const pdf=await download;assert.match(pdf.suggestedFilename(),/^totus-invoice-[0-9]+\.pdf$/);
   await page.getByRole('button',{name:'Pedidos y devoluciones',exact:true}).click();

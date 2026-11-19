@@ -148,7 +148,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   };
   const signaturePolicy=async(drawer,value)=>{const result=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_signature_policy',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:value??null});assert.equal(result.error,undefined,result.error?.message);return result.data;};
   if(focus==='signatures')await signaturePolicy({connectionId:connection,shopId:1,id:drawer},{enabled:true,acceptanceText:'Recepcion de la factura de prueba.'});
-  await preferences({connectionId:connection,shopId:1,id:drawer},{customerDisplay:{enabled:true,showPrices:true,showCustomer:true,color:'#1773c9',fontSize:23},receipt:{showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
+  await preferences({connectionId:connection,shopId:1,id:drawer},{customerDisplay:{enabled:true,showPrices:true,showCustomer:true,color:'#1773c9',fontSize:23},receipt:{showVouchers:true,showBarcode:true,showUnitPrice:true,showLineTax:true,showOperator:true,showWebsite:true,showCustomer:true,showCustomerPhone:true,showCustomerEmail:true,
    showAddressComment:true,showDeliveryAddress:true,showCustomerCompany:true}});
   const env={get:key=>({SUPABASE_URL:'https://local-edge.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-secret',
    ...(focus==='products'?{TOTUS_PRESTASHOP_PRODUCT_CREATE_ENABLED:'1',TOTUS_PRESTASHOP_PRODUCT_STAGES_ENABLED:'1'}:{})}[key])};

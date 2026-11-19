@@ -958,6 +958,21 @@
         "Mandatory original-payment refunds use verified remaining balances and integer largest remainders, never exceeding a method balance or losing a cent.",
         "Current drawer policy is checked before preparation and dispatch; already dispatched refunds remain recoverable without a second reintegro."
       ]
+    },
+    {
+      "id": "totustpv-profile-appearance",
+      "paths": [
+        "src/totustpv/workspace.css",
+        "tests/totustpv-appearance-browser-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-appearance-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Counter inherits the signed-in Central profile appearance without editing shared application styles; reload retains the chosen theme and colors.",
+        "Opening and active-counter tabs stay readable within their touch targets on desktop and mobile, without horizontal overflow."
+      ]
     }
   ]
 }
