@@ -29,7 +29,7 @@ jobs:
       - run: node --test tests/totustpv-budget-contract-qa.mjs tests/totustpv-commercial-quote-qa.mjs tests/totustpv-receipt-series-qa.mjs tests/totustpv-line-name-qa.mjs tests/totustpv-line-options-qa.mjs tests/totustpv-line-price-edge-qa.mjs tests/totustpv-sale-note-qa.mjs tests/totustpv-receipt-line-discounts-qa.mjs
       - run: node --test tests/totustpv-parking-options-qa.mjs
       - run: node tests/totustpv-parking-expiry-db-qa.mjs
-      - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
+      - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-tender-summary-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs
       - run: node --test tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs tests/totustpv-customer-display-qa.mjs
       - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs tests/totustpv-cart-qa.mjs

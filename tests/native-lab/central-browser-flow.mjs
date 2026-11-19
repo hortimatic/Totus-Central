@@ -127,6 +127,10 @@ export async function exerciseCentralBrowser({handle,actor,productId,reference,v
   if(width===390){await page.locator('[name=externalMethod]').selectOption('transfer');await page.locator('[name=cashPart]').fill('3,00');}
   await page.locator('[name=cardAccepted]').check();
   assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),width===390?/transferencia/:/bizum/);
+  await page.getByRole('button',{name:'Confirmar cobro y crear pedido'}).scrollIntoViewIfNeeded();
+  assert.match(await page.locator('[data-tpv-confirm-total]').innerText(),width===390?/7,01/:/8,01/);
+  if(width===390){assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),/Parte en efectivo.*3,00/s);assert.match(await page.locator('[data-tpv-tender-preview]').innerText(),/Descuento del ticket incluido.*0,50/s);}
+  assert.equal(await page.locator('[data-tpv-confirm-total]').evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),true,'The verified total remains visible beside final confirmation');
   await page.screenshot({path:`artifacts/native-lab/tpv-${width}.png`,fullPage:true});
   await page.getByRole('button',{name:'Confirmar cobro y crear pedido'}).click();
   await page.getByRole('heading',{name:'Pedido verificado en PrestaShop',exact:true}).waitFor({timeout:60000});

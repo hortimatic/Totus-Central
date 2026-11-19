@@ -1,3 +1,4 @@
+import {tenderSummaryHtml} from './tender-summary.js';
 import {returnPolicy,returnPolicyHtml} from './return-policy.js';
 import {menuLinks as normalizeMenuLinks,menuLinksFromForm,menuLinksHtml,menuLinksActions} from './menu-links.js';
 import {createCatalogueBackground} from './catalogue-background.js';
@@ -239,7 +240,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    <button type="button" class="btn secondary" data-tpv-tender-exact>Importe exacto</button>
    ${cashStyle.denominations.filter(face=>face>=500).map(face=>`<button type="button" class="btn secondary" data-tpv-tender="${face}" aria-label="Entregado ${face/100} euros">${face/100} €</button>`).join('')}
   </div>
-  ${paymentReferenceFields(payment,paymentValues)}<output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Cambio del cobro" aria-live="polite"></output>
+  ${paymentReferenceFields(payment,paymentValues)}<output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Resumen del cobro" aria-live="polite"></output>
   <label class="tpv-check" data-tpv-card-accept hidden><input type="checkbox" name="cardAccepted" ${paymentValues.cardAccepted==='on'?'checked':''}> ${wording('Acepto el pago externo ficticio','He comprobado que el cobro externo está recibido. TotusTPV registra el cobro; no opera el datáfono ni el banco.')}</label>
   ${!live()?`<label>Simular resultado<select name="scenario">${[['normal','Venta correcta'],['lost-response','Respuesta perdida: recuperar sin repetir'],['rejected','Pago rechazado']].map(([key,label])=>`<option value="${key}" ${paymentValues.scenario===key?'selected':''}>${label}</option>`).join('')}</select></label>`:''}
   <div class="inline-actions">${button('cancel-payment','Volver al ticket')}<button class="btn primary" type="submit">${payment.localEstimate?'Guardar venta en este dispositivo':wording('Confirmar venta de práctica','Confirmar cobro y crear pedido')}</button></div></form>`;}
@@ -808,8 +809,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    const tender=cashTenderPreview({totalCents:payment.totalCents,cashPartCents:cash,receivedCents:cash===0?0:form.elements.received.value.trim()===''?0:inputCents(form.elements.received.value)});
    const external=method==='mixed'?form.elements.externalMethod.value:method;
    referenceForTender(payment.referencePolicy,external,form.elements.namedItem('reference:'+external)?.value);
-   output.innerHTML=`${cash?`<span>Entregado <b>${money(tender.receivedCents)}</b></span><span>${tender.missingCents?'Falta por entregar':'Cambio a devolver'} <strong data-tpv-change>${money(tender.missingCents||tender.changeCents)}</strong></span>`:''}
-    ${tender.cardPartCents?`<span>Importe de ${esc((payment.paymentLabels?.[external]||paymentLabel(external)).toLowerCase())} <b>${money(tender.cardPartCents)}</b></span>`:''}`;
+   output.innerHTML=tenderSummaryHtml({totalCents:payment.totalCents,cashPartCents:cash,receivedCents:tender.receivedCents,discountCents:payment.discountCents||0,externalLabel:payment.paymentLabels?.[external]||paymentLabel(external)});
    output.dataset.state=tender.cashCovered?'ready':'pending';confirm.disabled=busy||!tender.cashCovered||method!=='cash'&&!form.elements.cardAccepted.checked;
   }catch(error){output.textContent=error.message||'Revisa los importes del cobro.';output.dataset.state='invalid';confirm.disabled=true;}}
  function change(event){

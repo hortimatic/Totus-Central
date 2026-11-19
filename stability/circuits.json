@@ -892,6 +892,24 @@
         "disabling partial returns requires every native remaining line and quantity before preparation and again before dispatch",
         "confirmed and uncertain refund recovery preserves the original operation and never repeats a financial command"
       ]
+    },
+    {
+      "id": "totustpv-tender-summary",
+      "paths": [
+        "src/totustpv/tender-summary.js",
+        "src/totustpv/workspace.js",
+        "tests/native-lab/central-browser-flow.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-tender-summary-qa.mjs",
+        "tests/totustpv-tender-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "invariants": [
+        "final tender summary displays the verified payable total and separates cash allocated received money change and external amount",
+        "displayed discounts are already included and never deducted twice; existing cashTenderPreview remains the sole tender calculation"
+      ]
     }
   ]
 }

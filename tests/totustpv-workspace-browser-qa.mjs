@@ -20,6 +20,8 @@ try{
  await page.locator('[data-tpv-quantity]').fill('1');
  await page.getByRole('button',{name:'Preparar cobro de práctica'}).click();
  await page.locator('[name=received]').fill('10,00');
+ assert.match(await page.locator('[data-tpv-confirm-total]').innerText(),/8,01/);
+ assert.match(await page.locator('[data-tpv-change]').innerText(),/1,99/);
  await page.locator('[name=scenario]').selectOption('lost-response');
  await page.getByRole('button',{name:'Confirmar venta de práctica'}).click();
  await page.getByText('Respuesta pendiente de recuperar',{exact:true}).waitFor();
