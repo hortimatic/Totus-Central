@@ -1,3 +1,4 @@
+import {operatorChoices,createOperatorPicker} from './operator-picker.js';
 import {cashVisibility,cashVisibilityHtml} from './cash-visibility.js';
 import {createAccessBatchPanel} from './workstation-access-batch.js';
 import {createSignaturePanel} from './signature-panel.js';
@@ -56,7 +57,7 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  * No code in this browser module can import the privileged checkout adapters.
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
- onConfigure=null,canConfigure=()=>false,onChangeOperator=null,onOnlineOrders=null,canOnlineOrders=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
+ onConfigure=null,canConfigure=()=>false,onChangeOperator=null,readOperatorChoices=null,onOnlineOrders=null,canOnlineOrders=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,cashVisibilityStore=null,drawerManagement=()=>null,workspacePreferences=null,receiptNumbering=null,menuLinksStore=null,returnPolicyStore=null,canReturnPolicy=()=>false,signaturePolicyStore=null,canSignatureSettings=()=>false,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
  let cashVisibilityRules={hideSummary:false};
  let categories=[],categoryId=0,initialCategoryId=0,catalogueView='grid',incidentForm=false;
@@ -94,6 +95,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   canRead:()=>live()&&(canReadCost()||canCreateProduct())&&stationPermission('canReconcile'),
   confirmDiscard:message=>askCurrent(message,{acceptLabel:'Continuar'}),onProgress:()=>render()});
  const catalogueTable=createCatalogueTable({canReadCost});
+ const operatorPicker=createOperatorPicker();
  const accessBatch=createAccessBatchPanel({actor:()=>identity(),canManage:canAssign,invoke:request=>configureWorkstation(request),storage});
  const accessPanel=createWorkstationAccessPanel({canManage:canAssign,invoke:request=>configureWorkstation(request)});
  const customerScreen=createCustomerDisplay({getOptions:()=>customerScreenOptions,
@@ -408,6 +410,12 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const action=target.dataset.tpvAction;
   if(action==='change-operator'&&onChangeOperator)return work(async()=>{
    if(hasDraft())throw Error('Antes de cambiar de operador, termina o aparca el ticket y guarda o cancela los cambios pendientes. Los cobros enviados deben recuperarse antes de salir.');
+   if(readOperatorChoices){
+    const run=generation,owner=identity(),drawer=context?.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer));let items=[],unavailable=false;
+    try{const data=await readOperatorChoices(drawer);if(run!==generation||owner!==identity()||!host)return;guard();items=operatorChoices(data,owner);}catch{if(run!==generation||owner!==identity()||!host)return;unavailable=true;}
+    const selected=await operatorPicker.choose({items,unavailable});if(!selected||run!==generation||owner!==identity()||!host)return;
+    guard();await onChangeOperator(selected);return;
+   }
    if(!await askCurrent('Se cerrará tu sesión de Central en este equipo. La caja seguirá abierta y la siguiente persona entrará con su propia cuenta y sus permisos. ¿Cambiar de operador?',{acceptLabel:'Cerrar sesión y cambiar'}))return;
    guard();await onChangeOperator();
   });
@@ -967,7 +975,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   panel.style.top=up?'auto':'100%';panel.style.bottom=up?'100%':'auto';panel.style.maxHeight=Math.max(44,Math.min(480,(up?above:below)-12))+'px';
  }
  function sizeWorkspace(){if(host){host.style.setProperty('--tpv-height',Math.max(360,window.innerHeight-Math.max(0,host.getBoundingClientRect().top)-12)+'px');fitActionsMenu();}}
- function dispose(){basketPriceRevision++;basketPreview=null;clearTimeout(basketPriceTimer);catalogueBackground.stop();clearTimeout(onlineSyncTimer);onlineSyncTimer=null;onlineSyncRequested=false;offlinePanel.reset();signaturePanel.reset();barcodePanel.reset();quantityPicker.cancel();lineNameEditor.cancel();customerScreen.close();accessBatch.reset();accessPanel.reset();productIntake.reset();if(audioFeedback){void audioFeedback.close().catch(()=>{});audioFeedback=null;}generation++;searchRevision++;clearTimeout(searchTimer);clearTimeout(catalogueRefreshTimer);abort?.abort();catalogueTable.dispose();host=null;busy=false;scanQueue=[];scanning=false;mobilePane='catalogue';}
+ function dispose(){basketPriceRevision++;basketPreview=null;clearTimeout(basketPriceTimer);catalogueBackground.stop();clearTimeout(onlineSyncTimer);onlineSyncTimer=null;onlineSyncRequested=false;offlinePanel.reset();signaturePanel.reset();barcodePanel.reset();operatorPicker.cancel();quantityPicker.cancel();lineNameEditor.cancel();customerScreen.close();accessBatch.reset();accessPanel.reset();productIntake.reset();if(audioFeedback){void audioFeedback.close().catch(()=>{});audioFeedback=null;}generation++;searchRevision++;clearTimeout(searchTimer);clearTimeout(catalogueRefreshTimer);abort?.abort();catalogueTable.dispose();host=null;busy=false;scanQueue=[];scanning=false;mobilePane='catalogue';}
  return {mount(root){dispose();host=root;mountedActor=identity();
    budgetPending=false;
    includeDisabledStock=false;

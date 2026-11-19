@@ -200,3 +200,5 @@
 
 .tpv-entry-operator{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--line)}
 .tpv-entry-operator p{margin-bottom:.65rem}
+
+.tpv-operator-dialog select{width:100%;min-width:0;box-sizing:border-box}
