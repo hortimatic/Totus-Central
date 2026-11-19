@@ -1,0 +1,14 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {createOperatorLogin} from '../src/totustpv/operator-login.js';
+function fixture(){
+ const f={adopted:0,closed:0,hold:false,release:null,throwLogin:false,throwRead:false,throwCreate:false,throwAdopt:false,owner:'old'};
+ f.prepare=createOperatorLogin({url:'https://fixture.invalid',key:'public',currentActor:()=>f.owner,primaryAuth:{getUser:async()=>{if(f.throwRead)throw Error('private read diagnostic');if(f.hold)await new Promise(resolve=>f.release=resolve);return {data:{user:{id:'old'}}};},setSession:async()=>{if(f.throwAdopt)throw Error('private adoption diagnostic');f.adopted++;return {data:{session:{user:{id:'new'}}}};}},createClient:()=>{if(f.throwCreate)throw Error('private creation diagnostic');return {auth:{signInWithPassword:async()=>{if(f.throwLogin)throw Error('private provider diagnostic');return {data:{session:{user:{id:'new'},access_token:'access',refresh_token:'refresh'}}};},signOut:async()=>{f.closed++;}}};}});
+ f.run=()=>f.prepare({target:{operatorId:'new',loginEmail:'new@example.invalid'},password:'secret',verify:async()=>({verified:true,target:{operatorId:'new'}})});return f;
+}
+test('cancel during final identity read prevents session adoption',async()=>{const f=fixture(),transfer=await f.run();f.hold=true;const adoption=transfer.adopt();await Promise.resolve();assert.equal(typeof f.release,'function');await transfer.cancel();f.release();await assert.rejects(adoption);assert.equal(f.adopted,0);assert.equal(f.closed,1);});
+test('concurrent adoption calls cannot both replace the main session',async()=>{const f=fixture(),transfer=await f.run();await Promise.allSettled([transfer.adopt(),transfer.adopt()]);assert.equal(f.adopted,1);});
+test('provider exceptions are sanitized and disposable session is closed',async()=>{const f=fixture();f.throwLogin=true;await assert.rejects(f.run(),/^Error: No se ha podido iniciar la cuenta seleccionada/);assert.equal(f.closed,1);assert.equal(f.adopted,0);});
+
+for(const flag of ['throwRead','throwCreate'])test(flag+' is sanitized before incoming account preparation',async()=>{const f=fixture();f[flag]=true;await assert.rejects(f.run(),/^Error: No se ha podido iniciar la cuenta seleccionada/);assert.equal(f.adopted,0);});
+test('failed adoption cleans incoming session and cannot be retried',async()=>{const f=fixture(),transfer=await f.run();f.throwAdopt=true;await assert.rejects(transfer.adopt(),/^Error: No se ha podido iniciar la cuenta seleccionada/);assert.equal(f.closed,1);assert.equal(f.adopted,0);await assert.rejects(transfer.adopt());await transfer.cancel();assert.equal(f.closed,1);});
+test('identity changing during final Auth read blocks adoption',async()=>{const f=fixture(),transfer=await f.run();f.hold=true;const adoption=transfer.adopt();await Promise.resolve();f.owner='another';f.release();await assert.rejects(adoption);assert.equal(f.adopted,0);assert.equal(f.closed,1);});

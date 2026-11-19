@@ -1,0 +1,55 @@
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(v);
+const positive=v=>Number.isSafeInteger(v)&&v>0;
+const key=r=>[r.operatorId,r.drawerId,r.shopId].join(':');
+const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+const sameGroup=(a,b)=>a?.kind===b?.kind&&a?.id===b?.id;
+export function accessBatchRequest(value){
+ if(!exact(value,['action','operationId','selection','revision','group','targets','permissions','active'])||!exact(value.selection,['connectionId'])||!exact(value.group,['kind','id'])||value.action!=='access-batch-save'||!uuid(value.operationId)||!uuid(value.selection?.connectionId)||!positive(value.revision)||
+  !['store','operator'].includes(value.group?.kind)||!uuid(value.group.id)||typeof value.active!=='boolean'||
+  !value.permissions||Object.keys(value.permissions).length!==3||!['sell','open','reconcile'].every(k=>typeof value.permissions[k]==='boolean')||value.active&&!value.permissions.reconcile||
+  !Array.isArray(value.targets)||!value.targets.length||value.targets.length>100||value.targets.some(t=>!exact(t,['operatorId','drawerId','shopId','assignmentRevision'])||!uuid(t.operatorId)||!uuid(t.drawerId)||!positive(t.shopId)||!positive(t.assignmentRevision))||new Set(value.targets.map(key)).size!==value.targets.length)
+  throw Error('Revisa el grupo y los accesos que quieres cambiar.');
+ return structuredClone(value);
+}
+export function createAccessBatchPanel({actor,canManage,invoke,storage,makeId=()=>crypto.randomUUID()}){
+ const disk=storage||{getItem:k=>globalThis.localStorage.getItem(k),setItem:(k,v)=>globalThis.localStorage.setItem(k,v),removeItem:k=>globalThis.localStorage.removeItem(k)};
+ let epoch=0,config=null,opened=false,owner=null,stage='edit',kind='store',groupId='',selected=new Set(),draft={role:'view',cash:false,active:true},dirty=false,request=null,reply=null;
+ const diskKey=()=> 'totus:tpv:access-batch:v1:'+JSON.stringify([owner,config.connectionId]);
+ const rows=()=>config?.accesses||[];
+ function groups(){const result=new Map();for(const r of rows()){const id=kind==='store'?r.storeId:r.operatorId;result.set(id,kind==='store'?r.storeName:r.operatorName);}return [...result].sort((a,b)=>a[1].localeCompare(b[1],'es'));}
+ const eligible=()=>rows().filter(r=>(kind==='store'?r.storeId:r.operatorId)===groupId);
+ const current=stamp=>stamp===epoch&&owner===actor()&&canManage();
+ function requireCurrent(stamp){if(!current(stamp))throw Error('La cuenta o la configuración han cambiado. Vuelve a consultar los accesos.');}
+ function reset(){epoch++;config=null;opened=false;owner=null;stage='edit';selected=new Set();draft={role:'view',cash:false,active:true};dirty=false;request=reply=null;}
+ function open(value){reset();if(!canManage()||!value||!uuid(value.connectionId))throw Error('No tienes permiso para gestionar estos accesos.');config=value;owner=actor();opened=true;kind='store';groupId=groups()[0]?.[0]||'';
+  let stored;try{stored=JSON.parse(disk.getItem(diskKey())||'null');}catch{/* Viewing existing assignments does not require browser storage. */}
+  if(stored){if(stored.actor!==owner)throw Error('Esta solicitud pertenece a otra cuenta.');request=accessBatchRequest(stored.request);if(request.selection.connectionId!==config.connectionId)throw Error('La solicitud pertenece a otra conexión.');stage='pending';}
+ }
+ function capture(form){if(stage!=='edit')return;const data=new FormData(form),role=data.get('role');if(!['view','sell'].includes(role))throw Error('Revisa el uso del mostrador.');
+  draft={role,cash:data.get('cash')==='on',active:data.get('active')==='on'};selected=new Set(data.getAll('target'));dirty=role!=='view'||draft.cash||!draft.active;
+ }
+ function filter(target){if(stage!=='edit')return false;if(target.name==='batch-kind'){kind=target.value;if(!['store','operator'].includes(kind))throw Error('Elige tienda o empleado.');groupId=groups()[0]?.[0]||'';selected.clear();return true;}if(target.name==='batch-group'){groupId=target.value;selected.clear();return true;}return false;}
+ function review(form){requireCurrent(epoch);capture(form);const targets=eligible().filter(r=>selected.has(key(r))).map(r=>({operatorId:r.operatorId,drawerId:r.drawerId,shopId:r.shopId,assignmentRevision:r.revision}));
+  request=accessBatchRequest({action:'access-batch-save',operationId:makeId(),revision:config.revision,selection:{connectionId:config.connectionId},group:{kind,id:groupId},targets,permissions:{sell:draft.role==='sell',open:draft.cash,reconcile:true},active:draft.active});stage='review';
+ }
+ function verify(value){if(value?.id!==request.operationId||value.connectionId!==request.selection.connectionId||value.confirmed!==true||!sameGroup(value.group,request.group)||!Array.isArray(value.items)||value.items.length!==request.targets.length||new Set(value.items.map(key)).size!==request.targets.length||request.targets.some(t=>!value.items.some(r=>key(r)===key(t)&&positive(r.revision)&&r.revision>=t.assignmentRevision&&r.active===request.active&&['sell','open','reconcile'].every(k=>r.permissions?.[k]===request.permissions[k]))))throw Error('No se ha podido comprobar el bloque guardado. Recupera el resultado antes de repetir los cambios.');
+  reply=value;stage='done';dirty=false;try{disk.removeItem(diskKey());}catch{}return value;
+ }
+ async function save(){const stamp=epoch;requireCurrent(stamp);if(stage!=='review')throw Error('Revisa el bloque antes de guardar.');try{disk.setItem(diskKey(),JSON.stringify({actor:owner,request}));}catch{throw Error('El navegador no permite conservar la solicitud. Habilita el almacenamiento antes de guardar el bloque.');}stage='pending';const result=await invoke(structuredClone(request));requireCurrent(stamp);return verify(result);}
+ async function recover(){const stamp=epoch;requireCurrent(stamp);if(stage!=='pending'||!request)throw Error('No hay una solicitud pendiente.');
+  const result=await invoke({action:'access-batch-get',selection:{connectionId:config.connectionId},revision:config.revision,operationId:request.operationId});requireCurrent(stamp);if(result)return verify(result);
+  if(config.revision!==request.revision||request.targets.some(t=>!rows().some(r=>key(r)===key(t)&&r.revision===t.assignmentRevision))){
+   try{disk.removeItem(diskKey());}catch{throw Error('El navegador no permite liberar la solicitud comprobada. Revisa su almacenamiento antes de continuar.');}
+   stage='edit';request=reply=null;selected.clear();dirty=false;throw Error('Los accesos han cambiado. Se ha comprobado que el bloque anterior no se guardó. Revisa la lista antes de preparar otro.');
+  }
+  const retried=await invoke(structuredClone(request));requireCurrent(stamp);return verify(retried);
+ }
+ function back(){if(stage==='pending')throw Error('Recupera el resultado antes de cancelar este bloque.');stage='edit';request=reply=null;}
+ function close(){if(stage==='pending')throw Error('Recupera el resultado antes de cerrar este bloque.');reset();}
+ function html(){if(!opened||!canManage()||owner!==actor())return '';const title='Accesos por tienda o empleado';
+  if(stage!=='edit'){const result=stage==='done';return `<section class="tpv-access-batch"><h4>${title}</h4><p>${result?'Bloque de accesos guardado y comprobado.':stage==='pending'?'El resultado todavía no está confirmado. Recupera esta misma solicitud; no prepares otro bloque.':'Revisa todos los accesos antes de confirmar.'}</p><p><strong>${request.targets.length} ${request.targets.length===1?'acceso':'accesos'}</strong> · ${request.active?'Activos':'Sin acceso'} · ${request.permissions.sell?'Vender y consultar':'Consultar pedidos'}${request.permissions.open?' · Gestionar caja':''}</p><div class="tpv-access-list">${request.targets.map(t=>{const r=rows().find(r=>key(r)===key(t));return `<article><div><strong>${esc(r?.operatorName||'Acceso registrado')}</strong><small>${esc(r?.storeName||'')}${r?' · ':''}${esc(r?.drawerName||'')}</small></div></article>`;}).join('')}</div><p class="small muted">Se conservan las ventas y las cajas abiertas. El bloque modifica únicamente los accesos seleccionados. Los permisos generales de cada cuenta siguen aplicándose.</p><div class="inline-actions">${result?'<button class="btn secondary" type="button" data-tpv-batch-close>Volver a los accesos</button>':stage==='pending'?'<button class="btn primary" type="button" data-tpv-batch-recover>Recuperar resultado del bloque</button>':'<button class="btn primary" type="button" data-tpv-batch-save>Confirmar y guardar el bloque</button><button class="btn secondary" type="button" data-tpv-batch-back>Revisar selección</button>'}</div></section>`;}
+  const options=groups();return `<section class="tpv-access-batch"><h4>${title}</h4><p>Selecciona los accesos existentes que quieres cambiar. Nada se guarda hasta revisar y confirmar el bloque.</p><form data-tpv-access-batch-form><div class="tpv-menu-link-row"><label>Organizar por<select name="batch-kind"><option value="store" ${kind==='store'?'selected':''}>Tienda</option><option value="operator" ${kind==='operator'?'selected':''}>Empleado</option></select></label><label>${kind==='store'?'Tienda':'Empleado'}<select name="batch-group">${options.map(([id,name])=>`<option value="${esc(id)}" ${id===groupId?'selected':''}>${esc(name)}</option>`).join('')}</select></label></div><fieldset><legend>Accesos que vas a cambiar · máximo 100</legend><div class="tpv-access-list">${eligible().map(r=>`<label class="tpv-check"><input type="checkbox" name="target" value="${esc(key(r))}" ${selected.has(key(r))?'checked':''}><span><strong>${esc(r.operatorName)}</strong><small>${esc(r.storeName)} · ${esc(r.drawerName)} · ${r.active?'Activo':'Sin acceso'}</small></span></label>`).join('')||'<p>No hay accesos asignados en este grupo. Prepara el primer puesto desde la asignación individual.</p>'}</div></fieldset><label>Uso del mostrador<select name="role"><option value="view" ${draft.role==='view'?'selected':''}>Consultar pedidos</option><option value="sell" ${draft.role==='sell'?'selected':''}>Vender y consultar pedidos</option></select></label><label class="tpv-check"><input name="cash" type="checkbox" ${draft.cash?'checked':''}> Gestionar caja</label><label class="tpv-check"><input name="active" type="checkbox" ${draft.active?'checked':''}> Accesos activos</label><p class="small muted">Los cambios se guardan juntos. Si un acceso ha cambiado desde que abriste esta pantalla, no se aplicará una parte del bloque.</p><div class="inline-actions"><button class="btn primary" type="submit">Revisar bloque</button><button class="btn secondary" type="button" data-tpv-batch-close>Cancelar</button></div></form></section>`;
+ }
+ return {open,reset,html,capture,filter,review,save,recover,back,close,isOpen:()=>opened,hasDraft:()=>dirty||stage==='review'||stage==='pending',hasPending:()=>stage==='pending',affectsActor:id=>request?.targets.some(t=>t.operatorId===id)===true};
+}

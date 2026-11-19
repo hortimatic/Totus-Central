@@ -27,6 +27,8 @@ foreach($before as $resource=>$methods)foreach($methods as $method)
     nativeLabCheck(in_array($method,$after[$resource]??[],true),'An existing permission was lost.');
 nativeLabCheck($after['orders']===['GET'],'Native orders received unintended write permissions.');
 nativeLabCheck($after['totus_tpv_stock']===['POST'],'Own stock permission missing.');
+nativeLabCheck($after['products']===['GET']&&$after['combinations']===['GET'],'Generic product/combination write permission must remain absent.');
+nativeLabCheck($after['totus_tpv_barcodes']===['GET','POST'],'Scoped barcode read/write permission missing.');
 nativeLabCheck($after[$unknown]===['GET'],'Unavailable legacy permission was lost.');
 $_POST['totus_account']=(string)$accountId;$again=$module->getContent();
 nativeLabCheck(str_contains($again,'guardados y releídos'),'Repeat additive grant failed.');

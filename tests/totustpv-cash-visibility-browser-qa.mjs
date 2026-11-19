@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';import {chromium} from 'playwright';import {startLocalServer} from './local-static-server.mjs';
+const server=await startLocalServer({enabled:true,port:0}),browser=await chromium.launch({headless:true});
+try{for(const width of [1440,1024,390,360]){
+ const page=await browser.newPage({viewport:{width,height:950}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(`http://127.0.0.1:${server.address().port}/tests/totustpv-workspace.html`);
+ await page.evaluate(async()=>{
+  fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js'),{cashSummaryPresentation}=await import('/src/totustpv/cash-visibility.js');
+  window.blindFixture={manager:true,hideSummary:false,writes:[],lose:true,closed:null};
+  const raw={sessionId:'session',status:'open',openingCents:10000,expectedCashCents:10055,payments:{cash:55},currency:'EUR',environment:'qa',storeName:'Tienda ficticia',drawerName:'Caja ficticia',openedAt:'2026-11-19T08:00:00Z'};
+  const presentation=()=>cashSummaryPresentation({...raw,cashSummaryHidden:blindFixture.hideSummary&&!blindFixture.manager});
+  const adapter={mode:'qa',context:async()=>({stores:[{id:'store',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'store',name:'Caja ficticia',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'store',drawerId:'drawer',status:'open'}]}),selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[],sessionSummary:async()=>presentation(),cashReports:async()=>[presentation()],closeSession:async values=>{blindFixture.closed=values;return {...presentation(),status:'closed'};}};
+  blindFixture.workspace=createTpvWorkspace({actor:()=>({id:'operator',active:true}),can:()=>true,canAssign:()=>blindFixture.manager,createLiveAdapter:()=>adapter,cashVisibilityStore:async(drawer,settings)=>{if(settings){if(!blindFixture.manager)throw Error('Permiso revocado');blindFixture.writes.push({drawer,settings});blindFixture.hideSummary=settings.hideSummary;if(blindFixture.lose){blindFixture.lose=false;throw Error('Respuesta de configuración perdida');}}return {hideSummary:blindFixture.hideSummary};}});
+  blindFixture.workspace.mount(document.querySelector('#tpv'));
+ });
+ await page.getByRole('button',{name:'Entrar al mostrador',exact:true}).click();await page.locator('[data-tpv-action=session]').waitFor();
+ await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
+ const settings=page.locator('[data-tpv-form=cash-visibility]');await settings.locator('[name=hideSummary]').check();await settings.getByRole('button',{name:'Guardar visibilidad de caja',exact:true}).click();await page.getByRole('alert').filter({hasText:'Respuesta de configuración perdida'}).waitFor();
+ assert.equal(await settings.locator('[name=hideSummary]').isChecked(),true);await settings.getByRole('button',{name:'Guardar visibilidad de caja',exact:true}).click();await page.getByText('Visibilidad de importes guardada para esta caja.',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>blindFixture.workspace.hasDraft()),false);
+ await page.screenshot({path:`artifacts/tpv-visibilidad-configuracion-${width}.png`,fullPage:true});
+ await page.evaluate(()=>blindFixture.manager=false);await page.locator('[data-tpv-action=session]').click();const section=page.locator('.tpv-session');await section.getByText(/Los importes del resumen están ocultos/).waitFor();
+ assert.equal(await section.locator('[name=counted]').inputValue(),'');assert.equal(await section.locator('dl').count(),0);assert.doesNotMatch(await section.innerText(),/NaN|100,55|100,00/);
+ await page.screenshot({path:`artifacts/tpv-arqueo-sin-saldo-${width}.png`,fullPage:true});
+ await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();assert.equal(await settings.locator('[name=hideSummary]').isDisabled(),true);const writes=await page.evaluate(()=>blindFixture.writes.length);await settings.evaluate(form=>form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true})));await page.getByRole('alert').filter({hasText:'No tienes permiso para configurar'}).waitFor();assert.equal(await page.evaluate(()=>blindFixture.writes.length),writes);await page.locator('[data-tpv-action=session]').click();
+ await section.locator('[name=counted]').fill('100,50');await section.getByRole('button',{name:'Cerrar caja',exact:true}).click();await page.getByText('Caja cerrada. Tu recuento ha quedado registrado; los importes del resumen siguen ocultos.',{exact:true}).waitFor();
+ assert.equal((await page.evaluate(()=>blindFixture.closed)).countedCents,10050);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);assert.deepEqual(errors,[]);await page.close();
+ }console.log('PASS blind-count workspace: four widths, lost settings reply, readback, no false dirty state, empty count input, hidden amounts and confirmed counted amount. Explicit fictional adapter; PostgreSQL projection and close verified separately.');
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

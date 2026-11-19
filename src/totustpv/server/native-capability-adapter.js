@@ -5,6 +5,7 @@
  */
 import {createNativeSaleAdapter} from './native-adapter.js';
 import {paymentSummary} from '../model.js';
+import {paymentReference} from '../payment-reference.js';
 const need=(ok,code)=>{if(!ok)throw new Error(code);};
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
 export function createNativeCapabilityAdapter({scope,transport,verifyPrepared}){
@@ -35,7 +36,22 @@ export function createNativeCapabilityAdapter({scope,transport,verifyPrepared}){
    new Set(payments.map(row=>row.method)).size===payments.length&&payments.every(row=>
     ['cash','card','bizum','transfer'].includes(row.method)&&typeof expected.nativePaymentLabels?.[row.method]==='string'),
    'TPV_NATIVE_PAYMENT_UNSUPPORTED');
+  for(const row of payments)if(Object.hasOwn(row,'reference')){
+   need(row.method!=='cash'&&expected.supportsPaymentReferences===true,'TPV_NATIVE_PAYMENT_REFERENCE_UNAVAILABLE');
+   let reference;try{reference=paymentReference(row.reference);}catch{throw Error('TPV_PAYMENT_REFERENCE_INVALID');}
+   need(reference!==undefined&&reference===row.reference,'TPV_PAYMENT_REFERENCE_INVALID');
+  }
   need(paymentSummary(expected.totalCents,payments).fullyPaid,'TPV_PAYMENT_NOT_SETTLED');return true;
+ }
+ function verifyReferences(observed,payments){
+  const native=observed.payment_intent;
+  const requestedReferences=Array.isArray(payments)&&payments.some(row=>Object.hasOwn(row,'reference'));
+  const nativeReferences=Array.isArray(native)&&native.some(row=>row&&Object.hasOwn(row,'external_reference'));
+  if(!requestedReferences&&!nativeReferences)return;
+  need(Array.isArray(native)&&Array.isArray(payments)&&native.length===payments.length&&native.every(row=>row&&typeof row==='object'&&!Array.isArray(row)&&typeof row.method==='string')&&new Set(native.map(row=>row.method)).size===native.length,'TPV_NATIVE_PAYMENT_REFERENCE_MISMATCH');
+  for(const row of payments){const found=native.find(item=>item.method===row.method);
+   need(found&&found.external_reference===row.reference,'TPV_NATIVE_PAYMENT_REFERENCE_MISMATCH');
+  }
  }
  return Object.freeze({ordersForCart:base.ordersForCart,validatePayments,
   async revalidatePrepared({scope:requested,record}){
@@ -48,15 +64,18 @@ export function createNativeCapabilityAdapter({scope,transport,verifyPrepared}){
   async submitOrderOnce({scope:requested,operationId,expected,payments}){
    validatePayments({scope:requested,expected,payments});need(uuid(operationId),'TPV_NATIVE_OPERATION_INVALID');
    const response=await transport.nativeCommand({operationId,command:'sale.commit',payload:{cart_id:expected.cartId,
+    ...(expected.allowOutOfStock===true?{allow_out_of_stock:true}:{}),
     quote_operation_id:expected.nativeQuoteOperationId,quote_fingerprint:expected.nativeQuoteFingerprint,
     payments:payments.map(row=>({method:row.method,amount_cents:row.amountCents,
+     ...(row.reference===undefined?{}:{external_reference:row.reference}),
      ...(row.method==='cash'?{received_cents:row.receivedCents}:{})}))}});
    need(response?.verified===true&&Number.isSafeInteger(response.order_id)&&response.order_id>0,
     'TPV_NATIVE_SALE_UNCERTAIN');
-   await receipt(operationId,expected,response.order_id);return {orderId:response.order_id};
+   verifyReferences(await receipt(operationId,expected,response.order_id),payments);return {orderId:response.order_id};
   },
-  async readSale({scope:requested,operationId,sourceActorId=scope.actorId,orderId,expected}){
+  async readSale({scope:requested,operationId,sourceActorId=scope.actorId,orderId,expected,payments}){
    same(requested);const observed=await receipt(operationId,expected,orderId,sourceActorId);
+   verifyReferences(observed,payments);
    if(observed.order_evidence){
     need(observed.order_evidence.orderId===orderId&&observed.order_evidence.shopId===scope.shopId&&
      observed.order_evidence.cartId===expected.cartId,'TPV_NATIVE_RECEIPT_MISMATCH');

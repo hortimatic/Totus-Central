@@ -30,6 +30,38 @@ function fixture(options={}) {
  });
  return {transport,requests};
 }
+test('barcode plans use only the owned read resource and bounded native target parameters',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeBarcodePlan({field:'upc',productId:12,attributeId:3});
+ const url=new URL(f.requests[0].url);assert.equal(url.pathname,'/api/totus_tpv_barcodes');assert.equal(f.requests[0].init.method,'GET');assert.equal(url.searchParams.get('actor_id'),scope.actorId);assert.equal(url.searchParams.get('field'),'upc');assert.equal(url.searchParams.get('product_id'),'12');assert.equal(url.searchParams.get('attribute_id'),'3');
+ for(const query of [{field:'isbn'},{productId:'12'},{productId:0},{productId:2147483648},{productId:12,attributeId:-1},{attributeId:3}])await assert.rejects(f.transport.readNativeBarcodePlan(query),/TPV_BARCODE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{field:'upc'}),/TPV_NATIVE_QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+
+test('barcode writes retain the native command authorization gate',async()=>{
+ const operationId=scope.connectionId,f=fixture({extension:true});
+ await assert.rejects(f.transport.nativeCommand({operationId,command:'barcodes.assign',payload:{}}),/TPV_NATIVE_COMMAND_DISABLED/);assert.equal(f.requests.length,0);
+ const allowed=fixture({extension:true,commandsAllowed:true});await allowed.transport.nativeCommand({operationId,command:'barcodes.assign',payload:{plan_version:1,field:'ean13',items:[],plan_fingerprint:'0'.repeat(64),item_index:0}});
+ assert.equal(new URL(allowed.requests[0].url).pathname,'/api/totus_tpv_barcodes');assert.equal(allowed.requests[0].init.method,'POST');assert.equal(JSON.parse(allowed.requests[0].init.body).command,'barcodes.assign');
+});
+
+test('barcode target paging retains its boundary and selected planning cannot broaden into an arbitrary native query',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeBarcodeTargets({field:'reference',cursor:[12,3],bounds:{product:99,attribute:50}});
+ const page=new URL(f.requests[0].url);assert.equal(page.searchParams.get('mode'),'targets');assert.equal(page.searchParams.get('max_product'),'99');assert.equal(page.searchParams.get('after_product'),'12');
+ await f.transport.readNativeBarcodePlan({field:'ean13',targets:[{productId:12,attributeId:3},{productId:13,attributeId:0}],skipExisting:true});const plan=new URL(f.requests[1].url);assert.equal(plan.searchParams.get('targets'),'12:3,13:0');assert.equal(plan.searchParams.get('skip_existing'),'1');
+ for(const value of [{cursor:[-1,0]},{cursor:[1]},{bounds:{product:1}},{bounds:{product:1,attribute:0,sql:'x'}}])await assert.rejects(f.transport.readNativeBarcodeTargets(value),/BARCODE_QUERY_INVALID/);
+ for(const value of [{skipExisting:true},{targets:[]},{targets:[{productId:1,attributeId:0},{productId:1,attributeId:0}]},{targets:[{productId:1,attributeId:0}],productId:2}])await assert.rejects(f.transport.readNativeBarcodePlan(value),/BARCODE_QUERY_INVALID/);assert.equal(f.requests.length,2);
+});
+
+test('billing metadata is a scoped authenticated GET and rejects invalid sale identity',async()=>{
+ const f=fixture({extension:true});
+ await f.transport.readNativeBilling({operationId:scope.connectionId,sourceActorId:scope.actorId});
+ assert.equal(f.requests.length,1);assert.equal(f.requests[0].init.method,'GET');
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('kind'),'billing');
+ assert.equal(url.searchParams.get('actor_id'),scope.actorId);assert.equal(url.searchParams.get('id_shop'),'2');
+ await assert.rejects(()=>f.transport.readNativeBilling({operationId:'invalid',sourceActorId:scope.actorId}),/TPV_DOCUMENT_QUERY_INVALID/);
+ assert.equal(f.requests.length,1);
+});
+
 test('read uses Central credentials privately, native shop context and no ambient cookies',async()=>{
  const f=fixture();await f.transport.read('orders',{'filter[id_cart]':'[701]',display:'[id,id_cart]',limit:'0,2'});
  const {url,init}=f.requests[0],u=new URL(url);
@@ -153,4 +185,39 @@ test('owned-cart native quote has a separate explicit server gate, exact resourc
  assert.equal(init.headers['Content-Type'],'application/json');assert.equal(JSON.parse(init.body).actor_id,scope.actorId);
  assert.equal(JSON.parse(init.body).command,'cart.quote');assert.equal(init.body.includes(connection.secret),false);
  await assert.rejects(f.transport.read('totus_tpv_quotes'),/RESOURCE_FORBIDDEN/);
+});
+
+test('catalogue criteria remain explicit and cannot add arbitrary query fields or resources',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeCatalogue({search:'9780306406157',searchFields:['isbn','reference']});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('search_fields'),'reference,isbn');assert.equal(url.searchParams.get('id_shop'),'2');
+ assert.equal(f.requests[0].init.method,'GET');
+ for(const searchFields of [[],['isbn','isbn'],['name) OR 1=1'],['id_shop'],null,'isbn'])await assert.rejects(f.transport.readNativeCatalogue({searchFields}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{search_fields:'isbn'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+test('catalogue visibility allows bounded category IDs only, without changing generic query limits',async()=>{
+ const f=fixture({extension:true}),ids=Array.from({length:100},(_,n)=>2147483500+n);
+ await f.transport.readNativeCatalogue({catalogueFilters:{hideUnavailable:true,excludedCategories:ids}});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('hide_unavailable'),'1');assert.equal(url.searchParams.get('excluded_categories'),ids.join(','));
+ assert.equal(url.searchParams.get('excluded_categories').length,1099);
+ for(const catalogueFilters of [{hideUnavailable:1},{excludedCategories:[0]},{excludedCategories:['2']},{excludedCategories:[2,2]},{allowOutOfStock:true},{extraDetails:true},{excludedCategories:[2147483648]}])await assert.rejects(f.transport.readNativeCatalogue({catalogueFilters}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{excluded_categories:'2'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+test('variant-group ordering is scoped to catalogue combinations and never forwarded to generic resources',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeCatalogue({productId:12,variantGroupId:3});
+ const url=new URL(f.requests[0].url);assert.equal(url.searchParams.get('sort_group_id'),'3');assert.equal(url.searchParams.get('product_id'),'12');
+ for(const variantGroupId of [-1,'3',1.5,null,2147483648])await assert.rejects(f.transport.readNativeCatalogue({productId:12,variantGroupId}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.readNativeCatalogue({variantGroupId:3}),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{sort_group_id:'3'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+test('native stock-policy preflight uses the existing read-only catalogue boundary and an exact product identity',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeStockPolicy(12);const url=new URL(f.requests[0].url);
+ assert.equal(url.pathname,'/api/totus_tpv_catalogue');assert.equal(url.searchParams.get('stock_policy_only'),'1');assert.equal(url.searchParams.get('product_id'),'12');assert.equal(url.searchParams.get('id_shop'),'2');assert.equal(f.requests[0].init.method,'GET');
+ for(const value of [0,-1,1.5,'12',2147483648])await assert.rejects(f.transport.readNativeStockPolicy(value),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{stock_policy_only:'1'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
+});
+test('unit price capability preflight is a scoped read and cannot extend generic product queries',async()=>{
+ const f=fixture({extension:true});await f.transport.readNativeProductCapabilities(12);const url=new URL(f.requests[0].url);
+ assert.equal(url.pathname,'/api/totus_tpv_catalogue');assert.equal(url.searchParams.get('product_capabilities_only'),'1');assert.equal(url.searchParams.get('product_id'),'12');assert.equal(f.requests[0].init.method,'GET');
+ for(const id of [0,-1,'12',1.5,2147483648])await assert.rejects(f.transport.readNativeProductCapabilities(id),/CATALOGUE_QUERY_INVALID/);
+ await assert.rejects(f.transport.read('products',{product_capabilities_only:'1'}),/QUERY_INVALID/);assert.equal(f.requests.length,1);
 });

@@ -2,6 +2,7 @@
  * Quote and attributed inventory evidence are separate verified server adapters.
  * A raw quantity difference alone cannot attribute a concurrent stock movement.
  */
+import {reconcileNativeTaxedSubtotal} from './native-subtotal.js';
 import {createNativeCartPreflight} from './cart-preflight.js';
 import {paymentSummary} from '../model.js';
 const requireValue=(condition,code)=>{if(!condition)throw new Error(code);};
@@ -78,17 +79,26 @@ export function createNativeSaleAdapter({scope,transport,verifyPrepared,readInve
       if(prepared&&Object.hasOwn(prepared,'unitTaxInclMicros'))return {
         productId:nativeId(line.product_id),attributeId:Number(line.product_attribute_id),qty:Number(line.product_quantity),
         unitTaxInclMicros:nativeMicros(line.unit_price_tax_incl),unitTaxExclMicros:nativeMicros(line.unit_price_tax_excl),
-        lineTaxInclCents:nativeCents(line.total_price_tax_incl),lineTaxExclCents:nativeCents(line.total_price_tax_excl)};
+        ...(expected.nativeRoundType===3?{lineTaxInclMicros:nativeMicros(line.total_price_tax_incl),lineTaxExclMicros:nativeMicros(line.total_price_tax_excl),lineTaxInclCents:0,lineTaxExclCents:0}:{lineTaxInclCents:nativeCents(line.total_price_tax_incl),lineTaxExclCents:nativeCents(line.total_price_tax_excl)})};
       return {productId:nativeId(line.product_id),attributeId:Number(line.product_attribute_id),
         qty:Number(line.product_quantity),unitTaxInclCents:nativeCents(line.unit_price_tax_incl),
         ...(prepared&&Object.hasOwn(prepared,'unitTaxExclMicros')?
           {unitTaxExclMicros:nativeMicros(line.unit_price_tax_excl)}:{unitTaxExclCents:nativeCents(line.unit_price_tax_excl)})};
     });
+    if(expected.nativeRoundType===3){
+      requireValue(Number(order.round_type)===3&&Number(order.round_mode)===expected.nativeRoundMode,'TPV_NATIVE_ORDER_ROUNDING_MISMATCH');
+      const netCents=nativeCents(order.total_products),grossCents=nativeCents(order.total_products_wt);
+      requireValue(netCents===expected.productsTaxExclCents&&grossCents===expected.productsTaxInclCents,'TPV_NATIVE_ORDER_SUBTOTAL_MISMATCH');
+      const balanced=reconcileNativeTaxedSubtotal(lines.map(line=>({key:`${line.productId}:${line.attributeId}`,netMicros:line.lineTaxExclMicros,grossMicros:line.lineTaxInclMicros})),{netCents,grossCents,mode:expected.nativeRoundMode});
+      const byKey=new Map(balanced.map(line=>[line.key,line]));
+      for(const line of lines){const amount=byKey.get(`${line.productId}:${line.attributeId}`);line.lineTaxInclCents=amount.grossCents;line.lineTaxExclCents=amount.netCents;}
+    }
     const inventory=await readInventoryEvidence({scope:structuredClone(scope),orderId,expected:structuredClone(expected)});
     return {connectionId:scope.connectionId,storeId:scope.storeId,shopId:scope.shopId,cartId:Number(order.id_cart),orderId,
       customerId:Number(order.id_customer),invoiceAddressId:Number(order.id_address_invoice),
       deliveryAddressId:Number(order.id_address_delivery),currencyId:Number(order.id_currency),currency:currency.iso_code,
       paymentModule:order.module,stateId,statePaid:flag(state.paid),totalCents:nativeCents(order.total_paid_tax_incl),
+      ...(Object.hasOwn(expected,'totalTaxExclCents')?{totalTaxExclCents:nativeCents(order.total_paid_tax_excl)}:{}),
       shippingCents:nativeCents(order.total_shipping_tax_incl),discountCents:nativeCents(order.total_discounts_tax_incl),
       receivedCents:nativeCents(order.total_paid_real),lines,inventory,
       payments:payments.map(payment=>({id:nativeId(payment.id),amountCents:nativeCents(payment.amount),

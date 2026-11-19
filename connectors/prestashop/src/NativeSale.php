@@ -7,6 +7,19 @@ namespace TotusCentralConnector;
  */
 final class NativeSale
 {
+    public static function supportsPaymentReferences(): bool{return true;}
+    public static function externalReference($value): string
+    {
+        Protocol::ensure(is_string($value)&&$value===trim($value)&&preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._:\/-]{0,63}$/D',$value)===1,'SALE_PAYMENT_REFERENCE_INVALID');
+        $digits=preg_replace('/[^0-9]/','',$value);
+        if(strlen($digits)>=13&&strlen($digits)<=19){$total=0;$twice=false;
+            for($i=strlen($digits)-1;$i>=0;$i--){$n=(int)$digits[$i];if($twice){$n*=2;if($n>9)$n-=9;}$total+=$n;$twice=!$twice;}
+            Protocol::ensure($total%10!==0,'SALE_PAYMENT_REFERENCE_INVALID');
+        }
+        return $value;
+    }
+    public static function supportsLineNames(): bool{return true;}
+    public static function supportsCommercialQuotes(): bool{return true;}
     private $quoteReader;
     private $ownerReader;
     private $module;
@@ -33,32 +46,36 @@ final class NativeSale
     {
         $payload=$command['payload'] ?? [];
         Protocol::ensure(($command['command'] ?? null)==='sale.commit' &&
-            array_diff(array_keys($payload),['cart_id','quote_operation_id','quote_fingerprint','payments'])===[] &&
-            count($payload)===4 && is_int($payload['cart_id']??null) && $payload['cart_id']>0 &&
+            array_diff(array_keys($payload),['cart_id','quote_operation_id','quote_fingerprint','payments','allow_out_of_stock'])===[] &&
+            count($payload)===(array_key_exists('allow_out_of_stock',$payload)?5:4) && (!array_key_exists('allow_out_of_stock',$payload)||is_bool($payload['allow_out_of_stock'])) && is_int($payload['cart_id']??null) && $payload['cart_id']>0 &&
             Protocol::uuid($payload['quote_operation_id']??null) &&
             is_string($payload['quote_fingerprint']??null) && preg_match('/^[a-f0-9]{64}$/D',$payload['quote_fingerprint']) &&
             is_array($payload['payments']??null) && array_is_list($payload['payments']) &&
             count($payload['payments'])>=1 && count($payload['payments'])<=4,'SALE_INTENT_INVALID');
         $owner=($this->ownerReader)($payload['cart_id'],$command);
         Protocol::ensure(is_array($owner) && ($owner['verified']??false)===true,'CART_OWNERSHIP_REQUIRED');
+        Protocol::ensure(($owner['commercial_only']??false)!==true,'SALE_COMMERCIAL_QUOTE_FORBIDDEN');
         $saved=($this->quoteReader)($payload['quote_operation_id'],$command);
         Protocol::ensure(is_array($saved) && ($saved['verified']??false)===true &&
             ($saved['quote']['cart_id']??null)===$payload['cart_id'] &&
             ($saved['quote']['shop_id']??null)===$command['shop_id'] &&
             hash_equals($saved['quote_fingerprint']??'',$payload['quote_fingerprint']), 'SALE_QUOTE_MISMATCH');
-        $quote=$saved['quote'];$allocated=0;$seen=[];
+        $quote=$saved['quote'];Protocol::ensure(($quote['commercial_only']??false)!==true,'SALE_COMMERCIAL_QUOTE_FORBIDDEN');if(!empty($owner['line_names'])||array_filter($quote['lines'],static fn($line)=>array_key_exists('display_name',$line)))NativeOrderLineNames::assertQuote($owner['line_names']??[],$quote['lines']);$note=$owner['sale_note']??null;Protocol::ensure(($quote['sale_note_hash']??null)===($note===null?null:hash('sha256',NativeSaleNote::normalize($note))),'SALE_NOTE_MISMATCH');$allocated=0;$seen=[];
+        NativeSaleNote::assertMessageCompatible($note);
         foreach ($payload['payments'] as $payment) {
             Protocol::ensure(is_array($payment) &&
-                array_diff(array_keys($payment),['method','amount_cents','received_cents'])===[] &&
+                array_diff(array_keys($payment),['method','amount_cents','received_cents','external_reference'])===[] &&
                 isset($this->profile['payment_labels'][$payment['method']??'']) &&
                 !isset($seen[$payment['method']]) && is_int($payment['amount_cents']??null) &&
                 $payment['amount_cents']>0 && $payment['amount_cents']<=100000000000,'SALE_PAYMENT_INVALID');
             if ($payment['method']==='cash') {
+                Protocol::ensure(!array_key_exists('external_reference',$payment),'SALE_CASH_REFERENCE_FORBIDDEN');
                 Protocol::ensure(is_int($payment['received_cents']??null) &&
                     $payment['received_cents']>=$payment['amount_cents'] &&
                     $payment['received_cents']<=100000000000,'SALE_CASH_INSUFFICIENT');
             } else {
                 Protocol::ensure(!array_key_exists('received_cents',$payment),'SALE_CARD_CHANGE_FORBIDDEN');
+                if(array_key_exists('external_reference',$payment))self::externalReference($payment['external_reference']);
             }
             $allocated+=$payment['amount_cents'];$seen[$payment['method']]=true;
         }
@@ -66,9 +83,14 @@ final class NativeSale
         return [$payload,$saved,$owner];
     }
 
+    private static function allowsShortage(array $payload,array $line,array $owner): bool
+    {return ($payload['allow_out_of_stock']??false)===true&&($line['allow_out_of_stock']??false)===true&&
+        ($owner['allow_out_of_stock']??false)===true;}
+
     public function execute(array $command): array
     {
         [$payload,$saved,$owner]=$this->intent($command);
+        if(!empty($owner['line_names']))NativeOrderLineNames::preflight($owner['line_names'],(int)$command['shop_id']);
         Protocol::ensure(is_int($saved['quoted_at']??null) && $saved['quoted_at']<=time()*1000+1000 &&
             $saved['quoted_at']>=time()*1000-120000,'SALE_QUOTE_EXPIRED');
         $cart=new \Cart($payload['cart_id']);
@@ -98,7 +120,7 @@ final class NativeSale
                 $lock=$db->prepare('SELECT quantity,id_shop,depends_on_stock FROM `'._DB_PREFIX_.'stock_available` WHERE id_stock_available=? FOR UPDATE');
                 $lock->execute([$id]);$stock=$lock->fetch(\PDO::FETCH_ASSOC);
                 Protocol::ensure($stock && (int)$stock['id_shop']===$command['shop_id'] &&
-                    !(bool)$stock['depends_on_stock'] && (int)$stock['quantity']>=$line['quantity'],'SALE_STOCK_SCOPE_OR_QUANTITY');
+                    !(bool)$stock['depends_on_stock'] && ((int)$stock['quantity']>=$line['quantity']||self::allowsShortage($payload,$line,$owner)&&(int)$stock['quantity']-$line['quantity']>=-2147483648),'SALE_STOCK_SCOPE_OR_QUANTITY');
             }
             \Cache::clean('*');
             $cart->getProducts(true);$cart->getPackageList(true);$cart->getDeliveryOptionList($context->country,true);
@@ -113,15 +135,16 @@ final class NativeSale
                 Protocol::ensure(\Validate::isLoadedObject($product) && $product->active && $product->available_for_order &&
                     !$product->is_virtual && !\Pack::isPack((int)$product->id),'SALE_PRODUCT_UNSUPPORTED');
                 $quantity=(int)\StockAvailable::getQuantityAvailableByProduct($line['product_id'],$line['attribute_id'],$command['shop_id']);
-                Protocol::ensure($quantity>=$line['quantity'],'SALE_STOCK_INSUFFICIENT');
+                Protocol::ensure($quantity>=$line['quantity']||self::allowsShortage($payload,$line,$owner)&&$quantity-$line['quantity']>=-2147483648,'SALE_STOCK_INSUFFICIENT');
                 $before[$line['product_id'].':'.$line['attribute_id']]=$quantity;
             }
             $label=count($payload['payments'])>1?'Mixto':$this->profile['payment_labels'][$payload['payments'][0]['method']];
             $this->module->validateOrder((int)$cart->id,(int)$preparing->id,$saved['quote']['total_cents']/100,
-                $label,null,[],(int)$cart->id_currency,false,$cart->secure_key,$context->shop);
+                $label,isset($owner['sale_note'])?NativeSaleNote::messageArgument($owner['sale_note']):null,[],(int)$cart->id_currency,false,$cart->secure_key,$context->shop);
             $order=new \Order((int)$this->module->currentOrder);
             Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_cart===(int)$cart->id &&
                 count($order->getOrderPaymentCollection())===0,'SALE_INITIAL_ORDER_INVALID');
+            if(!empty($owner['line_names']))NativeOrderLineNames::apply($order,$owner['line_names'],$saved['quote']['lines']);
             foreach ($payload['payments'] as $payment) {
                 $method=$this->profile['payment_labels'][$payment['method']];
                 Protocol::ensure($order->addOrderPayment($payment['amount_cents']/100,$method,
@@ -158,12 +181,17 @@ final class NativeSale
     private function readback(array $command,array $payload,array $saved,int $orderId): array
     {
         $order=new \Order($orderId);$quote=$saved['quote'];
+        Protocol::ensure((int)$order->round_type===$quote['round_type']&&(int)$order->round_mode===$quote['round_mode'],'SALE_ROUNDING_READBACK_FAILED');
         Protocol::ensure(\Validate::isLoadedObject($order) && (int)$order->id_cart===$payload['cart_id'] &&
             (int)$order->id_shop===$command['shop_id'] && (int)$order->id_customer===$quote['customer_id'] &&
             (int)$order->id_currency===$quote['currency_id'] && (int)$order->id_address_invoice===$quote['invoice_address_id'] &&
             (int)$order->id_address_delivery===$quote['delivery_address_id'] && (int)$order->id_carrier===$quote['carrier_id'] &&
             (int)$order->id_lang===$quote['language_id'] && $order->module===$this->module->name &&
-            self::cents($order->total_paid_tax_incl)===$quote['total_cents'],'SALE_ORDER_READBACK_FAILED');
+            self::cents($order->total_paid_tax_incl)===$quote['total_cents']&&
+            self::cents($order->total_paid_tax_excl)===self::cents($quote['total_tax_excl']),'SALE_ORDER_READBACK_FAILED');
+        $noteOwner=($this->ownerReader)($payload['cart_id'],$command);
+        if(!empty($noteOwner['line_names'])){NativeOrderLineNames::assertQuote($noteOwner['line_names'],$quote['lines']);NativeOrderLineNames::verify($order,$noteOwner['line_names']);}
+        if(isset($quote['sale_note_hash']))NativeSaleNote::verifyOrder($order,$noteOwner['sale_note']??null,$quote['sale_note_hash']);
         $details=$order->getOrderDetailList();$expected=[];$observed=[];
         foreach ($quote['lines'] as $line)$expected[$line['product_id'].':'.$line['attribute_id']]=$line['quantity'];
         foreach ($details as $line) {
@@ -174,8 +202,8 @@ final class NativeSale
             Protocol::ensure($quoted!==null&&
                 number_format((float)$line['unit_price_tax_incl'],6,'.','')===number_format((float)$quoted['unit_tax_incl'],6,'.','')&&
                 number_format((float)$line['unit_price_tax_excl'],6,'.','')===number_format((float)$quoted['unit_tax_excl'],6,'.','')&&
-                self::cents($line['total_price_tax_incl'])===self::cents($quoted['line_tax_incl'])&&
-                self::cents($line['total_price_tax_excl'])===self::cents($quoted['line_tax_excl']),'SALE_LINE_PRICE_READBACK_FAILED');
+                ($quote['round_type']===3?self::micros($line['total_price_tax_incl'])===self::micros($quoted['line_tax_incl']):self::cents($line['total_price_tax_incl'])===self::cents($quoted['line_tax_incl']))&&
+                ($quote['round_type']===3?self::micros($line['total_price_tax_excl'])===self::micros($quoted['line_tax_excl']):self::cents($line['total_price_tax_excl'])===self::cents($quoted['line_tax_excl'])),'SALE_LINE_PRICE_READBACK_FAILED');
         }
         ksort($expected);ksort($observed);Protocol::ensure($expected===$observed,'SALE_LINES_READBACK_FAILED');
         $payments=[];$paymentEvidence=[];$currency=new \Currency((int)$quote['currency_id']);
@@ -197,7 +225,8 @@ final class NativeSale
             self::cents($order->total_shipping_tax_incl)===self::cents($quote['shipping_tax_incl'])&&
             self::cents($order->total_discounts_tax_incl)===self::cents($quote['discounts_tax_incl']),'SALE_TOTAL_COMPONENTS_READBACK_FAILED');
         foreach($order->getInvoicesCollection() as $invoice)Protocol::ensure((int)$invoice->id_order===$orderId&&
-            self::cents($invoice->total_paid_tax_incl)===$quote['total_cents'],'SALE_INVOICE_AMOUNT_READBACK_FAILED');
+            self::cents($invoice->total_paid_tax_incl)===$quote['total_cents']&&
+            self::cents($invoice->total_paid_tax_excl)===self::cents($quote['total_tax_excl']),'SALE_INVOICE_AMOUNT_READBACK_FAILED');
         $inventory=[];$db=\Db::getInstance()->getLink();
         foreach($quote['lines'] as $line){
             $stockId=(int)\StockAvailable::getStockAvailableIdByProductId($line['product_id'],$line['attribute_id'],$command['shop_id']);
@@ -211,18 +240,22 @@ final class NativeSale
                 'recordVerified'=>true,'ambiguous'=>false];
         }
         $state=new \OrderState((int)$order->current_state);$lineEvidence=[];
-        foreach($details as $line)$lineEvidence[]=['productId'=>(int)$line['product_id'],'attributeId'=>(int)$line['product_attribute_id'],
+        $balanced=$quote['round_type']===3?NativeDocuments::reconcileTicketTotals($details,self::cents($order->total_products_wt),self::cents($order->total_products),(int)$order->round_mode):[];
+        foreach($details as $index=>$line)$lineEvidence[]=['productId'=>(int)$line['product_id'],'attributeId'=>(int)$line['product_attribute_id'],
             'qty'=>(int)$line['product_quantity'],'unitTaxInclMicros'=>self::micros($line['unit_price_tax_incl']),
-            'unitTaxExclMicros'=>self::micros($line['unit_price_tax_excl']),'lineTaxInclCents'=>self::cents($line['total_price_tax_incl']),
-            'lineTaxExclCents'=>self::cents($line['total_price_tax_excl'])];
+            'unitTaxExclMicros'=>self::micros($line['unit_price_tax_excl']),'lineTaxInclCents'=>$balanced[$index]['line_cents']??self::cents($line['total_price_tax_incl']),
+            'lineTaxExclCents'=>$balanced[$index]['tax_excl_cents']??self::cents($line['total_price_tax_excl']),
+            ...($quote['round_type']===3?['lineTaxInclMicros'=>self::micros($line['total_price_tax_incl']),'lineTaxExclMicros'=>self::micros($line['total_price_tax_excl'])]:[])];
         $evidence=['shopId'=>(int)$order->id_shop,'cartId'=>(int)$order->id_cart,'orderId'=>$orderId,
             'customerId'=>(int)$order->id_customer,'invoiceAddressId'=>(int)$order->id_address_invoice,
             'deliveryAddressId'=>(int)$order->id_address_delivery,'currencyId'=>(int)$order->id_currency,'currency'=>(string)$currency->iso_code,
             'paymentModule'=>(string)$order->module,'stateId'=>(int)$order->current_state,'statePaid'=>(bool)$state->paid,
             'totalCents'=>self::cents($order->total_paid_tax_incl),'receivedCents'=>self::cents($order->total_paid_real),
+            'totalTaxExclCents'=>self::cents($order->total_paid_tax_excl),
             'shippingCents'=>self::cents($order->total_shipping_tax_incl),'discountCents'=>self::cents($order->total_discounts_tax_incl),
             'lines'=>$lineEvidence,'payments'=>$paymentEvidence,'inventory'=>$inventory];
         return ['verified'=>true,'native_reference'=>$orderId,'order_id'=>$orderId,'reference'=>(string)$order->reference,
+            'line_presentations'=>array_values(array_map(static fn($line)=>['product_id'=>$line['product_id'],'attribute_id'=>$line['attribute_id'],'presentation'=>$line['presentation']],array_filter($quote['lines'],static fn($line)=>isset($line['presentation'])))),
             'cart_id'=>$payload['cart_id'],'total_cents'=>$quote['total_cents'],'payments'=>$payments,'lines'=>$observed,
             'quote_operation_id'=>$payload['quote_operation_id'],'quote_fingerprint'=>$payload['quote_fingerprint'],
             'payment_intent'=>$payload['payments'],'inventory'=>$inventory,'order_evidence'=>$evidence,

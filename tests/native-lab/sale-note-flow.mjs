@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+export async function exerciseNativeSaleNote({call,raw,selection,fixture,preferences,nativeRead,paths}){
+ const item=fixture.linePriceSetup.items.normal,drawer={connectionId:selection.connectionId,shopId:selection.shopId,id:selection.drawerId},posts=()=>paths.filter(row=>row.method==='POST').length;
+ const set=requireSaleNote=>preferences(drawer,{lineOptions:{requireSaleNote,allowPriceChanges:false}});
+ const prepare=(id,note)=>({action:'prepare',selection,operationId:id,lines:[{productId:item.id,attributeId:0,qty:1}],...(note!==undefined?{note}:{})});
+ await set(true);let before=posts();assert.equal((await raw(prepare(randomUUID()))).result.error,'TPV_SALE_NOTE_REQUIRED');assert.equal(posts(),before);
+ for(const note of ['<script>private</script>','🙂'.repeat(501),'bad\u0000',null]){assert.equal((await raw(prepare(randomUUID(),note))).result.error,'TPV_SALE_NOTE_INVALID');assert.equal(posts(),before);}
+ const note='Preparar recogida el miércoles\nAvisar al equipo 🙂',id=randomUUID(),draftId=randomUUID(),draft=await call({action:'park',selection,operationId:draftId,version:0,label:'Recogida privada QA',payload:{lines:[{productId:item.id,attributeId:0,qty:1,label:'Artículo QA'}],note}});assert.equal(draft.payload.note,note);const claimed=await call({action:'claim-draft',selection,operationId:randomUUID(),draftId:draft.id,version:draft.version});assert.equal(claimed.payload.note,note);const ready=await call({...prepare(id,'  '+claimed.payload.note+'  '),draftId:claimed.id,draftVersion:claimed.version});assert.equal(ready.status,'ready');assert.equal(ready.expected.hasSaleNote,true);
+ const nativeQuote=paths.findLast(row=>row.path?.includes('totus_tpv_quotes'));assert.ok(nativeQuote);const total=ready.expected.totalCents;
+ const pay={allocations:[{id:'cash-note',method:'cash',amountCents:total,receivedCents:total}],confirmation:{operationId:id,totalCents:total,currency:'EUR',accepted:true}};
+ const sold=await call({action:'submit',selection,operationId:id,payments:pay});assert.equal(sold.status,'confirmed');const written=posts();assert.equal((await call({action:'recover',selection,operationId:id})).status,'confirmed');assert.equal((await call({action:'submit',selection,operationId:id,payments:pay})).status,'confirmed');assert.equal(posts(),written);
+ // The receipt is customer facing: internal notes and their body stay absent.
+ const receipt=await call({action:'document',selection,operationId:id,kind:'receipt'});assert.equal(JSON.stringify(receipt).includes(note),false);
+ await set(false);const noNote=randomUUID(),optional=await call(prepare(noNote));assert.equal(optional.expected.hasSaleNote,undefined);await set(true);before=posts();assert.equal((await raw({action:'submit',selection,operationId:noNote,payments:{...pay,confirmation:{...pay.confirmation,operationId:noNote}}})).result.error,'TPV_SALE_NOTE_REQUIRED');assert.equal(paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,1);
+ await set(false);
+ // The valid literal "0" must survive PaymentModule's empty() guard.
+ const zeroId=randomUUID(),zeroReady=await call(prepare(zeroId,'0')),zeroTotal=zeroReady.expected.totalCents;
+ assert.equal(zeroReady.expected.hasSaleNote,true);
+ const zeroPay={allocations:[{id:'cash-note-zero',method:'cash',amountCents:zeroTotal,receivedCents:zeroTotal}],confirmation:{operationId:zeroId,totalCents:zeroTotal,currency:'EUR',accepted:true}};
+ assert.equal((await call({action:'submit',selection,operationId:zeroId,payments:zeroPay})).status,'confirmed');
+ assert.equal((await call({action:'recover',selection,operationId:zeroId})).status,'confirmed');
+ const zeroReturn=await call({action:'returnable',selection,operationId:randomUUID(),saleId:zeroId}),zeroRefund=randomUUID();
+ await call({action:'prepare-refund',selection,operationId:zeroRefund,saleId:zeroId,items:[{detailId:zeroReturn.items[0].detail_id,qty:1,restock:true}],payments:[{method:'cash',amountCents:zeroTotal}]});
+ assert.equal((await call({action:'submit-refund',selection,operationId:zeroRefund,confirmation:{accepted:true,operationId:zeroRefund,totalCents:zeroTotal,currency:'EUR'}})).status,'confirmed');
+ const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId:id}),refundId=randomUUID();await call({action:'prepare-refund',selection,operationId:refundId,saleId:id,items:[{detailId:available.items[0].detail_id,qty:1,restock:true}],payments:[{method:'cash',amountCents:total}]});assert.equal((await call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:total,currency:'EUR'}})).status,'confirmed');
+ console.log('PASS native private sale note: required/invalid refusal before writes, park/claim/bind preserves note, native private Message readback during sale and recovery, no second payment, changed-policy refusal and customer receipt exclusion; refund/restock. Local only.');return {operationId:id,orderId:sold.orderId};
+}

@@ -1,15 +1,25 @@
 import {directoryMutation,directoryLocalized} from '../../../src/contact-directory-contract.js';
+import {categoryCreateRequest} from '../../../src/category-create-contract.js';
 import {prestashopConnectionStore,storeConnection} from '../../../src/prestashop-readonly.js';
 import {directoryCustomerGroups,ensureDirectoryCustomerGroup,directorySchemaProjection,directoryPreservationXml,legacyDirectoryPreservationProjection,directoryXmlLanguages,selectedXmlValues,prepareProductStageXml,directoryXmlField,sha256Text,equivalentProductHTML} from '../../../src/productos-write-contract.js';
 import {safeEndpoint,connectionHeaders,boundedText,boundedJson} from './transport.js';
 
 const numeric=field=>field.startsWith('id_')||['position','active','newsletter','optin','is_guest','show_public_prices','custom','max_payment_days','outstanding_allow_amount'].includes(field);
 const same=(field,a,b)=>a===b||numeric(field)&&a!==''&&b!==''&&Number.isFinite(Number(a))&&Number(a)===Number(b)||['description','short_description'].includes(field)&&equivalentProductHTML(a,b);
+export async function directoryMutationSignature(q){return sha256Text(JSON.stringify({store:q.store,kind:q.kind,resource:q.resource,operation:q.operation,id:q.record_id||null,fields:Object.fromEntries(Object.entries(q.fields).sort(([a],[b])=>a.localeCompare(b)))}));}
 
 // This module receives a connection only after authenticated directory/module
 // authorization. Its journal is server-only and stores no customer fields.
-export async function writeContactDirectory(connection,input,{request=fetch,resolve,journal=/** @type {any} */(null),nativeShopId=undefined}={}){
- const q=directoryMutation(input),commit=q.action==='prestashop_directory_commit',store=prestashopConnectionStore(connection,q.store);
+export async function writeContactDirectory(connection,input,options={}){
+ return writeDirectoryMutation(connection,directoryMutation(input),options);
+}
+// Internal creation-only category entry. Its caller checks Products rights;
+// the general directory HTTP contract does not gain a new public resource.
+export async function createContactCategory(connection,input,options={}){
+ return writeDirectoryMutation(connection,categoryCreateRequest(input,options.nativeShopId),options);
+}
+async function writeDirectoryMutation(connection,q,{request=fetch,resolve,journal=/** @type {any} */(null),nativeShopId=undefined}={}){
+ const commit=q.action==='prestashop_directory_commit',store=prestashopConnectionStore(connection,q.store);
  if(!connection||storeConnection([connection],q.store)!==connection||connection.id!==q.id||connection.revision!==q.revision||!connection.enabled||connection.verified_revision!==q.revision||connection.real_data_authorized!==true)throw Error('Actualiza y verifica la conexión de esta tienda.');
  const base=new URL(connection.endpoint);
  if(base.origin!==store.origin||base.pathname.replace(/\/$/,'')!=='/api'||base.search||base.hash)throw Error('La escritura exige la API oficial de la tienda elegida.');
@@ -21,7 +31,7 @@ export async function writeContactDirectory(connection,input,{request=fetch,reso
   ...(nativeShopId!==undefined&&/^\/api\/(customers|addresses)(\/[1-9][0-9]*)?$/.test(target.pathname)?{'X-Totus-Central-Compatibility':'1'}:{})},body,credentials:'omit',redirect:'error',signal:AbortSignal.timeout(20000)});}
  async function xml(u,{missing=false}={}){const r=await send(u);if(missing&&r.status===404){await r.body?.cancel();return null;}if(!r.ok){await r.body?.cancel();throw Error('La tienda rechazó la ficha del directorio (HTTP '+r.status+').');}if(/html/i.test(r.headers.get('content-type')||'')){await r.body?.cancel();throw Error('La tienda devolvió una página de acceso.');}return boundedText(r,2097152);}
  async function list(resource,params={},page=0){const r=await send(url(resource,null,{output_format:'JSON',display:'[id]',limit:page*100+',100',sort:'[id_ASC]',...params}));if(!r.ok){await r.body?.cancel();throw Error('No se pudo comprobar la relación '+resource+'.');}const value=await boundedJson(r),rows=Array.isArray(value)&&!value.length?[]:value?.[resource];if(!Array.isArray(rows)||rows.length>100||rows.some(row=>!(/^[1-9]\d{0,14}$/).test(String(row.id))))throw Error('Relación de directorio no verificable.');return rows;}
- const signature=await sha256Text(JSON.stringify({store:q.store,kind:q.kind,resource:q.resource,operation:q.operation,id:q.record_id||null,fields:Object.fromEntries(Object.entries(q.fields).sort(([a],[b])=>a.localeCompare(b)))}));
+ const signature=await directoryMutationSignature(q);
  const previous=journal?await journal.lookup(signature):null;
  if(q.operation==='create')return (await import('./contact-directory-create.js')).createDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url,same});
  if(q.operation==='delete')return (await import('./contact-directory-delete.js')).deleteDirectoryRecord({q,commit,signature,previous,journal,xml,list,send,url});

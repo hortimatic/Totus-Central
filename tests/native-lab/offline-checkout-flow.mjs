@@ -1,0 +1,44 @@
+import {exerciseOfflineSaleBrowser} from './offline-sale-browser.mjs';
+import {createCentralTpvAdapter} from '../../src/totustpv/central-adapter.js';
+import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';
+import {commercialFromExpected} from '../../src/totustpv/offline-commercial.js';
+export async function exerciseOfflineCheckout({call,selection,fixture,paths,loseSaleReply,actor,handle,db}){
+ const note='Recogida offline: conservar esta nota',discount={kind:'percent',value:500};
+ const template=await call({action:'prepare',selection,operationId:randomUUID(),note,lines:[{productId:fixture.productId,attributeId:0,qty:1,discount}]});
+ const commercial=commercialFromExpected(template.expected),id=randomUUID(),deviceId=randomUUID();
+ const ticket={note,commercial,currency:'EUR',totalCents:commercial.totalCents,lines:[{productId:fixture.productId,attributeId:0,qty:1,discount}],payments:[{method:'cash',amountCents:commercial.totalCents,receivedCents:commercial.totalCents}]};
+ const posts=()=>paths.filter(row=>row.method==='POST'&&row.path==='/api/totus_tpv_sales').length,before=posts();
+ await call({action:'offline-receive',selection,operationId:id,deviceId,ticket});assert.equal(posts(),before);
+ const values=new Map(),adapter=createCentralTpvAdapter({actorId:actor,storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:call});const context=await adapter.context();await adapter.selectSession(context.sessions.find(row=>row.id===selection.sessionId));const delivery=adapter.offlineDelivery({deviceId});
+ const preparedLocal=await adapter.quote({note,lines:[{productId:fixture.productId+':0',qty:1,discount}]});
+ const captured=adapter.localSaleTicket({operationId:preparedLocal.id,payments:[{method:'cash',amountCents:preparedLocal.totalCents,receivedCents:preparedLocal.totalCents}]});
+ assert.equal(captured.note,note);assert.deepEqual(captured.lines[0].discount,discount);assert.equal(captured.cashSessionId,selection.sessionId);assert.deepEqual(captured.commercial,commercial);
+ const freshAdapter=createCentralTpvAdapter({actorId:actor,storage:{getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},invoke:call});
+ const freshContext=await freshAdapter.context();await freshAdapter.selectSession(freshContext.sessions.find(row=>row.id===selection.sessionId));
+ const resumed=await freshAdapter.recover({operationId:preparedLocal.id});assert.equal(resumed.status,'ready');
+ const restored=freshAdapter.localSaleTicket({operationId:preparedLocal.id,payments:[{method:'cash',amountCents:preparedLocal.totalCents,receivedCents:preparedLocal.totalCents}]});assert.deepEqual(restored,captured);
+ loseSaleReply();const result=await delivery.dispatch({operationId:id,ticket});assert.ok(['confirmed','uncertain'].includes(result.status),JSON.stringify(result));
+ const recovered=await delivery.recover({operationId:id,ticket});assert.equal(recovered.status,'confirmed',JSON.stringify(recovered));assert.equal(recovered.verified,true);assert.equal(posts(),before+1);
+ await call({action:'offline-sync',selection,operationId:id});assert.equal(posts(),before+1);
+ const conflictId=randomUUID(),changed=structuredClone(ticket);changed.commercial.lines[0].unitTaxInclMicros++;
+ await call({action:'offline-receive',selection,operationId:conflictId,deviceId,ticket:changed});
+ const conflict=await call({action:'offline-sync',selection,operationId:conflictId});assert.equal(conflict.status,'conflict');assert.equal(posts(),before+1);
+ // A quote prepared before losing connectivity must keep its original ID.
+ const preparedPosts=posts();
+ const savedPrepared=await delivery.dispatch({operationId:preparedLocal.id,ticket:captured});
+ assert.equal(savedPrepared.status,'confirmed',JSON.stringify(savedPrepared));
+ assert.equal(posts(),preparedPosts+1);
+ const preparedReceipt=await freshAdapter.recover({operationId:preparedLocal.id});
+ assert.equal(preparedReceipt.status,'confirmed');assert.equal(preparedReceipt.id,preparedLocal.id);
+ await delivery.dispatch({operationId:preparedLocal.id,ticket:captured});
+ assert.equal(posts(),preparedPosts+1,'Replaying a locally saved prepared quote must not create another order');
+ const expiredQuote=await adapter.quote({note:'Cálculo caducado offline',lines:[{productId:fixture.productId+':0',qty:1}]});
+ const expiredTicket=adapter.localSaleTicket({operationId:expiredQuote.id,payments:[{method:'cash',amountCents:expiredQuote.totalCents,receivedCents:expiredQuote.totalCents}]});
+ await db.query("update private.totus_tpv_operations set quote_expires_at=clock_timestamp()-interval '1 minute' where id=$1",[expiredQuote.id]);
+ const expiredPosts=posts(),expiredResult=await delivery.dispatch({operationId:expiredQuote.id,ticket:expiredTicket});
+ assert.equal(expiredResult.status,'confirmed',JSON.stringify(expiredResult));assert.equal(posts(),expiredPosts+1);
+ const expiredRecovery=await delivery.recover({operationId:expiredQuote.id,ticket:expiredTicket});
+ assert.equal(expiredRecovery.status,'confirmed');assert.equal(posts(),expiredPosts+1);
+ await exerciseOfflineSaleBrowser({handle,actor,fixture,paths});
+ console.log('PASS offline server checkout: immutable receipt, same-ID native sale with lost-response read recovery, replay creates no second sale, micro-price conflict creates no order. New unmodified offline basket and automatic reconnection also verified in the workspace. Local shop only; offline cart discounts and remote deployment unverified.');
+}

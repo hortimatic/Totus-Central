@@ -147,12 +147,12 @@
     },
     {
       "name": "totus-tpv",
-      "version": 5,
+      "version": 6,
       "verify_jwt": true,
       "files": {
         "supabase/functions/totus-tpv/index.ts": "8d0d2529e04a8df3511cc1d8ac58f339cc8cefb6a0c7ce84e4af8fabb249aebb",
         "src/application-cors.js": "cb2624fe00826ba45ad150c385941b7b2fcdbdaf2596d0041b2cfcbfee9686d1",
-        "supabase/functions/totus-tpv/handler.js": "03bb4728a80ccb492e843f16c9b1520cf12cc49f93158532079f091744cc1781",
+        "supabase/functions/totus-tpv/handler.js": "920eee87afec8d637ca92f152d636a64f565b66c7e303b8062ef3977837792a1",
         "supabase/functions/totus-connections/transport.js": "afb8c8b794fed1e45ed21b21c46be3939d2d0c9e0394c760318ed7f9526c5508",
         "supabase/functions/totus-ai/cloudflare.js": "dd47f05cd3d2a260564636abf88976360dd1781eb6ffdec3bbc4cd8c8d681263",
         "src/api-presets.js": "a95fd73d3562f7c9db21ab1701138d76b6f1752a95b40304dadc22cdbc42a89a",
@@ -171,6 +171,7 @@
         "src/totustpv/server/native-request-service.js": "a32df91f0c11dc85a4b53c99eb5a7f5699e57ad184c0099b87388cbea62b531a",
         "src/totustpv/server/quote-contract.js": "216c28975cfe89116d104f068079730f75cbb13e4ba4ac8b0a473d142e9adadd",
         "src/totustpv/server/refund-service.js": "a86ee806eb33943f4c1483a7b2e1b1450bcc2b3e6c22a839e9b0701397876724",
+        "src/totustpv/server/stock-receipt-service.js": "36a78d5134e95860275e2f6378eb31da43a6899b7a1263660b88b221a4125892",
         "src/totustpv/server/customer-service.js": "23dac3bd0ffc595a8167d105ba412851e1267af6ab03286e4ee660e861614d5b",
         "supabase/functions/totus-connections/contact-directory-write.js": "147149a293a0b74adb25ad43993d367aceeac8dea004763a3eebd3a979925f16",
         "src/contact-directory-contract.js": "bfdf8e553c8c2b4057e4c156ad2f810b5132984cd8747e228c576da8fe63a31f",

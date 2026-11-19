@@ -16,6 +16,24 @@ function fixture(change={}){
   readNativeOperation:async operationId=>{calls.push({read:operationId});return {status:'verified',result:receipt};}};
  return {calls,adapter:createNativeCapabilityAdapter({scope,transport,verifyPrepared:async()=>({unchanged:true,cartId:7})})};
 }
+
+test('external references require native quote support and exact GET readback while retaining the native transaction identity',async()=>{
+ const allocations=[{id:'card',method:'card',amountCents:801,status:'settled',reference:'OP-0042'}],configured={...expected,supportsPaymentReferences:true};
+ const f=fixture({payment_intent:[{method:'card',amount_cents:801,external_reference:'OP-0042'}]});
+ await f.adapter.submitOrderOnce({scope,operationId:id,expected:configured,payments:allocations});
+ assert.deepEqual(f.calls[0].payload.payments,[{method:'card',amount_cents:801,external_reference:'OP-0042'}]);
+ assert.equal(Object.hasOwn(f.calls[0].payload.payments[0],'transaction_id'),false);
+ const old=fixture();await assert.rejects(old.adapter.submitOrderOnce({scope,operationId:id,expected,payments:allocations}),/REFERENCE_UNAVAILABLE/);assert.equal(old.calls.length,0);
+ for(const payment_intent of [undefined,[null],[{method:'card',amount_cents:801,external_reference:'OTHER'}]]){
+  const lost=fixture({payment_intent});await assert.rejects(lost.adapter.readSale({scope,operationId:id,orderId:42,expected:configured,payments:allocations}),/REFERENCE_MISMATCH/);
+  assert.deepEqual(lost.calls,[{read:id}]);
+ }
+});
+test('native sale receives an explicit shortage opt-in only from a prepared server record',async()=>{
+ const f=fixture();await f.adapter.submitOrderOnce({scope,operationId:id,expected:{...expected,allowOutOfStock:true},payments});
+ assert.equal(f.calls[0].payload.allow_out_of_stock,true);
+ const ordinary=fixture();await ordinary.adapter.submitOrderOnce({scope,operationId:id,expected,payments});assert.equal(Object.hasOwn(ordinary.calls[0].payload,'allow_out_of_stock'),false);
+});
 test('mixed payment uses one named native command with immutable quote and exact cash received',async()=>{
  const f=fixture();assert.deepEqual(await f.adapter.submitOrderOnce({scope,operationId:id,expected,payments}),{orderId:42});
  assert.equal(f.calls.length,2);assert.equal(f.calls[0].command,'sale.commit');

@@ -15,10 +15,38 @@ const quote={cart_id:701,shop_id:1,customer_id:501,invoice_address_id:601,delive
 const stockRecords=[{id:801,productId:101,attributeId:7,shopId:1,shopGroupId:0,dependsOnStock:false,quantity:5}];
 async function run(patch={}){return expectedFromNativeQuote({scope,ownedCart,profile,stockRecords,now:100000,
  response:{verified:true,native_reference:701,quoted_at:99900,quote,quote_fingerprint:await nativeQuoteFingerprint(quote)},...patch});}
+test('commercial quotations can never become a financial checkout quote',async()=>{
+ for(const commercial_only of [true,'true',1])await assert.rejects(run({response:{quote:{...quote,commercial_only}}}),/TPV_COMMERCIAL_QUOTE_NOT_PAYABLE/);
+});
 test('native quote keeps exact unit prices, authoritative rounded line totals and bounded expiry',async()=>{
  const result=await run();assert.equal(result.expected.totalCents,801);
  assert.equal(result.expected.lines[0].unitTaxInclMicros,8012100);assert.equal(result.expected.lines[0].lineTaxInclCents,801);
  assert.equal(result.expected.lines[0].stockRecordId,801);assert.equal(result.quoteExpiresAt,219900);
+});
+
+test('configured payment references require a typed native capability sealed in the owned quote',async()=>{
+ const configured={...profile,operatorPaymentPolicy:{...profile.operatorPaymentPolicy,referencePolicy:{card:'required'}}};
+ for(const marker of [undefined,false,'true',1]){
+  const changed=marker===undefined?quote:{...quote,payment_reference_annotations:marker};
+  await assert.rejects(run({profile:configured,response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}}),/REFERENCE_UNAVAILABLE/);
+ }
+ const changed={...quote,payment_reference_annotations:true};
+ const result=await run({profile:configured,response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}});
+ assert.equal(result.expected.supportsPaymentReferences,true);
+});
+test('insufficient stock requires explicit workstation policy and sealed native counter permission, including negative-stock bounds',async()=>{
+ const withPolicy=async({enabled,native=true,quantity=0}={})=>{
+  const changed={...quote,lines:[{...quote.lines[0],allow_out_of_stock:native}]};
+  return run({profile:{...profile,allowOutOfStock:enabled},stockRecords:[{...stockRecords[0],quantity}],response:{verified:true,native_reference:701,quoted_at:99900,quote:changed,quote_fingerprint:await nativeQuoteFingerprint(changed)}});
+ };
+ for(const enabled of [undefined,false])await assert.rejects(withPolicy({enabled}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:true,native:false}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:'true'}),/PROFILE_INVALID/);
+ await assert.rejects(withPolicy({enabled:true,native:'true'}),/LINES_INVALID/);
+ await assert.rejects(run({profile:{...profile,allowOutOfStock:true}}),/STOCK_POLICY_UNAVAILABLE/);
+ const allowed=await withPolicy({enabled:true,quantity:-2});assert.equal(allowed.expected.allowOutOfStock,true);assert.equal(allowed.expected.lines[0].stockBefore,-2);
+ await assert.rejects(withPolicy({enabled:true,quantity:-2147483648}),/STOCK_UNAVAILABLE/);
+ await assert.rejects(withPolicy({enabled:true,quantity:0.5}),/STOCK_UNAVAILABLE/);
 });
 test('canonical fingerprint is insensitive to field order, but not changed line prices',async()=>{
  const reverse=Object.fromEntries(Object.entries(quote).reverse());assert.equal(await nativeQuoteFingerprint(reverse),await nativeQuoteFingerprint(quote));
@@ -54,4 +82,34 @@ test('checkout revalidation recalculates owned native cart; changed prices/polic
  currentPolicy=structuredClone(profile);currentQuote.total_cents=901;currentQuote.total_tax_incl='9.010000';
  currentQuote.products_tax_incl='9.010000';currentQuote.lines[0].unit_tax_incl='9.012100';currentQuote.lines[0].line_tax_incl='9.010000';
  await assert.rejects(verifier.verifyPrepared({scope,record}),/QUOTE_CHANGED/);
+});
+
+test('total rounding preserves mixed-tax micros from quote through verified native order',async()=>{
+ const {createNativeSaleAdapter}=await import('../src/totustpv/server/native-adapter.js');
+ const {verifyRemoteSale}=await import('../src/totustpv/model.js');
+ const q={...quote,round_type:3,total_cents:222,total_tax_incl:'2.220000',total_tax_excl:'2.010000',products_tax_incl:'2.220000',products_tax_excl:'2.010000',lines:[
+  {product_id:101,attribute_id:0,quantity:1,unit_tax_incl:'1.005000',unit_tax_excl:'1.005000',line_tax_incl:'1.005000',line_tax_excl:'1.005000'},
+  {product_id:102,attribute_id:0,quantity:1,unit_tax_incl:'1.216050',unit_tax_excl:'1.005000',line_tax_incl:'1.216050',line_tax_excl:'1.005000'}]};
+ const stocks=q.lines.map((line,i)=>({...stockRecords[0],id:801+i,productId:line.product_id,attributeId:0}));
+ const {expected}=await run({stockRecords:stocks,response:{verified:true,native_reference:701,quoted_at:99900,quote:q,quote_fingerprint:await nativeQuoteFingerprint(q)}});
+ assert.equal(expected.lines.reduce((sum,line)=>sum+line.lineTaxInclCents,0),222);
+ assert.equal(expected.lines.reduce((sum,line)=>sum+line.lineTaxExclCents,0),201);
+ assert.equal(expected.lines[0].lineTaxInclCents,expected.lines[0].lineTaxExclCents);
+ const order={id:901,id_shop:1,id_cart:701,id_customer:501,id_address_invoice:601,id_address_delivery:602,id_currency:2,current_state:11,reference:'ROUNDTEST',module:'totustpv',total_paid_tax_incl:'2.220000',total_paid_real:'2.220000',total_shipping_tax_incl:'0.000000',total_discounts_tax_incl:'0.000000',total_products:'2.010000',total_products_wt:'2.220000',round_type:3,round_mode:2};
+ const details=q.lines.map(line=>({id_order:901,product_id:line.product_id,product_attribute_id:0,product_quantity:1,unit_price_tax_incl:line.unit_tax_incl,unit_price_tax_excl:line.unit_tax_excl,total_price_tax_incl:line.line_tax_incl,total_price_tax_excl:line.line_tax_excl}));
+ order.total_paid_tax_excl='2.010000';
+ const data={'orders/901':{order},'order_states/11':{order_state:{id:11,paid:1}},'currencies/2':{currency:{id:2,iso_code:'EUR'}},order_details:{order_details:details},order_payments:{order_payments:[{id:1,order_reference:'ROUNDTEST',id_currency:2,amount:'2.220000',payment_method:'Efectivo'}]}};
+ const adapter=createNativeSaleAdapter({scope,transport:{read:async resource=>structuredClone(data[resource]),createOrderOnce:async()=>{throw Error('No writes');}},verifyPrepared:async()=>({unchanged:true}),readInventoryEvidence:async()=>expected.lines.map(line=>({mode:'isolated-fixture',productId:line.productId,attributeId:0,before:5,after:4,ambiguous:false}))});
+ const observed=await adapter.readSale({scope,orderId:901,expected});
+ assert.equal(verifyRemoteSale(expected,observed).status,'confirmed');
+ assert.equal(observed.totalTaxExclCents,201);
+ order.total_paid_tax_excl='2.020000';
+ const changedTax=await adapter.readSale({scope,orderId:901,expected});
+ assert.equal(verifyRemoteSale(expected,changedTax).status,'uncertain');
+ assert.equal(verifyRemoteSale(expected,{...observed,totalTaxExclCents:undefined}).status,'uncertain');
+ order.total_paid_tax_excl='2.010000';
+ observed.lines[0].lineTaxInclMicros++;
+ assert.equal(verifyRemoteSale(expected,observed).status,'uncertain');
+ order.round_type=2;
+ await assert.rejects(adapter.readSale({scope,orderId:901,expected}),/ROUNDING_MISMATCH/);
 });

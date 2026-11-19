@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createTpvHttpClient} from '../src/totustpv/http-client.js';
+
+test('missing offline inbox entry is a valid null response, not a transport failure',async()=>{
+ const client=createTpvHttpClient({owner:'operator-a',currentActor:()=> 'operator-a',url:'https://fixture.supabase.co',key:'fixture-public',
+  auth:{getSession:async()=>({data:{session:{user:{id:'operator-a'},access_token:'opaque-fixture'}}})},
+  request:async()=>new Response('null',{status:200})});
+ assert.equal(await client({action:'offline-get',operationId:'fixture'}),null);
+});
 test('normal session snapshot is bound to its account and no delayed request borrows another login',async()=>{
  let current='operator-a',release,requests=0;
  const client=createTpvHttpClient({owner:'operator-a',currentActor:()=>current,url:'https://fixture.supabase.co',key:'fixture-public',
@@ -20,4 +27,18 @@ test('request uses only captured normal JWT; account changes hide an old respons
  current='operator-b';release(new Response(JSON.stringify({actorId:'operator-a'})));await assert.rejects(pending,/sesión ha cambiado/);
  current='operator-a';const denied=createTpvHttpClient({...options,request:async()=>new Response(JSON.stringify({error:'TPV_CASH_BALANCE_INVALID'}),{status:400})});
  await assert.rejects(denied({action:'cash-movement'}),error=>error.code==='TPV_CASH_BALANCE_INVALID'&&/efectivo disponible/.test(error.message));
+});
+
+
+test('payment reference failures explain correction or recovery without exposing server details or retrying a charge',async()=>{
+ const cases=[['TPV_PAYMENT_REFERENCE_REQUIRED',/Añade la referencia/],['TPV_PAYMENT_REFERENCE_INVALID',/No introduzcas el número de tarjeta/],['TPV_PAYMENT_REFERENCE_FORBIDDEN',/calcula el cobro/],['TPV_CASH_REFERENCE_FORBIDDEN',/efectivo no necesita referencia/],['TPV_PAYMENT_POLICY_STALE',/han cambiado/],['TPV_PAYMENT_METHOD_NOT_CONFIGURED',/ya no está disponible/],['TPV_NATIVE_PAYMENT_REFERENCE_UNAVAILABLE',/actualice el conector/],['TPV_NATIVE_PAYMENT_REFERENCE_MISMATCH',/No repitas el cobro ni la venta/]];
+ for(const [code,message] of cases){let requests=0;const client=createTpvHttpClient({owner:'operator-a',currentActor:()=> 'operator-a',url:'https://fixture.supabase.co',key:'fixture-public',auth:{getSession:async()=>({data:{session:{user:{id:'operator-a'},access_token:'opaque-normal-session'}}})},request:async()=>{requests++;return new Response(JSON.stringify({error:code,detail:'private-server-detail'}),{status:400});}});
+ await assert.rejects(client({action:'submit'}),error=>error.code===code&&message.test(error.message)&&!error.message.includes('private-server-detail'));assert.equal(requests,1);
+ }
+});
+
+
+test('signature storage failure explains recovery without asking for another sale',async()=>{
+ const client=createTpvHttpClient({owner:'operator-a',currentActor:()=> 'operator-a',url:'https://fixture.supabase.co',key:'fixture-public',auth:{getSession:async()=>({data:{session:{user:{id:'operator-a'},access_token:'opaque-fixture'}}})},request:async()=>new Response(JSON.stringify({error:'TPV_SIGNATURE_STORAGE_UNAVAILABLE',detail:'private'}),{status:503})});
+ await assert.rejects(client({action:'signature-sign'}),error=>error.code==='TPV_SIGNATURE_STORAGE_UNAVAILABLE'&&/Recuperar resultado/.test(error.message)&&!error.message.includes('private'));
 });

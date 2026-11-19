@@ -25,9 +25,21 @@ try{for(const width of [390,680,969,1280,1920,2560]){
   const owner=crypto.randomUUID();q.ui=createProductosUI({tableLayout:{load:async()=>structuredClone(q.layout),save:async layout=>{if(q.holdSave){q.holdSave=false;q.saveHeld=true;await new Promise(resolve=>q.releaseSave=resolve);}q.layout=structuredClone(layout);q.layoutSaves.push(structuredClone(layout));}},actor:()=>owner,allowed:()=>true,canEdit:()=>true,rpc:async()=>({connections:[{id:'1',name:'PrestaShop · Hortimatic',protocol:'prestashop',enabled:true,configured:true,revision:1,verified_revision:1,real_data_authorized:true}]}),invoke});await q.ui.mount(document.querySelector('#productosRoot'));
  });
 
+ // Pointer coordinates must use the final font metrics, including a slow
+ // headless runner's first load. Keep the real hit target and drag assertions.
+ await page.evaluate(()=>document.fonts.ready);
  const widths=()=>page.locator('th[data-pr-column-heading="image"]').evaluate(n=>n.getBoundingClientRect().width);
  const before=await widths(),handle=page.getByRole('separator',{name:'Ancho de Foto',exact:true});await handle.press('ArrowRight');assert(Math.abs(await widths()-before-10)<2,'Keyboard resizes only the chosen column');
- await handle.scrollIntoViewIfNeeded();await handle.hover();const rect=await handle.boundingBox();assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle');
+ // The asynchronous account-save status can wrap and move the entire table.
+ // Finish that visible transition before measuring a physical pointer target.
+ await page.waitForFunction(()=>document.querySelector('[data-pr-layout-status]')?.textContent==='Guardado automáticamente en tu cuenta.');
+ await handle.scrollIntoViewIfNeeded();
+ // Nearest scrolling can leave a fractional-pixel strip below the viewport
+ // on Linux. Center through the browser's real scroll API before a real drag.
+ await handle.evaluate(node=>node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'}));
+ await handle.hover();const rect=await handle.boundingBox();
+ if(!rect||rect.y<0||rect.y+rect.height>900){await page.screenshot({path:'qa-artifacts/resize-failure-'+width+'.png'});console.error('RESIZE VISIBILITY DIAGNOSTIC',JSON.stringify({width,rect}));}
+ assert(rect&&rect.y>=0&&rect.y+rect.height<=900,'Pointer starts on a visible column handle at '+width);
  await page.evaluate(()=>{window.resizeEvents=[];document.addEventListener('pointerdown',event=>resizeEvents.push({type:event.type,button:event.button,target:event.target.outerHTML.slice(0,500),x:event.clientX,y:event.clientY}),true);});
  const point={x:rect.x+rect.width/2,y:rect.y+rect.height/2};await page.mouse.move(point.x,point.y);const hit=await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.outerHTML.slice(0,600),point);await page.mouse.down();
  const started=await page.evaluate(()=>document.querySelector('#productosRoot').classList.contains('prd-column-resizing'));

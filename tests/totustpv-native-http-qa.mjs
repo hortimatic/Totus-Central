@@ -11,20 +11,28 @@ import {createNativeCapabilityAdapter} from '../src/totustpv/server/native-capab
 import {nativeCents,nativeMicros} from '../src/totustpv/server/native-adapter.js';
 import {verifyRemoteSale} from '../src/totustpv/model.js';
 import {exerciseCentralEdge} from './native-lab/central-edge-flow.mjs';
+import {exerciseNativeCatalogue} from './native-lab/catalogue-order-flow.mjs';
+import {exerciseNativeBarcodeHttp} from './native-lab/barcode-http-flow.mjs';
+import {exerciseCommercialQuote} from './native-lab/commercial-quote-flow.mjs';
 const project=process.cwd(),native=path.resolve('artifacts/native-lab/shop');
 const params=await fs.readFile(path.join(native,'app/config/parameters.php'),'utf8');
 assert.match(params,/'database_name'\s*=>\s*'totus_tpv_lab'/);assert.match(params,/'database_host'\s*=>\s*'127.0.0.1'/);
 const moduleDir=path.join(native,'modules/totuscentralconnector');await fs.mkdir(moduleDir,{recursive:true});
 await fs.cp('connectors/prestashop/src',path.join(moduleDir,'src'),{recursive:true});
+await fs.cp('connectors/prestashop/module/upgrade',path.join(moduleDir,'upgrade'),{recursive:true});
 for(const file of ['totuscentralconnector.php','Webservice.php'])await fs.copyFile('connectors/prestashop/module/'+file,path.join(moduleDir,file));
 const php=path.resolve('artifacts/php82/php.exe'),ini=path.resolve('artifacts/native-lab/php.ini');
 const env={...process.env,OPENSSL_CONF:path.resolve('artifacts/php82/extras/ssl/openssl.cnf')};
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/sale-note-validator.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
 execFileSync(php,['-c',ini,'tests/native-lab/http-install.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 execFileSync(php,['-c',ini,'tests/native-lab/cart-quote.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const setup=execFileSync(php,['-c',ini,'tests/native-lab/http-setup.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024});
 const fixture=JSON.parse(setup.trim().split(/\r?\n/).at(-1));
+execFileSync(php,['-c',ini,'tests/native-lab/document-logo.php'],{encoding:'utf8',env,maxBuffer:1024*1024});
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/document-rounding.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
+process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/catalogue-price-lifetime.php'],{encoding:'utf8',env,maxBuffer:1024*1024}));
 process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/api-permissions.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}));
-const base='http://127.0.0.1:8771/api/';let stderr='';
+const base='http://127.0.0.1:8771/api/',nativeHttpTrace=[];let stderr='';
 const assets=createServer(async(req,res)=>{try{
  const uri=new URL(req.url,'http://127.0.0.1:8772').pathname;
  assert.ok(['GET','HEAD'].includes(req.method)&&/^\/img\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|gif|webp)$/.test(uri));
@@ -35,10 +43,11 @@ const assets=createServer(async(req,res)=>{try{
 await new Promise((resolve,reject)=>{assets.once('error',reject);assets.listen(8772,'127.0.0.1',resolve);});
 const child=spawn(php,['-c',ini,'-d','display_errors=0','-S','127.0.0.1:8771','tests/native-lab/http-router.php'],
  {cwd:project,env,windowsHide:true,stdio:['ignore','ignore','pipe']});child.stderr.on('data',b=>stderr+=b.toString());
-async function api(resource,{method='GET',body,auth=true,actor}={}){
+async function api(resource,{method='GET',body,auth=true,actor,authKey=fixture.key}={}){
+ nativeHttpTrace.push({resource,method,operationId:body?.operation_id});
  const url=new URL(resource,base);url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop','1');
  if(actor)url.searchParams.set('actor_id',actor);
- const response=await fetch(url,{method,redirect:'error',headers:{...(auth?{Authorization:'Basic '+Buffer.from(fixture.key+':').toString('base64')}:{ }),
+ const response=await fetch(url,{method,redirect:'error',headers:{...(auth?{Authorization:'Basic '+Buffer.from(authKey+':').toString('base64')}:{ }),
   ...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(30000)});
  const text=await response.text();let result;try{result=JSON.parse(text);}catch{if(response.status===401&&!auth)return {status:401,result:null};throw Error('Native HTTP returned non-JSON: '+text.slice(0,450));}
  return {status:response.status,result};
@@ -57,7 +66,92 @@ try{
  const again=await api('totus_tpv_setup',{method:'POST',body:command('setup.qa',{confirm_qa:true})});
  assert.deepEqual(again.result,provision.result,'Setup must reuse its native entities');
  const customerId=configured.result.counter_customer_id,addressId=configured.result.counter_address_id;
- if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
+ if(process.argv.includes('--offline-only')){
+  execFileSync(php,['-c',ini,'tests/native-lab/offline-quantity-price.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024});
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'offline'});
+ }else if(process.argv.includes('--payment-reference-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'payment-reference'});
+ }else if(process.argv.includes('--receipt-discount-display-only')){
+  const group=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','set',String(configured.result.counter_customer_id)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  try{await exerciseCentralEdge({fixture:{...fixture,changeGroup:async()=>execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','change',String(group.groupId)],{encoding:'utf8',env,maxBuffer:1024*1024})},profile:configured.result,base,focus:'receipt-discount-display'});}
+  finally{execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','restore',JSON.stringify(group)],{encoding:'utf8',env,maxBuffer:1024*1024});}
+ }else if(process.argv.includes('--web-tickets-only')){
+  const cart=await api('totus_tpv_carts',{method:'POST',body:command('cart.prepare',{session_id:session,drawer_id:drawer,customer_id:customerId,invoice_address_id:addressId,delivery_address_id:addressId,lines:[{product_id:fixture.productId,attribute_id:0,quantity:1}]})});assert.equal(cart.result.verified,true);
+  const quoted=command('cart.quote',{cart_id:cart.result.cart_id}),quote=await api('totus_tpv_quotes',{method:'POST',body:quoted});assert.equal(quote.result.verified,true);
+  const sale=await api('totus_tpv_sales',{method:'POST',body:command('sale.commit',{cart_id:cart.result.cart_id,quote_operation_id:quoted.operation_id,quote_fingerprint:quote.result.quote_fingerprint,payments:[{method:'cash',amount_cents:quote.result.quote.total_cents,received_cents:1000}]})});assert.equal(sale.result.verified,true,JSON.stringify(sale.result));
+  await exerciseCentralEdge({fixture:{...fixture,externalOrderId:sale.result.order_id},profile:configured.result,base,focus:'web-tickets'});
+ }else if(process.argv.includes('--gift-discounts-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'gift-discounts'});
+ }else if(process.argv.includes('--receipt-variants-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const renameReceiptVariant=async(product,attribute)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/receipt-variant-rename.php',String(product),String(attribute)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,variant,renameReceiptVariant},profile:configured.result,base,focus:'receipt-variants'});
+ }else if(process.argv.includes('--payment-settings-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'payments'});
+ }else if(process.argv.includes('--central-barcodes-only')){
+  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/barcode-durable-provider.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024}));
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'barcodes',changeCurrentBarcode:async(id,expected,replacement)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-current-code.php',String(id),expected,replacement],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),setExternalBarcode:async item=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-external-code.php',String(item.product_id),String(item.attribute_id),item.code],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--barcodes-only')){
+  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/barcode-durable-provider.php'],{encoding:'utf8',env,maxBuffer:2*1024*1024}));
+  const readOnly=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-readonly-key.php'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseNativeBarcodeHttp({api,command,fixture,actor,readOnlyKey:readOnly.key,nativeHttpTrace,
+   changeFixturePrice:async price=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-price-change.php',String(fixture.productId),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),
+   addTargetAfterBoundary:async()=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-scan-add.php'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),simulateLostResult:async intent=>{
+   await fs.writeFile('artifacts/native-lab/barcode-lost-command.json',JSON.stringify(intent));
+   return JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/barcode-lost-result.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  }});
+ }else if(process.argv.includes('--budget-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'budgets',inspectCommercialCart:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--commercial-quote-only')){
+  await exerciseCommercialQuote({api,command,fixture,customerId,addressId,session,drawer,inspect:(product,cart)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/commercial-cart-inspect.php',String(product),String(cart)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(((process.argv.includes('--line-price-only')||process.argv.includes('--line-price-browser-only'))||process.argv.includes('--sale-note-only')||process.argv.includes('--line-name-only'))){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const linePriceSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/line-price-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,linePriceSetup},profile:configured.result,base,simulateCataloguePriceChange:(id,price)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/price-history-change.php',String(id),price],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1)),focus:process.argv.includes('--line-name-only')?'line-name':process.argv.includes('--sale-note-only')?'sale-note':'line-price'});
+ }else if(process.argv.includes('--disabled-stock-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const disabledStockSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/disabled-stock-fixture.php',String(fixture.productId),String(variant.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,variant,disabledStockSetup},profile:configured.result,base,focus:'disabled-stock',inspectDisabledStock:(id,attribute)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/disabled-stock-inspect.php',String(id),String(attribute)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--stock-policy-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const stockPolicySetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-fixture.php',String(fixture.productId),String(variant.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,stockPolicySetup},profile:configured.result,base,focus:'stock-policy',simulateCartAckLoss:cartId=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/stock-policy-cart-ack.php',String(cartId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1))});
+ }else if(process.argv.includes('--catalogue-filters-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const catalogueFilterSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/catalogue-filter-fixture.php',String(fixture.productId),String(variant.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,variant,catalogueFilterSetup},profile:configured.result,base,focus:'catalogue-filters'});
+ }else if(process.argv.includes('--search-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const searchCodes=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/search-fixture.php',String(fixture.productId),String(variant.variants[0].attributeId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,variant,searchCodes},profile:configured.result,base,focus:'search'});
+ }else if(process.argv.includes('--original-refund-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'original-refund'});
+ }else if(process.argv.includes('--return-policy-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'return-policy'});
+ }else if(process.argv.includes('--sensitive-actions-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'sensitive-actions'});
+ }else if(process.argv.includes('--operator-checkout-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'operator-checkout'});
+ }else if(process.argv.includes('--cash-counting-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'cash-counting'});
+ }else if(process.argv.includes('--products-only')){
+  const productSetup=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/product-intake-setup.php',String(fixture.keyId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture:{...fixture,productSetup},profile:configured.result,base,focus:'products'});
+ }else if(process.argv.includes('--variants-only')){
+  const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId),'zero-parent'],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  const parent=await api('totus_tpv_catalogue?search='+encodeURIComponent(variant.reference));assert.equal(parent.status,200);
+  assert.equal(parent.result.items.length,1);assert.equal(parent.result.items[0].choose_variant,true);assert.equal(parent.result.items[0].stock,0);
+  const choices=await api('totus_tpv_catalogue?product_id='+variant.productId);assert.equal(choices.status,200);
+  assert.deepEqual(choices.result.items.map(row=>row.stock).sort((a,b)=>a-b),[-5,5]);
+  assert.ok(choices.result.items.every(row=>row.choose_variant===false));
+  console.log('PASS native variant catalogue: zero aggregate, negative unavailable variant, positive available variant. Fictional local product; no sale or remote shop.');
+ }else if(process.argv.includes('--catalogue-only')){
+  await exerciseNativeCatalogue({api,php,ini,env});
+ }else if(process.argv.includes('--signatures-only')){
+  fixture.variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'signatures'});
+ }else if(process.argv.includes('--customers-only')||process.argv.includes('--browser-only')){
+  if(process.argv.includes('--browser-only'))fixture.variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:process.argv.includes('--customers-only')?'customers':'browser'});
  }else{
  const catalogue=await api('totus_tpv_catalogue?search='+encodeURIComponent(fixture.reference)+'&page=0&page_size=50');
@@ -124,12 +218,23 @@ try{
   results.push({saleId:sale.operation_id,orderId:paid.result.order_id,payments:paid.result.payments,invoiceIds:paid.result.invoice_ids});
  }
  assert.equal(new Set(results.map(r=>r.orderId)).size,5);
- for(const kind of ['receipt','gift','invoice','delivery']){
+ for(const kind of ['receipt','gift','invoice','delivery','billing']){
   const document=await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind='+kind,{actor});
   assert.equal(document.status,200,JSON.stringify(document.result));assert.equal(document.result.order_id,results[0].orderId);
   assert.equal(document.result.existing_document,true);
-  if(['invoice','delivery'].includes(kind))assert.equal(Buffer.from(document.result.base64,'base64').subarray(0,5).toString(),'%PDF-');
-  else{assert.equal(document.result.lines.length,1);if(kind==='gift'){assert.equal(document.result.total_cents,undefined);assert.equal(document.result.lines[0].line_cents,undefined);}else assert.equal(document.result.total_cents,801);}
+  if(kind==='billing'){
+   assert.equal(document.result.source,'native-billing-document');assert.equal(document.result.total_cents,801);
+   assert.equal(document.result.invoice_id,results[0].invoiceIds[0]);assert.ok(document.result.number>0);
+   assert.equal(document.result.lines.length,1);assert.match(document.result.lines[0].recorded_tax_rate,/^\d+\.\d{6}$/);
+   const denied=await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind=billing',{actor:randomUUID()});
+   assert.equal(denied.status,400);
+   assert.deepEqual((await api('totus_tpv_documents?operation_id='+results[0].saleId+'&kind=billing',{actor})).result,document.result);
+  }
+  else if(['invoice','delivery'].includes(kind))assert.equal(Buffer.from(document.result.base64,'base64').subarray(0,5).toString(),'%PDF-');
+  else{assert.equal(document.result.lines.length,1);const line=document.result.lines[0];
+   if(kind==='gift'){for(const field of ['line_cents','unit_tax_incl_micros','tax_cents','tax_excl_cents'])assert.equal(line[field],undefined);assert.equal(document.result.total_cents,undefined);}
+   else{assert.equal(document.result.total_cents,801);assert.ok(Number.isSafeInteger(line.unit_tax_incl_micros)&&line.unit_tax_incl_micros>0);
+    assert.equal(line.tax_cents,line.line_cents-line.tax_excl_cents);}}
  }
  process.stdout.write(execFileSync(php,['-c',ini,'tests/native-lab/return-rollback.php',results[0].saleId],{encoding:'utf8',env,maxBuffer:1024*1024}));
  for(let i=0;i<results.length;i++){

@@ -1,0 +1,21 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Códigos · laboratorio local</title>
+<link rel="stylesheet" href="../src/styles.css"><link rel="stylesheet" href="../src/interface-controls.css"><link rel="stylesheet" href="../src/totustpv/workspace.css">
+<style>body{margin:0;padding:16px;background:#f4f7fa}main{max-width:1200px;margin:auto}.tpv-barcode-panel{background:white}*{box-sizing:border-box}</style>
+<main class="totus-tpv" id="host"></main><script type="module">
+import {createBarcodePanel} from '../src/totustpv/barcode-panel.js';
+let settings={field:'ean13',generatorEnabled:true},job=null;
+const rows=Array.from({length:75},(_,i)=>({ordinal:i+1,productId:i+1,attributeId:i%3?0:2,name:i===0?'Artículo <img src=x onerror=alert(1)>':'Artículo de ejemplo '+(i+1),variantName:i%3?'':'Rojo · 30 ml',reference:'REF-'+(i+1),status:'pending',code:null}));
+const read=(query={})=>({...job,items:rows.slice(query.after||0,(query.after||0)+50),nextAfter:Math.min((query.after||0)+50,75),hasMore:(query.after||0)+50<75});
+const adapter={barcodeOptions:async value=>{if(value)settings=value;return settings;},barcodeJobs:async()=>job?[read()]:[],
+ createBarcodeJob:async()=>{job={id:'saved-job',field:'ean13',status:'preparing',capturedCount:0,pendingCount:0,items:[]};return job;},
+ captureBarcodeJob:async()=>{job={...job,status:'review',capturedCount:75,captureComplete:true,pendingCount:75,generatedCount:0,keptCount:0};return read();},
+ getBarcodeJob:async(id,query)=>read(query),confirmBarcodeJob:async()=>{job.status='processing';return read();},
+ advanceBarcodeJob:async()=>{await new Promise(r=>setTimeout(r,20));rows[0].status='generated';rows[0].code='0400000000024';job.generatedCount=1;job.pendingCount=74;job.uncertainCount=1;return read();},
+ pauseBarcodeJob:async()=>{job.status='paused';return read();},resumeBarcodeJob:async()=>{job.status='processing';return read();},cancelBarcodeJob:async()=>{job.status='cancelled';return read();}};
+const host=document.querySelector('#host'),panel=createBarcodePanel({adapter:()=>adapter,canRead:()=>true,canEdit:()=>true,onProgress:render,confirm:async()=>true});
+function render(){host.innerHTML=panel.html();}
+host.addEventListener('click',event=>{const button=event.target.closest('[data-tpv-barcode]');if(button)void panel.click(button);});
+host.addEventListener('change',event=>panel.input(event.target));
+host.addEventListener('submit',event=>{event.preventDefault();void panel.submit(event.target);});
+await panel.load();render();window.panelFixture={panel,settings:()=>settings};
+</script></html>

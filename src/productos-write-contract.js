@@ -162,7 +162,7 @@ export async function sha256Text(value){
  return Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
 }
 
-const nativeNodes=Object.freeze({customers:'customer',addresses:'address',product_features:'product_feature',product_feature_values:'product_feature_value',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image'});
+const nativeNodes=Object.freeze({customers:'customer',addresses:'address',product_features:'product_feature',product_feature_values:'product_feature_value',manufacturers:'manufacturer',suppliers:'supplier',product_options:'product_option',product_option_values:'product_option_value',products:'product',combinations:'combination',stock_availables:'stock_available',product_suppliers:'product_supplier',specific_prices:'specific_price',images:'image',totus_product_images:'totus_product_image',categories:'category'});
 // Internal XML utilities do not authorize requests. Products' public resource
 // allowlist is unchanged; the directory handler has its own scoped contract.
 export function directorySchemaProjection(schema,resource){
@@ -196,11 +196,11 @@ export function directoryXmlLanguages(xml,resource,field){
  if(!ids.length||ids.some(id=>!id)||new Set(ids).size!==ids.length)invalid('Idiomas del campo no verificables.');return ids;
 }
 export function directoryXmlField(xml,resource,field){
- if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource)||!['id','id_customer','id_supplier','id_manufacturer','id_attribute_group','id_feature','deleted'].includes(field))invalid('Relación de directorio no admitida.');
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values','categories'].includes(resource)||!['id','id_customer','id_supplier','id_manufacturer','id_attribute_group','id_feature','id_parent','deleted'].includes(field))invalid('Relación de directorio no admitida.');
  return fieldText(xml,direct(tree(xml),nativeNodes[resource]),field);
 }
 export function directoryBlankXml(resource){
- if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values'].includes(resource))invalid('Alta de directorio no admitida.');
+ if(!['customers','addresses','manufacturers','suppliers','product_options','product_option_values','product_features','product_feature_values','categories'].includes(resource))invalid('Alta de directorio no admitida.');
  const name=nativeNodes[resource];return '<prestashop><'+name+'><id></id></'+name+'></prestashop>';
 }
 export function directoryCustomerGroups(xml){

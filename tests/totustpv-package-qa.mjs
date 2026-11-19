@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';import {readFile} from 'node:fs/promises';import {createHash} from 'node:crypto';
+import {unzipSync,strFromU8} from 'fflate';
+execFileSync(process.execPath,['tools/package-totus-native.mjs']);
+const manifest=JSON.parse(await readFile('artifacts/totus-native/manifest.json','utf8'));
+assert.equal(manifest.version,'0.2.2');assert.equal(manifest.installedRemotely,false);
+const bytes=await readFile(`artifacts/totus-native/totuscentralconnector-${manifest.version}.zip`),entries=unzipSync(bytes),root='totuscentralconnector/';
+assert.equal(createHash('sha256').update(bytes).digest('hex'),manifest.sha256);
+for(const name of ['src/NativeBarcodes.php','src/NativeBarcodeIntents.php','src/NativeBarcodeEffect.php','src/NativeDocuments.php','src/NativeCartQuote.php','upgrade/upgrade-0.2.0.php','upgrade/upgrade-0.2.1.php'])assert.ok(entries[root+name],'Missing required new storage/upgrade input '+name);
+assert.match(strFromU8(entries[root+'upgrade/upgrade-0.2.1.php']),/ensureOwnStorage\(\)/);
+assert.ok(entries[root+'upgrade/upgrade-0.2.2.php']);assert.match(strFromU8(entries[root+'upgrade/upgrade-0.2.2.php']),/ensureOwnStorage\(\)/);
+assert.match(strFromU8(entries[root+'upgrade/upgrade-0.2.0.php']),/ensureOwnStorage\(\)/);
+for(const [name,hash] of Object.entries(manifest.files))assert.equal(createHash('sha256').update(entries[root+name]).digest('hex'),hash);
+console.log('PASS native package: barcode providers and additive storage upgrade are included, module/manifest version agree and packaged bytes match their hashes. No installation.');

@@ -15,6 +15,7 @@ $module->active=true;
 $s=Db::getInstance()->getLink()->prepare('UPDATE `'._DB_PREFIX_.'totus_tpv_settings` SET profile_json=NULL WHERE installation_id=? AND shop_id=1');
 nativeLabCheck($s->execute([Configuration::get('TOTUS_TPV_INSTALLATION_ID')]),'Cannot reset disposable setup row.');
 nativeLabCheck(Configuration::updateValue('PS_WEBSERVICE',1),'Cannot enable disposable native Webservice.');
+$context->employee=new Employee(1); // Seeded local administrator creates this fictional API account.
 $key=new WebserviceKey();$key->key=bin2hex(random_bytes(16));$key->active=true;$key->description='Disposable Totus native HTTP QA';
 nativeLabCheck($key->add(),'Cannot create synthetic local API key.');
 $permission=['totus_tpv_profile'=>['GET'=>true],'totus_tpv_operations'=>['GET'=>true],

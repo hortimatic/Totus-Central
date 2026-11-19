@@ -1,0 +1,8 @@
+export function returnPolicy(value){
+ if(!value||typeof value.allowPartial!=='boolean'||Object.keys(value).some(key=>!['allowPartial','requireOriginalPayment'].includes(key))||(value.requireOriginalPayment!==undefined&&typeof value.requireOriginalPayment!=='boolean'))throw Error('No se ha podido comprobar la configuración de devoluciones.');
+ return {allowPartial:value.allowPartial,requireOriginalPayment:value.requireOriginalPayment===true};
+}
+export function returnPolicyHtml(value,canEdit,draft){
+ const policy=returnPolicy(value),checked=draft?draft.allowPartial==='on':policy.allowPartial;
+ return `<section class="tpv-return-policy"><h4>Devoluciones · esta caja</h4><form data-tpv-form="return-policy"><label class="tpv-check"><input name="allowPartial" type="checkbox" ${checked?'checked':''} ${canEdit?'':'disabled'}> Permitir devoluciones parciales</label><p class="small muted">Si se desactiva, hay que devolver todas las unidades pendientes del pedido. Se aplica a todos los operadores de esta caja. Las devoluciones ya enviadas se recuperan sin repetir el reintegro.</p><label class="tpv-check"><input name="requireOriginalPayment" type="checkbox" ${(draft?draft.requireOriginalPayment==='on':policy.requireOriginalPayment)?'checked':''} ${canEdit?'':'disabled'}> Exigir reintegro por los medios de pago originales</label><p class="small muted">En pagos mixtos se reparte proporcionalmente entre los saldos pendientes, con céntimos exactos. El operador revisa y realiza el reintegro antes de confirmarlo; esta opción no ejecuta pagos bancarios.</p>${canEdit?'<button class="btn primary" type="submit">Guardar devoluciones</button>':'<p class="small muted">Necesitas permiso para editar ventas para cambiar esta regla.</p>'}</form></section>`;
+}

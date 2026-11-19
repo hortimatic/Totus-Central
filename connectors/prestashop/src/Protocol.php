@@ -16,6 +16,7 @@ final class Protocol
         'sale.commit' => 'totus_tpv_sales',
         'payment.record' => 'totus_tpv_payments',
         'stock.receive' => 'totus_tpv_stock',
+        'barcodes.assign' => 'totus_tpv_barcodes',
         'return.commit' => 'totus_tpv_returns',
     ];
 

@@ -16,18 +16,91 @@ jobs:
       - run: node tests/totustpv-model-qa.mjs
       - run: node --test tests/totustpv-checkout-qa.mjs
       - run: node tests/totustpv-journal-db-qa.mjs
+      - run: node tests/totustpv-billing-db-qa.mjs
+      - run: node --test tests/totustpv-central-cash-qa.mjs
+      - run: node --test tests/totustpv-disabled-stock-qa.mjs
+      - run: node --test tests/totustpv-billing-service-qa.mjs tests/totustpv-billing-edge-qa.mjs
+      - run: node --test tests/totustpv-category-contract-qa.mjs tests/totustpv-category-service-qa.mjs tests/totustpv-product-intake-contract-qa.mjs tests/totustpv-product-intake-service-qa.mjs tests/totustpv-product-intake-edge-qa.mjs
+      - run: node --test tests/totustpv-operator-settings-qa.mjs tests/totustpv-operator-picker-qa.mjs tests/totustpv-cash-visibility-qa.mjs tests/totustpv-cash-counting-qa.mjs tests/totustpv-price-display-qa.mjs tests/totustpv-search-preferences-qa.mjs tests/totustpv-catalogue-preferences-qa.mjs
       - run: node --test tests/totustpv-transport-qa.mjs
-      - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs
+      - run: node --test tests/totustpv-barcode-options-qa.mjs tests/totustpv-barcode-capture-qa.mjs tests/totustpv-barcode-receipt-qa.mjs tests/totustpv-barcode-service-qa.mjs tests/totustpv-barcode-edge-qa.mjs tests/totustpv-barcode-panel-qa.mjs tests/totustpv-barcode-labels-qa.mjs
+      - run: node --test tests/totustpv-stock-policy-qa.mjs
+      - run: node --test tests/totustpv-quantity-picker-qa.mjs
+      - run: node --test tests/totustpv-budget-contract-qa.mjs tests/totustpv-commercial-quote-qa.mjs tests/totustpv-receipt-series-qa.mjs tests/totustpv-line-name-qa.mjs tests/totustpv-line-options-qa.mjs tests/totustpv-line-price-edge-qa.mjs tests/totustpv-sale-note-qa.mjs tests/totustpv-receipt-line-discounts-qa.mjs
+      - run: node --test tests/totustpv-parking-options-qa.mjs
+      - run: node tests/totustpv-parking-expiry-db-qa.mjs
+      - run: node --test tests/totustpv-native-capability-qa.mjs tests/totustpv-tender-qa.mjs tests/totustpv-tender-summary-qa.mjs tests/totustpv-receipt-delivery-qa.mjs
       - run: node --test tests/totustpv-edge-qa.mjs tests/totustpv-http-client-qa.mjs tests/totustpv-central-adapter-qa.mjs tests/totustpv-refund-intent-qa.mjs
+      - run: node --test tests/totustpv-access-batch-controller-qa.mjs tests/totustpv-workstation-access-edge-qa.mjs tests/totustpv-configuration-reader-qa.mjs tests/totustpv-customer-display-qa.mjs
       - run: node --test tests/totustpv-native-adapter-qa.mjs tests/totustpv-inventory-qa.mjs tests/totustpv-cart-qa.mjs
-      - run: node --test tests/totustpv-operator-payments-qa.mjs tests/totustpv-payment-readback-qa.mjs tests/totustpv-quote-contract-qa.mjs tests/totustpv-practice-qa.mjs
+      - run: node --test tests/totustpv-payment-settings-edge-qa.mjs tests/totustpv-payment-options-qa.mjs tests/totustpv-operator-payments-qa.mjs tests/totustpv-payment-readback-qa.mjs tests/totustpv-quote-contract-qa.mjs tests/totustpv-practice-qa.mjs
       - run: node tests/totustpv-central-qa.mjs
       - run: node --test tests/totustpv-setup-qa.mjs tests/totustpv-qa-policy-qa.mjs
       - run: node tests/totustpv-php-boundary-qa.mjs
+      - run: node tests/totustpv-package-qa.mjs
+      - run: node --test tests/totustpv-operator-switch-edge-qa.mjs tests/totustpv-operator-switch-adapter-qa.mjs
+      - run: node --test tests/totustpv-operator-login-qa.mjs tests/totustpv-operator-login-proof-qa.mjs
+      - run: node tests/totustpv-operator-login-races-qa.mjs
+      - run: node tests/totustpv-budget-presentation-qa.mjs
+      - run: node --test tests/totustpv-password-proof-qa.mjs tests/totustpv-password-client-qa.mjs tests/totustpv-action-approval-edge-qa.mjs tests/totustpv-sensitive-offline-qa.mjs
+      - run: node --test tests/totustpv-web-order-receipt-qa.mjs tests/totustpv-gift-discounts-qa.mjs tests/totustpv-receipt-group-rates-qa.mjs tests/totustpv-receipt-discount-display-qa.mjs tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs tests/totustpv-receipt-vouchers-qa.mjs
+      - run: node --test tests/totustpv-offline-edge-qa.mjs tests/totustpv-offline-price-comparison-qa.mjs tests/totustpv-offline-sync-qa.mjs tests/totustpv-offline-catalogue-adapter-qa.mjs tests/totustpv-catalogue-background-qa.mjs tests/totustpv-offline-rounding-qa.mjs tests/totustpv-native-subtotal-qa.mjs tests/totustpv-offline-basket-prices-qa.mjs tests/totustpv-offline-basket-commercial-qa.mjs tests/totustpv-offline-new-basket-adapter-qa.mjs tests/totustpv-offline-workstation-cache-qa.mjs
       - run: npx playwright install --with-deps chromium
+      - run: node tests/totustpv-offline-journal-browser-qa.mjs
+      - run: node tests/totustpv-offline-panel-browser-qa.mjs
+      - run: node tests/totustpv-offline-catalogue-browser-qa.mjs
+      - run: node --test tests/totustpv-menu-links-qa.mjs
+      - run: node tests/totustpv-menu-links-browser-qa.mjs
+      - run: node --test tests/totustpv-refund-payments-qa.mjs
+      - run: node tests/totustpv-original-refund-browser-qa.mjs
+      - run: node --test tests/totustpv-signature-capture-qa.mjs tests/totustpv-signature-options-qa.mjs tests/totustpv-signature-pdf-qa.mjs tests/totustpv-signature-service-qa.mjs tests/totustpv-signature-edge-qa.mjs
+      - run: node tests/totustpv-signature-capture-browser-qa.mjs
+      - run: node tests/totustpv-signature-panel-browser-qa.mjs
       - run: node tests/totustpv-workspace-browser-qa.mjs
+      - run: node tests/totustpv-appearance-browser-qa.mjs
+      - run: node tests/totustpv-online-orders-browser-qa.mjs
+      - run: node tests/totustpv-operator-handoff-browser-qa.mjs
+      - run: node tests/totustpv-operator-picker-browser-qa.mjs
+      - run: node tests/totustpv-operator-settings-browser-qa.mjs
+      - run: node tests/totustpv-operator-checkout-browser-qa.mjs
+      - run: node tests/totustpv-basket-preview-browser-qa.mjs
+      - run: node tests/totustpv-offline-prepared-browser-qa.mjs
+      - run: node tests/totustpv-payment-settings-browser-qa.mjs
+      - run: node tests/totustpv-barcode-panel-browser-qa.mjs
+      - run: node tests/totustpv-billing-browser-qa.mjs
+      - run: node tests/totustpv-billing-app-browser-qa.mjs
+      - run: node tests/totustpv-central-cash-browser-qa.mjs
+      - run: node tests/totustpv-central-cash-app-browser-qa.mjs
+      - run: node tests/totustpv-disabled-stock-browser-qa.mjs
+      - run: node tests/totustpv-workstation-rights-browser-qa.mjs
+      - run: node tests/totustpv-workstation-access-browser-qa.mjs
+      - run: node tests/totustpv-access-batch-browser-qa.mjs
+      - run: node tests/totustpv-cash-visibility-browser-qa.mjs
+      - run: node tests/totustpv-customer-display-browser-qa.mjs
+      - run: node tests/totustpv-stock-intake-browser-qa.mjs
+      - run: node tests/totustpv-product-intake-browser-qa.mjs
+      - run: node tests/totustpv-cash-counting-browser-qa.mjs
+      - run: node tests/totustpv-catalogue-table-browser-qa.mjs
+      - run: node tests/totustpv-variant-selector-browser-qa.mjs
+      - run: node tests/totustpv-quantity-picker-browser-qa.mjs
+      - run: node tests/totustpv-receipt-series-browser-qa.mjs
+      - run: node tests/totustpv-line-name-browser-qa.mjs
+      - run: node --test tests/totustpv-budget-adapter-qa.mjs tests/totustpv-budget-document-qa.mjs
+      - run: node tests/totustpv-budget-browser-qa.mjs
+      - run: node tests/totustpv-budget-settings-browser-qa.mjs
+      - run: node tests/totustpv-line-price-browser-qa.mjs
+      - run: node tests/totustpv-parking-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs
+      - run: node tests/totustpv-receipt-delivery-browser-qa.mjs
       - run: node tests/totustpv-printed-documents-qa.mjs
+      - run: node tests/totustpv-receipt-discount-display-browser-qa.mjs
+      - run: node tests/totustpv-gift-discounts-browser-qa.mjs
+      - run: node tests/totustpv-web-order-tickets-browser-qa.mjs
+      - run: node tests/totustpv-sensitive-actions-browser-qa.mjs
+      - run: node tests/totustpv-operator-switch-browser-qa.mjs
+      - run: node tests/totustpv-operator-login-sdk-browser-qa.mjs
+      - run: node tests/totustpv-budget-presentation-browser-qa.mjs
+      - run: node tests/totustpv-receipt-barcode-browser-qa.mjs
       - run: node tests/totustpv-central-browser-qa.mjs
       - run: node tests/totustpv-setup-browser-qa.mjs
   conventional-assistant:

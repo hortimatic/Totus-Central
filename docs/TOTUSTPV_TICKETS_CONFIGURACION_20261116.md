@@ -1,0 +1,46 @@
+# Configuración de justificantes · desarrollo del 16/11/2026
+
+Estado: implementado y comprobado de forma aislada; migración y frontend pendientes de activación remota. No acredita una prueba física de impresión ni termina el inventario de configuraciones solicitado.
+
+El mostrador guarda en Central, por cuenta, conexión, tienda y caja: título del justificante, texto inferior de hasta 500 caracteres, tipografía Arial o monoespaciada, tamaño de 10 a 16 px y formato de fecha. Permite numerar los artículos y mostrar u ocultar logo, referencia del pedido, referencia de los artículos, dirección y teléfono del establecimiento, formas de pago, total de descuentos y fecha del pedido.
+
+La vista previa cambia al escribir y utiliza datos de ejemplo identificados como tales. No permite imprimir un ejemplo como si fuera un pedido existente. En escritorio, el papel se presenta junto a los controles; en móvil sigue el orden del formulario. La representación usa papel de 58 mm, márgenes de 5 mm y contenido de 48 mm. El botón de guardado ocupa la cabecera de la configuración en escritorio.
+
+Los justificantes recuperados del historial y su impresión utilizan las opciones guardadas. El ticket regalo mantiene los importes de la venta ocultos. La factura, sus importes y numeración nativos no se modifican. El número del pedido real se conserva para identificarlo incluso al ocultar la referencia; la identidad fiscal del comercio no se sustituye con el texto de presentación. Se pueden incluir nombre y dirección del cliente, teléfono, correo, empresa, comentario de dirección y dirección de entrega. Es una sección separada, desactivada por defecto. El ticket regalo no incluye esos datos, incluso con las opciones activadas. Se puede abrir el justificante o solicitar su impresión al confirmar una venta. Ambas opciones están desactivadas inicialmente. Una venta incierta no genera esa solicitud; al recuperar la venta se conserva la impresión manual desde Documentos. La solicitud automática no se repite en la misma confirmación. Un fallo del documento mantiene visible el pedido confirmado y ofrece recuperación manual. La fidelidad y las restantes columnas de impresión siguen pendientes.
+
+El logo procede de `PS_SHOP_LOGO` de la tienda del pedido. El módulo entrega solo un nombre de imagen PNG/JPEG/GIF/WebP bajo `/img/`, sin URLs, consultas o navegación de directorios. El servidor de Central fija el origen autorizado; el navegador no toma un dominio del nombre del logo. Esta ampliación requiere instalar el paquete nativo y actualizar el servidor; ambos siguen pendientes. No añade una carga o edición de logos del establecimiento desde el mostrador.
+
+La configuración presentada es personal por caja; no debe confundirse con una política fiscal o de cobro del establecimiento. Las políticas compartidas, permisos especiales y sus pantallas deben completarse por separado. No se guardan catálogos ni datos de clientes en estas preferencias. Los datos imprimibles se leen del cliente y de las direcciones asociadas al pedido nativo; no se serializa el objeto Customer ni campos de autenticación. El cliente anónimo de mostrador se omite. Una dirección histórica no disponible no impide recuperar el resto del justificante.
+
+## Estructura
+
+- `connectors/prestashop/src/NativeDocuments.php`: lectura de documentos existentes y proyección explícita de campos imprimibles de sus direcciones y cliente.
+- `src/totustpv/receipt-options.js`: valores predeterminados, campos de presentación, normalización y captura del formulario.
+- `src/totustpv/documents.js`: justificante existente, ejemplo identificado y preparación de impresión. Escapa el texto, limita tipografías y tamaños y conserva las comprobaciones de PDF nativo.
+- `src/totustpv/receipt-delivery.js`: lectura y presentación tras una confirmación, deduplicación de la solicitud de impresión, verificación del documento y protección de contexto.
+- `src/totustpv/workspace.js`: carga y guardado de preferencias, vista previa y aplicación al documento recuperado.
+- `supabase/migrations/20261116205052_totustpv_catalogue_layout.sql`: almacenamiento privado, validación de tipos y claves, actualizaciones parciales que conservan las otras preferencias.
+
+## Evidencia aislada
+
+260 aserciones PostgreSQL/PGlite incluyen persistencia y rechazo de parámetros desconocidos, nulos, números no enteros, tipografías no admitidas y textos fuera de límite. Navegador en 1440/768/390 verifica vista previa, texto escapado, reentrada, aplicación a un ticket recuperado, orden del ticket, columnas y cancelación de cálculo de precios. La simulación de impresión produce PDF de 58 mm para justificante, regalo, informe de caja, justificante personalizado con tipografía monoespaciada de 16 px y dos documentos con logo cargado desde una entrega interceptada de laboratorio. El validador PHP rechaza nombres inseguros. Una prueba contra un pedido de PrestaShop local comprueba la proyección nativa de cliente y direcciones, la exclusión del cliente anónimo y la tolerancia a direcciones históricas ausentes. La impresión comprueba datos opcionales y su ausencia en el regalo, incluido texto que debe permanecer escapado. Siete pruebas de coordinación y un recorrido de navegador en escritorio y móvil comprueban apertura automática, una sola solicitud de impresión, recuperación manual, fallo documental y cambio de cuenta con respuestas o impresión pendientes. El iframe vuelve a verificar el contexto antes de solicitar la impresión. No se confunde esta evidencia con el funcionamiento de la tienda remota, de la impresora, del cajón o del datáfono físicos.
+
+## Código del pedido · 17/11/2026
+
+La opción «Código de barras del pedido» está desactivada inicialmente y se guarda en las mismas preferencias personales de caja. El módulo genera Code128 con TCPDF nativo y margen blanco incorporado; el navegador solo acepta el PNG y los metadatos previstos. Se imprime la referencia con el prefijo de lectura R: para distinguirla de un número de pedido. Admite referencias nativas de hasta diez letras, cifras o guiones. Si una extensión de PrestaShop produce una referencia no compatible, se conserva la identificación escrita y se indica que debe buscarse por número. No se modifica la numeración fiscal.
+
+En «Pedidos y devoluciones», el campo «Número o referencia» acepta el número, la referencia escrita o la lectura R: seguida de la referencia y Enter. La búsqueda por referencia consulta el identificador nativo de esa tienda y devuelve únicamente ventas confirmadas que ya pertenecen al diario autorizado de Central. No importa pedidos web ajenos, no crea ventas ni movimientos de existencias y rechaza resultados ambiguos. El valor queda seleccionado para el siguiente escaneo; «Sesión actual» vuelve al listado de la caja.
+
+El productor nativo, cuatro referencias ficticias y un decodificador independiente comprueban el código original y la representación impresa de recibo y regalo sobre papel de 58 mm, con 203 y 300 ppp simulados. La dependencia de pruebas zxing-wasm está fijada y utiliza su archivo WASM local sin CDN; no se añade al runtime del mostrador. Fuente del lector de pruebas: https://github.com/Sec-ant/zxing-wasm. Esta evidencia no certifica una impresora ni un lector físicos.
+
+## Detalle por artículo y organización · 17/11/2026
+
+Dos opciones adicionales, inicialmente desactivadas, muestran el precio unitario con hasta seis decimales y el impuesto de cada línea. El módulo lee unit_price_tax_incl y los totales con/sin impuestos del OrderDetail ya guardado. No recalcula el pedido usando el catálogo actual. En papel de 58 mm se presentan debajo del artículo para conservar una columna legible de cantidad y otra de importe; el ticket regalo los oculta siempre. No debe confundirse el precio unitario con un precio por kilo o litro, que sigue siendo otra configuración pendiente.
+
+La configuración agrupa establecimiento, contenido, impresión y cliente. Guardar está al inicio del formulario y permanece accesible al desplazarlo. Se han repetido las preferencias por cuenta/caja, el recorrido nativo en escritorio y móvil y la representación a 48 mm de contenido con letra monoespaciada de 16 px. Son pruebas de laboratorio y navegador, sin certificar hardware físico.
+
+## Operador y web del establecimiento · 17/11/2026
+
+Las opciones «Operador que atendió la venta» y «Dirección de la web» están inicialmente desactivadas. El servidor fija la web de la conexión autorizada y obtiene el nombre de la cuenta asociada al creador de la operación confirmada. No utiliza el nombre enviado por el navegador ni atribuye la venta al operador que la reimprime. Se muestra el nombre actual de esa cuenta; todavía no se conserva una copia histórica de su nombre en el instante del cobro. Una cuenta sin nombre deja la línea omitida.
+
+La proyección del nombre conserva el permiso de conciliación, los filtros de conexión/tienda/moneda y el acceso exclusivo del servidor al diario. No añade una consulta libre del directorio de usuarios. El módulo nativo no decide la identidad de Central. Las pruebas rechazan datos de origen sustituidos y conservan la representación escapada del nombre. La configuración móvil comprueba con desplazamiento real que Guardar sigue visible y pulsable al final del formulario.

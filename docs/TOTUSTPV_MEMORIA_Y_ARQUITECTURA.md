@@ -1,12 +1,30 @@
 # TotusTPV: memoria del trabajo y arquitectura de integración
 
-Fecha: 15 de noviembre de 2026. Documento principal del futuro módulo de Totus Central.
+Iniciado el 15 de noviembre de 2026; actualizado el 17 de noviembre. Memoria de integración del módulo de Totus Central. Esta fecha corresponde a esta memoria del TPV, no al inicio de todo Central ni de la colaboración. Las secciones fechadas conservan el historial; el estado vigente se consulta en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md).
 
 ## 1. Objetivo y estado real
 
 El objetivo es trabajar desde Totus Central: vender en mostrador, gestionar clientes, pagos, existencias y cajas, y registrar los pedidos en el PrestaShop seleccionado. TotusTPV forma parte de Central, con implementación propia y sin dependencia de otro TPV instalado.
 
-No existe todavía un módulo comercial completo. Hay una prueba de conexión y pedido en preproducción, reglas y aplicación propias, un recorrido de práctica y pruebas nativas locales de pagos, pedidos, factura y abonos. La prueba remota anterior necesitó una recuperación manual; las nuevas pruebas nativas locales no acreditan por sí solas la integración HTTP desplegada. El estado preciso está en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión actual sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
+No existe todavía un módulo comercial completo. Ya se han verificado desde la sesión normal de Central cinco pedidos en preproducción, seis abonos nativos y reposición de siete unidades. El conector propio 0.1.9 y el servicio autenticado v6 están activos. El módulo conserva separados los ensayos de práctica, las pruebas nativas aisladas y las escrituras verificadas en la tienda QA. La primera incidencia QA sin pedido quedó cerrada de forma auditada el 16/11/2026, sin repetir un cobro. El estado preciso y los requisitos abiertos están en [Estado de implementación](TOTUSTPV_ESTADO_IMPLEMENTACION.md). La decisión sobre capacidades nativas y sus límites está en [Decisión técnica](TOTUSTPV_LIMITES_API_Y_DECISION.md).
+
+### Estado de construcción del 17/11/2026
+
+La ampliación posterior de alta de artículos incorpora `product-intake.js`, su contrato, el coordinador del servidor y una adaptación de los escritores oficiales existentes de Productos. El diario privado `20261117052454_totustpv_product_intake.sql` conserva preparación y progreso, sin sustituir el maestro nativo. El handler comprueba Productos y la web registrada antes de cargar la conexión; todas las peticiones Webservice quedan ligadas al `id_shop` observado. Las imágenes y las escrituras internas no se proyectan al navegador. El manifiesto incorpora las dependencias compartidas completas sin retirar las existentes.
+
+El 17/11/2026 se verificó el alta mediante Webservice y PostgreSQL reales aislados, incluyendo imagen, combinaciones, costes, existencias y dos interrupciones. El formulario conectado también creó y recuperó un artículo, conservando el ticket. La regresión de la ampliación tiene 92 recorridos aprobados y la suite SQL 390 aserciones. El informe de límites y mantenimiento específico está en `TOTUSTPV_ALTA_PRODUCTOS_20261117.md`; la activación remota y la cobertura completa de TPV-06 siguen pendientes.
+
+La ampliación de arqueo incorpora `cash-counting.js` y preferencias privadas mediante `20261117093928_totustpv_cash_counting.sql`. Suma las unidades de billetes y monedas en céntimos enteros y aplica el importe a los contratos existentes de apertura, recibido y cierre. No cambia la transacción financiera ni almacena un desglose que no exista: conserva el total contado. Sus preferencias siguen el ámbito de cuenta/caja y no constituyen una política global de medios de pago. Se verificaron 408 aserciones SQL, 43 recorridos afectados y un cierre recuperable de 108,01 € después de una venta nativa local. Detalle: `TOTUSTPV_ARQUEO_MONEDAS_20261117.md`.
+
+El puesto está en `src/totustpv/workspace.js`; el adaptador autenticado en `central-adapter.js`; el controlador de servidor en `supabase/functions/totus-tpv/handler.js`. La práctica utiliza un adaptador separado con datos ficticios. Las operaciones persistentes se coordinan mediante el diario SQL y los servicios nativos de `src/totustpv/server/`. El conector propio vive en `connectors/prestashop/`; no modifica el núcleo de PrestaShop ni módulos de terceros.
+
+La configuración visual y del justificante usa preferencias de cuenta/caja. El acceso administrativo combina `configuration-reader.js`, `workstation-access.js`, el controlador autenticado y la migración `20261117021112_totustpv_workstation_access.sql`. Esta separa venta, consulta y gestión de efectivo, conserva historial y añade revisión concurrente y registro privado de cambios. La migración de accesos y la anterior de catálogo siguen pendientes de aplicación remota.
+
+Para modificar una pantalla, revisar sus consumidores en `stability/circuits.json` y conservar permisos, recuperación y comportamiento móvil. Para cambiar una operación persistente, revisar también el contrato HTTP, la autorización SQL, la identidad de solicitud y las pruebas de respuesta perdida. Un cambio de presentación del ticket no debe modificar importes, documentos nativos ni su numeración. Los campos del operador y web se fijan desde el diario y la conexión autorizada; no se aceptan como identidad fiable desde el navegador.
+
+La verificación de permisos incluye 327 aserciones SQL aisladas. El recorrido instalado usa PrestaShop 8.2.8, PHP 8.2 y MariaDB locales: venta, abono, stock, documentos, caja y recuperación de un cierre cuya respuesta se perdió. Es una infraestructura temporal de desarrollo; el uso normal de Central no necesita arrancarla. La activación remota, los requisitos restantes y la aceptación física se registran aparte.
+
+La ampliación siguiente añade la pantalla del cliente mediante `customer-display.js`, su estilo y un vigilante de actualización ejecutado en esa ventana. El puesto solo proyecta nombre opcional, líneas, cantidades, importes y estado; los datos de contacto, identificadores y detalles de pago no pasan a esa vista. Las preferencias personales se almacenan mediante el mismo RPC limitado por cuenta/caja, ampliado en `20261117031559_totustpv_customer_display.sql`. El total queda visible mientras la lista se desplaza. Se han verificado 345 aserciones SQL y 37 recorridos afectados desde el bloque de accesos, además del total nativo y el cierre de la ventana en escritorio/móvil.
 
 Documentos complementarios:
 
@@ -183,8 +201,24 @@ No se retira POSTPV de una tienda operativa como parte de redactar este document
 
 ## 10. Pendientes explícitos y criterio de finalización
 
-Pendientes: interfaz real dentro de Central, persistencia y autorización efectivas, adaptación de API, causa del estado incompleto, coordinación de cobros, stock concurrente, documentos, devoluciones, hardware y alta autónoma. El modelo actual tampoco implementa venta fraccionada por peso, fidelización, almacenes avanzados ni certificaciones fiscales.
+Pendientes vigentes: activación coordinada y aceptación de la interfaz ampliada, cobertura de las configuraciones todavía abiertas, aceptación remota de categorías, traspasos, presupuestos, crédito, vales, restantes variantes de cobro/devolución y documentación final privada. La incidencia QA inicial sin pedido ya tiene cierre auditado. La venta, documentos, devoluciones, stock y autorización cuentan con pruebas de alcance concreto; esas pruebas no certifican todos los recorridos concurrentes ni hardware. Siguen pendientes el contraste de impresora/cajón/lector, venta por peso, fidelización, almacenes avanzados y certificaciones fiscales aplicables.
 
 Una función se considera terminada cuando tiene recorrido de usuario, permisos de servidor, efectos remotos comprobados, recuperación de fallos, historial y evidencia de prueba. «Botón visible», «respuesta HTTP correcta» y «prueba simulada pasada» no equivalen a función comercial completa.
 
 El objetivo de estabilidad se consigue con estos controles y evidencias. No se declara que sea imposible cualquier fallo; se exige que los fallos previsibles no pierdan ventas, dupliquen cobros o obliguen a reparaciones manuales sin trazabilidad.
+
+### Alta auxiliar de categorías · 17/11/2026, 11:36 CET
+
+El formulario de producto conserva su ficha mientras revisa y crea una categoría mediante el escritor común de directorios y su diario existente. `catalogue-intake-service.js` y la migración `20261117100653_totustpv_catalogue_helpers.sql` conservan la preparación, propiedad y reserva contra concurrencia; la selección solo se actualiza tras releer el catálogo nativo. La tienda procede de la asignación autorizada. Los recorridos SQL y nativo aislado pasan; esta sexta migración no está aplicada remotamente. Detalle de estructura y mantenimiento: `TOTUSTPV_CATEGORIAS_20261117.md`.
+
+### Presentación de precios · 17/11/2026, 11:49 CET
+
+El catálogo nativo aporta céntimos sin IVA con su redondeo, además del PVP existente. La interfaz selecciona la presentación de tarjetas y permite ambas columnas en Tabla, manteniendo la ordenación nativa de PVP y el cálculo financiero independiente. La séptima migración conserva preferencias y permisos. Prueba nativa aislada, 461 aserciones SQL y 46 recorridos afectados aprobados; activación remota pendiente. Detalle: `TOTUSTPV_PRECIOS_IVA_20261117.md`.
+
+### Criterios del buscador · 17/11/2026, 12:10 CET
+
+La preferencia por cuenta/caja atraviesa formulario, adaptador, handler y transporte hasta la consulta nativa parametrizada. El índice contextual de PVP incluye los criterios. La identificación exacta de combinaciones y el escaneo respetan solo los identificadores activados; ISBN se proyecta de forma explícita. La octava migración conserva preferencias y derechos existentes. Pruebas: 474 aserciones SQL, 47 recorridos afectados y navegador/nativo aislados aprobados. Detalle: `TOTUSTPV_BUSCADOR_20261117.md`.
+
+### Visibilidad del catálogo · 17/11/2026, 12:46 CET
+
+El filtro por categorías y existencias se aplica en la consulta nativa antes del recuento y la página. La disponibilidad de variantes no se deduce de la suma general; se comprueban las filas nativas correspondientes. El índice contextual de PVP incluye los filtros. La novena migración guarda preferencias privadas, no políticas financieras. Se conserva reposición sin filtros de venta y se relee al regresar. Pruebas: 491 aserciones SQL, 48 recorridos y repeticiones específicas de navegador/nativo/contratos aprobadas. Detalle: `TOTUSTPV_VISIBILIDAD_CATALOGO_20261117.md`.

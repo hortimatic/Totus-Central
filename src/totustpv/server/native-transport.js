@@ -4,6 +4,8 @@
  */
 import {safeEndpoint,connectionHeaders,boundedJson,boundedText} from '../../../supabase/functions/totus-connections/transport.js';
 import {assertQaTarget} from './qa-policy.js';
+import {catalogueSearchFields} from '../search-preferences.js';
+import {catalogueFilters as normalizeCatalogueFilters} from '../catalogue-preferences.js';
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const cents = value => Number.isSafeInteger(value) && value >= 0 && value <= 100_000_000_000;
 const requireValue = (condition, code) => { if (!condition) throw new Error(code); };
@@ -60,7 +62,7 @@ export function createTpvNativeTransport(connection, scope, {
   const resources=/^(?:orders|carts|customers|addresses|products|combinations|stock_availables|stock_movements|order_details|order_payments|order_histories|order_states|configurations|currencies|languages|carriers|countries|states)(?:\/[1-9][0-9]{0,14})?$/;
   const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
   const commandResources=Object.freeze({'setup.qa':'totus_tpv_setup','cart.prepare':'totus_tpv_carts',
-    'cart.quote':'totus_tpv_quotes','sale.commit':'totus_tpv_sales','return.commit':'totus_tpv_returns','stock.receive':'totus_tpv_stock'});
+    'cart.quote':'totus_tpv_quotes','sale.commit':'totus_tpv_sales','return.commit':'totus_tpv_returns','stock.receive':'totus_tpv_stock','barcodes.assign':'totus_tpv_barcodes'});
   function extensionScope(){
     assertQaTarget(connection,scope,qaPolicy);
     requireValue(nativeExtension?.verified===true&&uuid(nativeExtension.installationId)&&uuid(scope.actorId)&&
@@ -72,7 +74,7 @@ export function createTpvNativeTransport(connection, scope, {
     // With a QA policy, reads are also confined to the same test installation.
     if(method!=='GET'||qaPolicy)assertQaTarget(connection,scope,qaPolicy);
     const extensionResource=nativeCommand&&((method==='POST'&&Object.values(commandResources).includes(resource))||
-      (method==='GET'&&['totus_tpv_profile','totus_tpv_operations','totus_tpv_returns','totus_tpv_catalogue','totus_tpv_documents','totus_tpv_customers'].includes(resource)));
+      (method==='GET'&&['totus_tpv_profile','totus_tpv_operations','totus_tpv_returns','totus_tpv_catalogue','totus_tpv_documents','totus_tpv_customers','totus_tpv_barcodes'].includes(resource)));
     requireValue(resources.test(resource)||extensionResource, 'TPV_NATIVE_RESOURCE_FORBIDDEN');
     const url=new URL(base.href);url.pathname='/api/'+resource;
     url.searchParams.set('output_format','JSON');url.searchParams.set('id_shop',String(scope.shopId));
@@ -82,10 +84,23 @@ export function createTpvNativeTransport(connection, scope, {
         /^price\[totus_(?:incl|excl)\]\[(?:country|state|county|currency|group|quantity|product_attribute|decimals|use_tax|use_reduction|only_reduction|use_ecotax)\]$/.test(key);
       const extensionQuery=extensionResource&&method==='GET'&&['actor_id','operation_id','sale_operation_id'].includes(key)&&uuid(value);
       const catalogueQuery=['totus_tpv_catalogue','totus_tpv_customers'].includes(resource)&&method==='GET'&&
-        (key==='search'||['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
-      const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note'].includes(value);
-      requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery) && typeof value==='string' &&
-        value.length<=1000 && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
+        (key==='search'||key==='sort_field'&&['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(value)||key==='sort_direction'&&['asc','desc'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='search_fields'&&typeof value==='string'&&/^(reference|ean13|upc|isbn|name)(,(reference|ean13|upc|isbn|name)){0,4}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length||
+         resource==='totus_tpv_catalogue'&&key==='sort_group_id'&&/^(0|[1-9][0-9]{0,9})$/.test(value)||
+         resource==='totus_tpv_catalogue'&&key==='pricing_quantity'&&/^[1-9][0-9]{0,4}$/.test(value)&&Number(value)<=10000||
+         resource==='totus_tpv_catalogue'&&key==='stock_policy_only'&&['0','1'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='product_capabilities_only'&&['0','1'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='hide_unavailable'&&['0','1'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='inventory_only'&&['0','1'].includes(value)||
+         resource==='totus_tpv_catalogue'&&key==='excluded_categories'&&typeof value==='string'&&(value===''||/^[1-9][0-9]{0,9}(,[1-9][0-9]{0,9}){0,99}$/.test(value)&&new Set(value.split(',')).size===value.split(',').length)||
+         ['page','page_size','product_id','customer_id','address_id','category_id','categories_only'].includes(key)&&/^(0|[1-9][0-9]*)$/.test(value));
+      const barcodeQuery=resource==='totus_tpv_barcodes'&&method==='GET'&&(
+        key==='field'&&['ean13','upc','reference'].includes(value)||key==='mode'&&['plan','targets','labels'].includes(value)||
+        key==='skip_existing'&&['0','1'].includes(value)||['product_id','attribute_id','after_product','after_attribute','max_product','max_attribute'].includes(key)&&/^(0|[1-9][0-9]{0,9})$/.test(value)||
+        key==='targets'&&typeof value==='string'&&/^[1-9][0-9]{0,9}:(0|[1-9][0-9]{0,9})(,[1-9][0-9]{0,9}:(0|[1-9][0-9]{0,9})){0,49}$/.test(value));
+      const documentQuery=resource==='totus_tpv_documents'&&method==='GET'&&key==='kind'&&['receipt','gift','invoice','delivery','credit-note','billing'].includes(value);
+      requireValue((ordinary || price || extensionQuery || catalogueQuery || documentQuery || barcodeQuery) && typeof value==='string' &&
+        value.length<=((resource==='totus_tpv_catalogue'&&key==='excluded_categories'||resource==='totus_tpv_barcodes'&&key==='targets')?1099:1000) && !/[\x00-\x1f]/.test(value), 'TPV_NATIVE_QUERY_INVALID');
       url.searchParams.set(key,value);
     }
     const target=await safeEndpoint(url.href,resolve);
@@ -136,11 +151,33 @@ export function createTpvNativeTransport(connection, scope, {
       requireValue(new TextEncoder().encode(body).length<=65536,'TPV_NATIVE_COMMAND_TOO_LARGE');
       return call(commandResources[command],'POST',{},body,false,true);
     },
+    async readNativeBarcodeTargets({field='ean13',cursor=[0,0],bounds}={}){
+      extensionScope();const id=value=>Number.isSafeInteger(value)&&value>=0&&value<=2147483647;
+      requireValue(['ean13','upc','reference'].includes(field)&&Array.isArray(cursor)&&cursor.length===2&&cursor.every(id)&&
+        (bounds===undefined||bounds&&typeof bounds==='object'&&!Array.isArray(bounds)&&Object.keys(bounds).length===2&&id(bounds.product)&&id(bounds.attribute)),'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,mode:'targets',after_product:String(cursor[0]),after_attribute:String(cursor[1]),...(bounds===undefined?{}:{max_product:String(bounds.product),max_attribute:String(bounds.attribute)})},undefined,false,true);
+    },
+    async readNativeBarcodePlan({field='ean13',productId,attributeId,targets,skipExisting=false}={}){
+      extensionScope();const attribute=value=>Number.isSafeInteger(value)&&value>=0&&value<=2147483647;
+      requireValue(['ean13','upc','reference'].includes(field)&&typeof skipExisting==='boolean'&&
+        (targets===undefined?(productId===undefined&&attributeId===undefined||positive(productId)&&productId<=2147483647&&(attributeId===undefined||attribute(attributeId))):
+         productId===undefined&&attributeId===undefined&&Array.isArray(targets)&&targets.length>0&&targets.length<=50&&targets.every(row=>row&&positive(row.productId)&&row.productId<=2147483647&&attribute(row.attributeId))&&new Set(targets.map(row=>row.productId+':'+row.attributeId)).size===targets.length)&&
+        (!skipExisting||targets!==undefined||productId!==undefined),'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,...(skipExisting?{skip_existing:'1'}:{}),...(targets!==undefined?{targets:targets.map(row=>row.productId+':'+row.attributeId).join(',')}:productId===undefined?{}:{product_id:String(productId),...(attributeId===undefined?{}:{attribute_id:String(attributeId)})})},undefined,false,true);
+    },
+    async readNativeBarcodeLabels({field,targets}){
+      extensionScope();requireValue(['ean13','upc','reference'].includes(field)&&Array.isArray(targets)&&targets.length>0&&targets.length<=50&&targets.every(row=>row&&positive(row.productId)&&row.productId<=2147483647&&Number.isSafeInteger(row.attributeId)&&row.attributeId>=0&&row.attributeId<=2147483647)&&new Set(targets.map(row=>row.productId+':'+row.attributeId)).size===targets.length,'TPV_BARCODE_QUERY_INVALID');
+      return call('totus_tpv_barcodes','GET',{actor_id:scope.actorId,field,mode:'labels',targets:targets.map(row=>row.productId+':'+row.attributeId).join(',')},undefined,false,true);
+    },
     async readNativeProfile(){extensionScope();return call('totus_tpv_profile','GET',{},undefined,false,true);},
     async readNativeCustomers({search='',page=0,customerId=0}={}){
       extensionScope();requireValue(typeof search==='string'&&search.length<=100&&Number.isSafeInteger(page)&&page>=0&&page<10000&&
         Number.isSafeInteger(customerId)&&customerId>=0,'TPV_CUSTOMER_QUERY_INVALID');
       return call('totus_tpv_customers','GET',{search,page:String(page),customer_id:String(customerId)},undefined,false,true);
+    },
+    async readNativeBilling({operationId,sourceActorId}){
+      extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId),'TPV_DOCUMENT_QUERY_INVALID');
+      return call('totus_tpv_documents','GET',{operation_id:operationId,actor_id:sourceActorId,kind:'billing'},undefined,false,true);
     },
     async readNativeDocument({operationId,sourceActorId,kind}){
       extensionScope();requireValue(uuid(operationId)&&uuid(sourceActorId)&&['receipt','gift','invoice','delivery','credit-note'].includes(kind),'TPV_DOCUMENT_QUERY_INVALID');
@@ -157,12 +194,16 @@ export function createTpvNativeTransport(connection, scope, {
       return call('totus_tpv_returns','GET',{sale_operation_id:saleOperationId,actor_id:scope.actorId},undefined,false,true);
     },
     async readNativeCategories(){extensionScope();return call('totus_tpv_catalogue','GET',{categories_only:'1'},undefined,false,true);},
-    async readNativeCatalogue({search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0}={}){
-      extensionScope();requireValue(typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
-        Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&
-        (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');
-      return call('totus_tpv_catalogue','GET',{search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
-        ...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
+    async readNativeStockPolicy(productId){extensionScope();requireValue(positive(productId)&&productId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');return call('totus_tpv_catalogue','GET',{product_id:String(productId),stock_policy_only:'1'},undefined,false,true);},
+    async readNativeProductCapabilities(productId){extensionScope();requireValue(positive(productId)&&productId<=2147483647,'TPV_CATALOGUE_QUERY_INVALID');return call('totus_tpv_catalogue','GET',{product_id:String(productId),product_capabilities_only:'1'},undefined,false,true);},
+    async readNativeCatalogue({pricingQuantity=1,search='',page=0,pageSize=20,productId=0,customerId,addressId,categoryId=0,sortField='name',sortDirection='asc',searchFields,catalogueFilters,variantGroupId=0,inventoryOnly=false}={}){
+      let fields,filters;try{fields=catalogueSearchFields(searchFields);filters=normalizeCatalogueFilters(catalogueFilters);}catch{throw Error('TPV_CATALOGUE_QUERY_INVALID');}
+      extensionScope();requireValue(Number.isSafeInteger(pricingQuantity)&&pricingQuantity>=1&&pricingQuantity<=10000&&(pricingQuantity===1||productId>0&&sortField==='name')&&typeof inventoryOnly==='boolean'&&(!inventoryOnly||!filters.hideUnavailable&&!filters.excludedCategories.length)&&typeof search==='string'&&search.length<=120&&Number.isSafeInteger(page)&&page>=0&&page<=1000&&
+        Number.isSafeInteger(pageSize)&&pageSize>0&&pageSize<=50&&Number.isSafeInteger(productId)&&productId>=0&&Number.isSafeInteger(variantGroupId)&&variantGroupId>=0&&variantGroupId<=2147483647&&(productId>0||variantGroupId===0)&&
+        (customerId===undefined||positive(customerId))&&(addressId===undefined||positive(addressId))&&Number.isSafeInteger(categoryId)&&categoryId>=0&&categoryId<=2147483647&&
+        ['name','reference','stock','id','cost','manufacturer','supplier','price'].includes(sortField)&&['asc','desc'].includes(sortDirection),'TPV_CATALOGUE_QUERY_INVALID');
+      return call('totus_tpv_catalogue','GET',{...(pricingQuantity===1?{}:{pricing_quantity:String(pricingQuantity)}),search,page:String(page),page_size:String(pageSize),product_id:String(productId),category_id:String(categoryId),
+        sort_field:sortField,sort_direction:sortDirection,sort_group_id:String(variantGroupId),search_fields:fields.join(','),hide_unavailable:filters.hideUnavailable?'1':'0',excluded_categories:filters.excludedCategories.join(','),...(inventoryOnly?{inventory_only:'1'}:{}),...(customerId?{customer_id:String(customerId)}:{}),...(addressId?{address_id:String(addressId)}:{})},undefined,false,true);
     },
     async quoteOwnedCart({operationId,cartId}) {
       const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);

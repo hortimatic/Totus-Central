@@ -1,7 +1,7 @@
 <?php
 /** Totus Central native capability. No front-office payment option or POS UI. */
 if (!defined('_PS_VERSION_')) { exit; }
-foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeCatalogue','NativeDocuments','NativeSetup','NativeRuntime'] as $file)
+foreach(['Protocol','OrderGridPerformance','NativeCompatibility','JournalSchema','PdoJournal','PdoNativeEffect','CommandRunner','NativeEffectHandler','NativeOrderLineNames','NativeCartQuote','NativeCartAdjustments','NativeLineAdjustments','NativeSaleNote','NativeCustomers','NativeOwnedCarts','NativePaidPickup','NativeSale','NativeReturns','NativeInventory','NativeBarcodes','NativeBarcodeIntents','NativeBarcodeEffect','NativeCatalogueIndex','NativeCatalogue','NativeDocuments','NativeBilling','NativeSetup','NativeRuntime'] as $file)
     require_once __DIR__.'/src/'.$file.'.php';
 class Totuscentralconnector extends PaymentModule
 {
@@ -22,7 +22,7 @@ class Totuscentralconnector extends PaymentModule
     public function getOrderShippingCostExternal($cart){return self::$nativeCommandDepth>0?0:false;}
     public function __construct()
     {
-        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.1.9';$this->author='Totus Central';
+        $this->name='totuscentralconnector';$this->tab='administration';$this->version='0.2.2';$this->author='Totus Central';
         $this->bootstrap=true;$this->need_instance=1;$this->ps_versions_compliancy=['min'=>'8.2.8','max'=>'8.2.8'];
         parent::__construct();$this->displayName='Totus Central · capacidad nativa';
         $this->description='Pedidos del mostrador de Totus Central. Sin interfaz de caja ni opción de pago en la web.';
@@ -35,21 +35,51 @@ class Totuscentralconnector extends PaymentModule
     }
     public function ensureOwnStorage(): bool
     {
+        if((int)$this->id<=0)return false;
         foreach([
             TotusCentralConnector\JournalSchema::mysql(_DB_PREFIX_.'totus_tpv_journal'),
             TotusCentralConnector\PdoNativeEffect::mysqlSchema(_DB_PREFIX_.'totus_tpv_effects'),
             TotusCentralConnector\NativeOwnedCarts::mysqlSchema(_DB_PREFIX_.'totus_tpv_carts'),
             TotusCentralConnector\NativeReturns::mysqlSchema(_DB_PREFIX_.'totus_tpv_returns'),
             TotusCentralConnector\NativeSetup::mysqlSchema(_DB_PREFIX_.'totus_tpv_settings'),
+            TotusCentralConnector\NativeCatalogueIndex::mysqlSchema(_DB_PREFIX_.'totus_tpv_catalogue_index'),
+            TotusCentralConnector\NativeBarcodeIntents::mysqlSchema(_DB_PREFIX_.'totus_tpv_barcode_intents'),
         ] as $sql)if(!Db::getInstance()->execute(str_replace('CREATE TABLE ','CREATE TABLE IF NOT EXISTS ',$sql)))return false;
+        TotusCentralConnector\NativeOwnedCarts::ensureCommercialStorage(Db::getInstance()->getLink(),_DB_PREFIX_.'totus_tpv_carts');
         if(!Configuration::get('TOTUS_TPV_INSTALLATION_ID')){
             $hex=bin2hex(random_bytes(16));$id=substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-8'.substr($hex,17,3).'-'.substr($hex,20,12);
             if(!Configuration::updateValue('TOTUS_TPV_INSTALLATION_ID',$id))return false;
         }
         $statement=Db::getInstance()->getLink()->prepare('INSERT IGNORE INTO `'._DB_PREFIX_.'totus_tpv_settings` (installation_id,shop_id) VALUES (?,?)');
         foreach(Shop::getShops(true,null,true) as $id)if(!$statement->execute([Configuration::get('TOTUS_TPV_INSTALLATION_ID'),(int)$id]))return false;
+        // Native hook registration can retain a negative cache entry during
+        // this same installation request. Observe persisted bindings directly
+        // before invoking the native registration API for missing shops only.
+        $shops=array_map('intval',Shop::getCompleteListOfShopsID());
+        $registered=Db::getInstance()->getLink()->prepare('SELECT hm.id_shop FROM `'._DB_PREFIX_.'hook_module` hm JOIN `'._DB_PREFIX_.'hook` h ON h.id_hook=hm.id_hook WHERE hm.id_module=? AND h.name=?');
+        foreach(['actionObjectAddAfter','actionObjectUpdateAfter','actionObjectDeleteAfter'] as $hook){
+            $registered->execute([(int)$this->id,$hook]);$missing=array_values(array_diff($shops,array_map('intval',$registered->fetchAll(PDO::FETCH_COLUMN))));
+            if($missing&&!$this->registerHook($hook,$missing))return false;
+        }
         // Installation alone never activates an order route or creates customers.
         return true;
+    }
+    public function hookActionObjectAddAfter(array $params): void{$this->catalogueChanged($params['object']??null);}
+    public function hookActionObjectUpdateAfter(array $params): void{$this->catalogueChanged($params['object']??null);}
+    public function hookActionObjectDeleteAfter(array $params): void{$this->catalogueChanged($params['object']??null);}
+    private function catalogueChanged($object): void
+    {
+        if(!is_object($object))return;
+        if(is_a($object,'SpecificPriceCore')&&(int)($object->id_cart??0)>0)return;
+        if(is_a($object,'ConfigurationCore')&&str_starts_with((string)($object->name??''),'TOTUS_TPV_'))return;
+        $relevant=false;foreach(['ProductCore','CombinationCore','SpecificPriceCore','SpecificPriceRuleCore','GroupCore','GroupReductionCore',
+            'CustomerCore','AddressCore','TaxCore','TaxRuleCore','TaxRulesGroupCore','CurrencyCore','CountryCore','StateCore','ConfigurationCore'] as $class)
+            if(is_a($object,$class)){$relevant=true;break;}
+        if(!$relevant)return;
+        try{$this->nativeProfile();}catch(Throwable $error){return;}
+        // Only an owned presentation-cache epoch changes. Never rewrite a native
+        // price, order, stock record or third-party configuration from this hook.
+        Configuration::updateValue('TOTUS_TPV_CATALOGUE_EPOCH',bin2hex(random_bytes(16)));
     }
     public function uninstall()
     {
@@ -100,9 +130,9 @@ class Totuscentralconnector extends PaymentModule
         }
         require_once __DIR__.'/Webservice.php';
         $resources=[];
-        foreach(['profile','operations','setup','carts','quotes','sales','returns','stock','catalogue','documents','customers'] as $name)$resources['totus_tpv_'.$name]=[
+        foreach(['profile','operations','setup','carts','quotes','sales','returns','stock','catalogue','documents','customers','barcodes'] as $name)$resources['totus_tpv_'.$name]=[
             'description'=>'Totus Central '.$name,'specific_management'=>true,
-            'forbidden_method'=>in_array($name,['profile','operations','catalogue','documents','customers'],true)?['POST','PUT','PATCH','DELETE']:($name==='returns'?['PUT','PATCH','DELETE']:['GET','PUT','PATCH','DELETE']),
+            'forbidden_method'=>in_array($name,['profile','operations','catalogue','documents','customers'],true)?['POST','PUT','PATCH','DELETE']:(in_array($name,['returns','barcodes'],true)?['PUT','PATCH','DELETE']:['GET','PUT','PATCH','DELETE']),
         ];
         return $resources;
     }
@@ -152,7 +182,7 @@ class Totuscentralconnector extends PaymentModule
             $read->execute([$accountId]);$before=$read->fetchAll(PDO::FETCH_ASSOC);$permissions=[];
             $resources=WebserviceRequest::getResources();
             foreach(['profile'=>['GET'],'operations'=>['GET'],'setup'=>['POST'],'carts'=>['POST'],
-                'quotes'=>['POST'],'sales'=>['POST'],'returns'=>['GET','POST'],'stock'=>['POST'],'catalogue'=>['GET'],'documents'=>['GET'],'customers'=>['GET']] as $resource=>$methods)
+                'quotes'=>['POST'],'sales'=>['POST'],'returns'=>['GET','POST'],'stock'=>['POST'],'catalogue'=>['GET'],'documents'=>['GET'],'customers'=>['GET'],'barcodes'=>['GET','POST']] as $resource=>$methods)
                 foreach($methods as $method)$permissions['totus_tpv_'.$resource][$method]=true;
             foreach(['carts','customers','addresses','products','combinations','stock_availables','currencies','languages',
                 'carriers','orders','order_details','order_states','order_payments','countries','states','groups'] as $resource)$permissions[$resource]['GET']=true;

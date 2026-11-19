@@ -1,0 +1,11 @@
+import {spawnSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const portable=path.join(root,'artifacts','php82','php.exe');
+const php=process.env.PHP_BINARY||(existsSync(portable)?portable:'php');
+const result=spawnSync(php,['-n',path.join(root,'tests','totustpv-barcode-native-contract-qa.php')],{cwd:root,encoding:'utf8'});
+if(result.error)throw result.error;
+process.stdout.write(result.stdout);process.stderr.write(result.stderr);
+if(result.status!==0)process.exit(result.status||1);

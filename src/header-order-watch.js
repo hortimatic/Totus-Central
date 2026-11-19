@@ -1,7 +1,7 @@
 import {esc} from './utils.js';
 
 const shops=[['hortimatic','Hortimatic'],['newoldsmok','NewOldSmok']];
-const offline=['tpvtienda','bo_order'];
+const offline=['tpvtienda','bo_order','totuscentralconnector'];
 export function headerWatchHtml(state,busy){
  if(!state)return '<p class="small muted">Comprobando detección automática…</p>';
  const watch=state.watch,active=watch?.enabled===true;

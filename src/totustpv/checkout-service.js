@@ -63,7 +63,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
       requireValue(positive(orderId), 'TPV_REMOTE_ORDER_NOT_OBSERVED');
       await ledger.rememberRemote({scope,operationId:record.id,revision:record.revision,token,orderId,
         remoteKey:remoteOrderKey(scope,orderId)});
-      const observed = await native.readSale({scope,operationId:record.id,sourceActorId:record.scope.actorId,orderId,expected:copy(record.expected)});
+      const observed = await native.readSale({scope,operationId:record.id,sourceActorId:record.scope.actorId,orderId,expected:copy(record.expected),payments:copy(record.payments)});
       requireValue(observed?.connectionId === scope.connectionId && observed?.orderId === orderId,
         'TPV_REMOTE_CONNECTION_MISMATCH');
       verifyNativePaymentBreakdown(record.expected,record.payments,observed.payments);
@@ -110,7 +110,7 @@ export function createCheckoutService({authorize, ledger, native, settlements, n
     assertSameCheckoutScope(scope,freshScope);
     requireValue(now() < record.quoteExpiresAt, 'TPV_QUOTE_EXPIRED');
     const claim = await ledger.claimSubmission({scope:freshScope,operationId:record.id,revision:record.revision,
-      expected:copy(record.expected),payments:copy(payments)});
+      expected:copy(record.expected),payments:copy(payments),...(command.payments?.confirmation?.approvalId?{approvalId:command.payments.confirmation.approvalId}:{}),...(command.payments?.confirmation?.operatorAcknowledgement?{operatorAcknowledgement:copy(command.payments.confirmation.operatorAcknowledgement)}:{})});
     if (claim?.won !== true) return result({...record,...claim?.record},{retryOrderForbidden:true});
     requireValue(typeof claim.token === 'string' && claim.token.length >= 16, 'TPV_DISPATCH_CLAIM_INVALID');
     const dispatched = {...record,status:'dispatched',payments:copy(payments)};

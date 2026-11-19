@@ -2,6 +2,169 @@
   "version": 1,
   "circuits": [
     {
+      "id": "totustpv-barcodes",
+      "paths": [
+        "src/totustpv/",
+        "supabase/functions/totus-tpv/",
+        "connectors/prestashop/src/",
+        "connectors/prestashop/module/",
+        "supabase/migrations/20261118034019_totustpv_barcode_settings.sql",
+        "supabase/migrations/20261118035905_totustpv_barcode_capture.sql",
+        "supabase/migrations/20261118044052_totustpv_barcode_execution.sql",
+        "supabase/migrations/20261118091942_totustpv_barcode_preserved_codes.sql",
+        "tests/totustpv-barcode",
+        "tests/totustpv-package-qa.mjs",
+        "tools/package-totus-native.mjs",
+        "tests/native-lab/barcode",
+        "tests/native-lab/central-edge-flow.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-package-qa.mjs",
+        "tests/totustpv-barcode-options-qa.mjs",
+        "tests/totustpv-barcode-capture-qa.mjs",
+        "tests/totustpv-barcode-receipt-qa.mjs",
+        "tests/totustpv-barcode-service-qa.mjs",
+        "tests/totustpv-barcode-edge-qa.mjs",
+        "tests/totustpv-barcode-panel-qa.mjs",
+        "tests/totustpv-barcode-labels-qa.mjs",
+        "tests/totustpv-barcode-panel-browser-qa.mjs",
+        "tests/totustpv-barcode-native-qa.mjs",
+        "tests/totustpv-barcode-label-print-native-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-php-boundary-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs"
+      ],
+      "invariants": [
+        "the complete captured target membership is reviewed once before any assignment and native pages are not a functional catalogue limit",
+        "current Products permissions and exact account connection shop drawer scope precede native credential access",
+        "every target operation and native intent is persisted before its one dispatch; uncertain outcomes recover only by GET",
+        "pausing or cancelling forbids new claims while previously sent operations remain recoverable",
+        "existing codes and unrelated product price stock and reference fields are preserved",
+        "label preparation reads current native identifiers instead of historical assignment receipts",
+        "only bounded binary native encoder modules become local SVG and physical paper cannot silently shrink a wide code",
+        "account or view changes prevent late preparation and printing results from reaching another user"
+      ]
+    },
+    {
+      "id": "totustpv-disabled-stock",
+      "paths": [
+        "src/totustpv/",
+        "supabase/functions/totus-tpv/",
+        "connectors/prestashop/src/",
+        "connectors/prestashop/module/Webservice.php",
+        "supabase/migrations/20261118020431_totustpv_disabled_stock_search.sql",
+        "tests/totustpv-disabled-stock",
+        "tests/native-lab/disabled-stock",
+        "tests/native-lab/central-edge-flow.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-disabled-stock-qa.mjs",
+        "tests/totustpv-disabled-stock-browser-qa.mjs",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-search-preferences-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-transport-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-php-boundary-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs"
+      ],
+      "invariants": [
+        "disabled and unavailable-for-order articles can be replenished without activating them or enabling counter sales",
+        "inventory-only catalogue reads require current Products view permission and exact native acknowledgement",
+        "inventory and sale price indexes cannot share scoped results",
+        "saved search settings belong to the current Central account and drawer",
+        "late inventory results and selected inventory variants cannot cross into the sale catalogue",
+        "native cart preparation rejects products disabled for sale before constructing a cart and native paid sale still rechecks availability",
+        "native inventory recovery never dispatches a second additive stock movement"
+      ]
+    },
+    {
+      "id": "totustpv-central-cash",
+      "paths": [
+        "src/app.js",
+        "src/pages/main.js",
+        "src/styles.css",
+        "src/utils.js",
+        "tests/csv-cell-qa.mjs",
+        "src/totustpv/central-cash",
+        "src/totustpv/cash-reports.js",
+        "src/totustpv/workspace.js",
+        "supabase/functions/totus-tpv/",
+        "supabase/migrations/20261118002455_totustpv_central_cash_bridge.sql",
+        "tests/totustpv-central-cash",
+        "tests/native-lab/central-cash"
+      ],
+      "tests": [
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-central-cash-qa.mjs",
+        "tests/totustpv-central-cash-browser-qa.mjs",
+        "tests/totustpv-central-cash-app-browser-qa.mjs",
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/csv-cell-qa.mjs",
+        "tests/agent-delivery-qa.mjs",
+        "tests/stitch-design-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Cajas reads the existing Central cash, payment and refund journals without creating duplicate daily closings or income",
+        "current Cajas view permission and immutable source/store/drawer/session scope are required without a cashier assignment",
+        "disabled website connections do not erase authorized Central cash history or cause native shop requests",
+        "unconfirmed financial operations are visible for review but excluded from settled balances",
+        "session and detail pagination and CSV exports do not silently truncate records",
+        "QA cash sessions remain excluded from commercial fiscal totals and late responses cannot cross accounts"
+      ]
+    },
+    {
+      "id": "totustpv-billing-bridge",
+      "paths": [
+        "src/app.js",
+        "src/pages/main.js",
+        "src/totustpv/billing-ui.js",
+        "src/totustpv/billing.css",
+        "src/totustpv/server/billing-service.js",
+        "src/totustpv/server/native-transport.js",
+        "supabase/functions/totus-tpv/",
+        "supabase/migrations/20261117234736_totustpv_billing_bridge.sql",
+        "tests/totustpv-billing-",
+        "connectors/prestashop/src/NativeBilling.php",
+        "supabase/migrations/20261119020406_totustpv_billing_signature_archive.sql"
+      ],
+      "tests": [
+        "tests/totustpv-billing-db-qa.mjs",
+        "tests/totustpv-billing-service-qa.mjs",
+        "tests/totustpv-billing-edge-qa.mjs",
+        "tests/totustpv-billing-browser-qa.mjs",
+        "tests/totustpv-billing-app-browser-qa.mjs",
+        "tests/billing-submenus-qa.mjs"
+      ],
+      "invariants": [
+        "Facturación uses its own current read permission without a cashier assignment or cash session",
+        "native invoice identity and historical amounts must match a confirmed scoped Central sale",
+        "existing invoice and confirmed credit-note reads never issue documents, allocate numbers or duplicate revenue",
+        "QA commercial documents remain outside business fiscal totals",
+        "late responses cannot cross account or disposed page boundaries",
+        "Signed invoice archives use existing billing authorization, preserve exact stored PDF bytes and require no cashier session or native credential fetch."
+      ]
+    },
+    {
       "id": "access",
       "paths": [
         "src/bootstrap",
@@ -153,7 +316,9 @@
       ],
       "tests": [
         "tests/closing-integral-browser-qa.mjs",
-        "tests/business-write-browser-qa.mjs"
+        "tests/business-write-browser-qa.mjs",
+        "tests/store-drawers-qa.mjs",
+        "tests/form-drafts-qa.mjs"
       ],
       "invariants": [
         "no double income",
@@ -318,7 +483,8 @@
         "src/stitch-layout.js",
         "src/column-settings.js",
         "src/state.js",
-        "tools/version-entry-assets.mjs"
+        "tools/version-entry-assets.mjs",
+        "src/components.js"
       ],
       "tests": [
         "tests/api-manager-browser-qa.mjs",
@@ -407,8 +573,13 @@
         "tests/totustpv-cart-qa.mjs",
         "tests/totustpv-operator-payments-qa.mjs",
         "tests/totustpv-payment-readback-qa.mjs",
+        "tests/totustpv-payment-options-qa.mjs",
+        "tests/totustpv-payment-settings-edge-qa.mjs",
+        "tests/totustpv-payment-settings-browser-qa.mjs",
         "tests/totustpv-practice-qa.mjs",
         "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-catalogue-table-browser-qa.mjs",
         "tests/totustpv-workspace.html",
         "tests/totustpv-quote-contract-qa.mjs",
         "supabase/migrations/20261115182617_totustpv_durable_checkout.sql",
@@ -425,11 +596,123 @@
         "supabase/migrations/20261116142221_totustpv_order_lookup.sql",
         "supabase/migrations/20261116150203_totustpv_cash_reports.sql",
         "src/totustpv/cash-reports.js",
+        "src/totustpv/workstation-access.js",
+        "src/totustpv/workstation-access-batch.js",
+        "src/totustpv/cash-visibility.js",
+        "supabase/migrations/20261119031450_totustpv_cash_visibility.sql",
+        "supabase/migrations/20261119035641_totustpv_operator_choices.sql",
+        "supabase/migrations/20261119041459_totustpv_operator_switch_settings.sql",
+        "src/totustpv/operator-settings.js",
+        "src/totustpv/operator-picker.js",
+        "supabase/migrations/20261119024928_totustpv_grouped_workstation_access.sql",
+        "src/totustpv/customer-display.js",
+        "src/totustpv/customer-display.css",
+        "src/totustpv/customer-display-watch.js",
+        "supabase/migrations/20261117031559_totustpv_customer_display.sql",
+        "tests/totustpv-customer-display-qa.mjs",
+        "tests/totustpv-customer-display-browser-qa.mjs",
+        "supabase/migrations/20261117021112_totustpv_workstation_access.sql",
+        "tests/totustpv-workstation-access-edge-qa.mjs",
+        "tests/totustpv-access-batch-controller-qa.mjs",
+        "tests/totustpv-cash-visibility-qa.mjs",
+        "tests/totustpv-cash-visibility-browser-qa.mjs",
+        "tests/totustpv-operator-handoff-browser-qa.mjs",
+        "tests/totustpv-operator-picker-qa.mjs",
+        "tests/totustpv-operator-settings-qa.mjs",
+        "tests/totustpv-operator-settings-browser-qa.mjs",
+        "tests/totustpv-operator-picker-browser-qa.mjs",
+        "tests/totustpv-access-batch-browser-qa.mjs",
+        "tests/totustpv-configuration-reader-qa.mjs",
+        "tests/totustpv-workstation-rights-browser-qa.mjs",
+        "tests/totustpv-workstation-access-browser-qa.mjs",
         "tests/totustpv-edge-qa.mjs",
         "tests/totustpv-http-client-qa.mjs",
         "tests/totustpv-central-adapter-qa.mjs",
         "tests/totustpv-refund-intent-qa.mjs",
-        "tests/totustpv-printed-documents-qa.mjs"
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/totustpv-product-intake-contract-qa.mjs",
+        "tests/totustpv-product-intake-service-qa.mjs",
+        "supabase/migrations/20261117052454_totustpv_product_intake.sql",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-product-intake-browser-qa.mjs",
+        "tests/native-lab/product-",
+        "tests/native-lab/central-edge-flow.mjs",
+        "tests/totustpv-native-http-qa.mjs",
+        "tests/totustpv-cash-counting-qa.mjs",
+        "tests/totustpv-cash-counting-browser-qa.mjs",
+        "supabase/migrations/20261117093928_totustpv_cash_counting.sql",
+        "supabase/migrations/20261118001954_totustpv_cash_report_drawer_scope.sql",
+        "tests/native-lab/cash-counting-browser.mjs",
+        "tests/totustpv-category-contract-qa.mjs",
+        "tests/totustpv-category-service-qa.mjs",
+        "src/category-create-contract.js",
+        "supabase/migrations/20261117100653_totustpv_catalogue_helpers.sql",
+        "tests/totustpv-price-display-qa.mjs",
+        "supabase/migrations/20261117104005_totustpv_catalogue_tax_display.sql",
+        "supabase/migrations/20261118023253_totustpv_tax_summary.sql",
+        "src/totustpv/search-preferences.js",
+        "tests/totustpv-search-preferences-qa.mjs",
+        "supabase/migrations/20261117105231_totustpv_search_preferences.sql",
+        "tests/native-lab/search-",
+        "src/totustpv/catalogue-preferences.js",
+        "tests/totustpv-catalogue-preferences-qa.mjs",
+        "supabase/migrations/20261117111400_totustpv_catalogue_filters.sql",
+        "tests/native-lab/catalogue-filter-",
+        "tests/totustpv-variant-selector-browser-qa.mjs",
+        "supabase/migrations/20261117123814_totustpv_variant_order.sql",
+        "src/totustpv/stock-policy.js",
+        "tests/totustpv-stock-policy-qa.mjs",
+        "tests/native-lab/stock-policy-",
+        "supabase/migrations/20261117125500_totustpv_stock_policy.sql",
+        "tests/totustpv-quantity-picker-qa.mjs",
+        "tests/totustpv-quantity-picker-browser-qa.mjs",
+        "supabase/migrations/20261117143621_totustpv_quantity_picker.sql",
+        "tests/totustpv-line-options-qa.mjs",
+        "tests/totustpv-line-price-edge-qa.mjs",
+        "tests/totustpv-line-price-browser-qa.mjs",
+        "tests/native-lab/line-price-",
+        "supabase/migrations/20261117145654_totustpv_line_price_options.sql",
+        "supabase/migrations/20261117152204_totustpv_parking_expiry.sql",
+        "tests/totustpv-parking-options-qa.mjs",
+        "tests/totustpv-parking-expiry-db-qa.mjs",
+        "tests/totustpv-parking-browser-qa.mjs",
+        "supabase/migrations/20261117155256_totustpv_private_sale_note.sql",
+        "tests/totustpv-sale-note-qa.mjs",
+        "tests/totustpv-native-sale-note-qa.php",
+        "tests/native-lab/sale-note-flow.mjs",
+        "tests/native-lab/sale-note-validator.php",
+        "supabase/migrations/20261117162118_totustpv_receipt_line_discounts.sql",
+        "tests/totustpv-receipt-line-discounts-qa.mjs",
+        "tests/totustpv-receipt-variants-qa.mjs",
+        "tests/totustpv-payment-reference-qa.mjs",
+        "tests/native-lab/price-history-change.php",
+        "tests/native-lab/receipt-pricing-fixture.php",
+        "src/totustpv/line-name.js",
+        "connectors/prestashop/src/NativeOrderLineNames.php",
+        "supabase/migrations/20261117170825_totustpv_temporary_line_names.sql",
+        "tests/native-lab/line-name-flow.mjs",
+        "tests/totustpv-native-line-name-qa.php",
+        "tests/totustpv-line-name-qa.mjs",
+        "tests/totustpv-line-name-browser-qa.mjs",
+        "src/totustpv/receipt-series.js",
+        "supabase/migrations/20261117181754_totustpv_receipt_numbering.sql",
+        "tests/totustpv-receipt-series-qa.mjs",
+        "tests/totustpv-receipt-series-browser-qa.mjs",
+        "src/totustpv/server/commercial-quote-contract.js",
+        "src/totustpv/budget-contract.js",
+        "src/totustpv/budget-document.js",
+        "tests/totustpv-budget-",
+        "src/totustpv/server/commercial-budget-service.js",
+        "supabase/migrations/20261117191716_totustpv_commercial_budgets.sql",
+        "tests/totustpv-budget-contract-qa.mjs",
+        "tests/native-lab/budget-ledger-assertions.mjs",
+        "tests/totustpv-commercial-quote-qa.mjs",
+        "tests/native-lab/commercial-",
+        "src/components.js",
+        "supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql",
+        "supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql",
+        "supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql",
+        "supabase/migrations/20261119065725_totustpv_web_order_tickets.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -444,6 +727,8 @@
         "tests/totustpv-practice-qa.mjs",
         "tests/totustpv-workspace-browser-qa.mjs",
         "tests/totustpv-quote-contract-qa.mjs",
+        "tests/totustpv-stock-intake-browser-qa.mjs",
+        "tests/totustpv-catalogue-table-browser-qa.mjs",
         "tests/totustpv-central-qa.mjs",
         "tests/totustpv-central-browser-qa.mjs",
         "tests/totustpv-setup-qa.mjs",
@@ -456,15 +741,111 @@
         "tests/totustpv-http-client-qa.mjs",
         "tests/totustpv-central-adapter-qa.mjs",
         "tests/totustpv-refund-intent-qa.mjs",
-        "tests/totustpv-printed-documents-qa.mjs"
+        "tests/totustpv-printed-documents-qa.mjs",
+        "tests/totustpv-receipt-barcode-browser-qa.mjs",
+        "tests/totustpv-workstation-access-edge-qa.mjs",
+        "tests/totustpv-access-batch-controller-qa.mjs",
+        "tests/totustpv-cash-visibility-qa.mjs",
+        "tests/totustpv-cash-visibility-browser-qa.mjs",
+        "tests/totustpv-operator-handoff-browser-qa.mjs",
+        "tests/totustpv-operator-picker-qa.mjs",
+        "tests/totustpv-operator-settings-qa.mjs",
+        "tests/totustpv-operator-settings-browser-qa.mjs",
+        "tests/totustpv-operator-picker-browser-qa.mjs",
+        "tests/totustpv-access-batch-browser-qa.mjs",
+        "tests/totustpv-configuration-reader-qa.mjs",
+        "tests/totustpv-workstation-rights-browser-qa.mjs",
+        "tests/totustpv-workstation-access-browser-qa.mjs",
+        "tests/totustpv-customer-display-qa.mjs",
+        "tests/totustpv-customer-display-browser-qa.mjs",
+        "tests/totustpv-product-intake-contract-qa.mjs",
+        "tests/totustpv-product-intake-service-qa.mjs",
+        "tests/totustpv-product-intake-edge-qa.mjs",
+        "tests/totustpv-product-intake-browser-qa.mjs",
+        "tests/totustpv-cash-counting-qa.mjs",
+        "tests/totustpv-cash-counting-browser-qa.mjs",
+        "tests/totustpv-category-contract-qa.mjs",
+        "tests/totustpv-category-service-qa.mjs",
+        "tests/totustpv-price-display-qa.mjs",
+        "tests/totustpv-search-preferences-qa.mjs",
+        "tests/totustpv-catalogue-preferences-qa.mjs",
+        "tests/totustpv-variant-selector-browser-qa.mjs",
+        "tests/totustpv-stock-policy-qa.mjs",
+        "tests/totustpv-quantity-picker-qa.mjs",
+        "tests/totustpv-quantity-picker-browser-qa.mjs",
+        "tests/totustpv-line-options-qa.mjs",
+        "tests/totustpv-line-price-edge-qa.mjs",
+        "tests/totustpv-line-price-browser-qa.mjs",
+        "tests/totustpv-parking-options-qa.mjs",
+        "tests/totustpv-parking-expiry-db-qa.mjs",
+        "tests/totustpv-parking-browser-qa.mjs",
+        "tests/totustpv-sale-note-qa.mjs",
+        "tests/totustpv-receipt-line-discounts-qa.mjs",
+        "tests/totustpv-line-name-qa.mjs",
+        "tests/totustpv-line-name-browser-qa.mjs",
+        "tests/totustpv-receipt-series-qa.mjs",
+        "tests/totustpv-receipt-series-browser-qa.mjs",
+        "tests/totustpv-commercial-quote-qa.mjs",
+        "tests/totustpv-budget-contract-qa.mjs",
+        "tests/totustpv-budget-adapter-qa.mjs",
+        "tests/totustpv-budget-document-qa.mjs",
+        "tests/totustpv-budget-browser-qa.mjs",
+        "tests/totustpv-offline-edge-qa.mjs",
+        "tests/totustpv-offline-price-comparison-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-sync-qa.mjs",
+        "tests/totustpv-offline-panel-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-browser-qa.mjs",
+        "tests/totustpv-offline-catalogue-adapter-qa.mjs",
+        "tests/totustpv-catalogue-background-qa.mjs",
+        "tests/totustpv-operator-checkout-browser-qa.mjs",
+        "tests/totustpv-operator-checkout-native-qa.mjs",
+        "tests/totustpv-receipt-discount-display-qa.mjs",
+        "tests/totustpv-receipt-discount-display-browser-qa.mjs",
+        "tests/totustpv-receipt-discount-display-native-qa.mjs",
+        "tests/totustpv-receipt-group-rates-qa.mjs",
+        "tests/totustpv-gift-discounts-qa.mjs",
+        "tests/totustpv-gift-discounts-browser-qa.mjs",
+        "tests/totustpv-gift-discounts-native-qa.mjs",
+        "tests/totustpv-web-order-receipt-qa.mjs",
+        "tests/totustpv-web-order-tickets-browser-qa.mjs",
+        "tests/totustpv-web-order-tickets-native-qa.mjs",
+        "tests/totustpv-password-proof-qa.mjs",
+        "tests/totustpv-password-client-qa.mjs",
+        "tests/totustpv-action-approval-edge-qa.mjs",
+        "tests/totustpv-sensitive-offline-qa.mjs",
+        "tests/totustpv-sensitive-actions-browser-qa.mjs",
+        "tests/totustpv-sensitive-actions-native-qa.mjs",
+        "tests/totustpv-operator-switch-edge-qa.mjs",
+        "tests/totustpv-operator-switch-browser-qa.mjs",
+        "tests/totustpv-payment-settings-browser-qa.mjs",
+        "tests/totustpv-operator-switch-adapter-qa.mjs",
+        "tests/totustpv-operator-login-qa.mjs",
+        "tests/totustpv-operator-login-proof-qa.mjs",
+        "tests/totustpv-operator-login-races-qa.mjs",
+        "tests/totustpv-operator-login-sdk-browser-qa.mjs",
+        "tests/totustpv-budget-presentation-qa.mjs",
+        "tests/totustpv-budget-presentation-browser-qa.mjs",
+        "tests/totustpv-budget-settings-browser-qa.mjs",
+        "tests/totustpv-budget-settings-native-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
         "cash isolated by store drawer and session",
+        "Cashier cash reports include only the drawer whose reconciliation access was authorized, including explicit historical session queries",
         "uncertain remote order cannot be blindly resubmitted",
         "confirmation requires remote payment state lines and stock readback",
         "server-only PostgreSQL journal commits order confirmation and payment events atomically",
-        "one active physical drawer session and one remote cart dispatch across workers"
+        "one active physical drawer session and one remote cart dispatch across workers",
+        "insufficient stock requires explicit server-loaded workstation policy and sealed native cart permission without changing webshop stock policy; default refusal and attributed stock readback remain mandatory",
+        "optional required quantity selection preserves the ticket on cancellation; product minima, remaining stock, scoped preferences and account disposal remain enforced",
+        "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative",
+        "Private sale notes are sealed with the owned cart, required by server policy when configured, read back from a single private native Message, and excluded from customer documents and display",
+        "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding and keep cart reductions separate; gift documents hide all monetary data by default, with only validated recorded discount amounts allowed by the explicit gift-discount preference, never prices, paid totals, taxes, payments or customer data.",
+        "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización.",
+        "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo; el regalo oculta grupos, precios, cobros, total pagado y clientes, y sólo presenta descuentos monetarios comprobados con su opción explícita activada.",
+        "Sensitive refund and explicit price overrides use verified recent same-account password proof, immutable scoped single-use approvals and current policy at atomic dispatch; no password/JWT enters financial or offline journals, ordinary sales and idempotent recovery remain compatible.",
+        "Optional outgoing-operator password confirmation verifies the current real account and fresh scoped target/policy without opening/closing cash or rewriting financial data; legacy operator settings remain compatible and configuration writes do not require permission to create sales."
       ]
     },
     {
@@ -476,6 +857,7 @@
         "tests/totustpv-connector-qa.php",
         "tests/totustpv-connector-journal-qa.php",
         "tests/totustpv-native-quote-qa.php",
+        "tests/totustpv-native-cart-owner-qa.php",
         "tests/totustpv-php-boundary-qa.mjs"
       ],
       "tests": [
@@ -504,6 +886,180 @@
         "existing consumers and checks cannot disappear silently",
         "isolated fixture server starts without hidden environment preparation",
         "fixture server is closed after success or failure"
+      ]
+    },
+    {
+      "id": "totustpv-offline-new-basket",
+      "paths": [
+        "src/totustpv/offline-basket-commercial.js",
+        "src/totustpv/central-adapter.js",
+        "src/totustpv/workspace.js",
+        "tests/totustpv-offline-new-basket",
+        "tests/totustpv-offline-basket-commercial",
+        "tests/native-lab/offline-sale-browser.mjs",
+        "src/totustpv/offline-workstation-cache.js"
+      ],
+      "tests": [
+        "tests/totustpv-offline-basket-commercial-qa.mjs",
+        "tests/totustpv-offline-new-basket-adapter-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-offline-journal-browser-qa.mjs",
+        "tests/totustpv-offline-prepared-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-offline-workstation-cache-qa.mjs"
+      ],
+      "invariants": [
+        "offline capture retains the original account drawer session and operation identity and never represents a confirmed native order",
+        "only current scoped catalogue micros and recently read allowed payment choices may prepare a local unmodified basket",
+        "native delivery rechecks permissions and compares every captured amount before a single financial dispatch; conflicts cannot silently change collected totals"
+      ]
+    },
+    {
+      "id": "totustpv-menu-links",
+      "paths": [
+        "src/totustpv/menu-links.js",
+        "src/totustpv/workspace.js",
+        "src/totustpv/settings-navigation.js",
+        "src/app.js",
+        "supabase/migrations/20261119000655_totustpv_menu_links.sql",
+        "tests/totustpv-menu-links",
+        "tests/native-lab/menu-links-assertions.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-menu-links-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/module-navigation-browser-qa.mjs"
+      ],
+      "invariants": [
+        "custom links are scoped to the currently authenticated actor connection shop and drawer and cannot modify financial journals",
+        "only validated HTTPS or Central paths without embedded credentials are rendered with escaped labels and no opener ownership",
+        "links open in a separate tab preserving the current ticket and stale save responses cannot populate another account"
+      ]
+    },
+    {
+      "id": "totustpv-return-policy",
+      "paths": [
+        "src/totustpv/return-policy.js",
+        "src/totustpv/server/refund-service.js",
+        "src/totustpv/workspace.js",
+        "src/totustpv/http-client.js",
+        "supabase/functions/totus-tpv/handler.js",
+        "supabase/migrations/20261119001830_totustpv_return_policy.sql"
+      ],
+      "tests": [
+        "tests/totustpv-refund-intent-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "invariants": [
+        "return policy is scoped to the authorized drawer and only an authenticated sales editor may change it",
+        "disabling partial returns requires every native remaining line and quantity before preparation and again before dispatch",
+        "confirmed and uncertain refund recovery preserves the original operation and never repeats a financial command"
+      ]
+    },
+    {
+      "id": "totustpv-tender-summary",
+      "paths": [
+        "src/totustpv/tender-summary.js",
+        "src/totustpv/workspace.js",
+        "tests/native-lab/central-browser-flow.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-tender-summary-qa.mjs",
+        "tests/totustpv-tender-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/totustpv-native-http-qa.mjs"
+      ],
+      "invariants": [
+        "final tender summary displays the verified payable total and separates cash allocated received money change and external amount",
+        "displayed discounts are already included and never deducted twice; existing cashTenderPreview remains the sole tender calculation"
+      ]
+    },
+    {
+      "id": "totustpv-document-signatures",
+      "paths": [
+        "src/totustpv/signature-",
+        "src/totustpv/server/signature-",
+        "supabase/migrations/20261119010349_totustpv_document_signatures.sql",
+        "tests/totustpv-signature-",
+        "tests/native-lab/signature-assertions.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-signature-capture-qa.mjs",
+        "tests/totustpv-signature-options-qa.mjs",
+        "tests/totustpv-signature-pdf-qa.mjs",
+        "tests/totustpv-signature-service-qa.mjs",
+        "tests/totustpv-signature-edge-qa.mjs",
+        "tests/totustpv-signature-capture-browser-qa.mjs",
+        "tests/totustpv-signature-panel-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs"
+      ],
+      "invariants": [
+        "Stored original PDF is immutable and hash verified; signature appends an acknowledgment page without changing issued invoice amounts.",
+        "Scoped authorized signature retries recover the same archive without new sale, payment or native write."
+      ]
+    },
+    {
+      "id": "totustpv-original-refund-payments",
+      "paths": [
+        "src/totustpv/refund-payments.js",
+        "src/totustpv/return-policy.js",
+        "supabase/migrations/20261119021524_totustpv_original_refund_payments.sql",
+        "tests/totustpv-original-refund",
+        "tests/totustpv-refund-payments-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-refund-payments-qa.mjs",
+        "tests/totustpv-refund-intent-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-original-refund-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Mandatory original-payment refunds use verified remaining balances and integer largest remainders, never exceeding a method balance or losing a cent.",
+        "Current drawer policy is checked before preparation and dispatch; already dispatched refunds remain recoverable without a second reintegro."
+      ]
+    },
+    {
+      "id": "totustpv-profile-appearance",
+      "paths": [
+        "src/totustpv/workspace.css",
+        "tests/totustpv-appearance-browser-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-appearance-browser-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Counter inherits the signed-in Central profile appearance without editing shared application styles; reload retains the chosen theme and colors.",
+        "Opening and active-counter tabs stay readable within their touch targets on desktop and mobile, without horizontal overflow."
+      ]
+    },
+    {
+      "id": "totustpv-shared-online-orders",
+      "paths": [
+        "src/header-online-orders.js",
+        "src/header-tools.js",
+        "src/header-order-watch.js",
+        "src/prestashop-automation-core.js",
+        "tests/totustpv-online-orders-browser-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-online-orders-browser-qa.mjs",
+        "tests/header-online-orders-browser-qa.mjs",
+        "tests/header-tools-browser-qa.mjs",
+        "tests/prestashop-automation-qa.mjs",
+        "tests/totustpv-central-browser-qa.mjs"
+      ],
+      "invariants": [
+        "TPV opens the existing authorized online-order bell without another scheduler, settings write or dispatch and preserves its pending ticket.",
+        "Known TotusTPV native module is a physical origin, including legacy header-watch exclusions; payment labels never classify an order.",
+        "Fullscreen exits before showing the shared panel; existing guarded navigation and permission/session cleanup remain in force."
       ]
     }
   ]
