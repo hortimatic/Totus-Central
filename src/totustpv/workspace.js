@@ -244,7 +244,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    <button type="button" class="btn secondary" data-tpv-tender-exact>Importe exacto</button>
    ${cashStyle.denominations.filter(face=>face>=500).map(face=>`<button type="button" class="btn secondary" data-tpv-tender="${face}" aria-label="Entregado ${face/100} euros">${face/100} €</button>`).join('')}
   </div>
-  ${paymentReferenceFields(payment,paymentValues)}<output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Resumen del cobro" aria-live="polite"></output>
+  ${paymentReferenceFields(payment,paymentValues)}<output class="tpv-tender-preview" data-tpv-tender-preview role="status" aria-label="Cambio del cobro" aria-live="polite"></output>
   <label class="tpv-check" data-tpv-card-accept hidden><input type="checkbox" name="cardAccepted" ${paymentValues.cardAccepted==='on'?'checked':''}> ${wording('Acepto el pago externo ficticio','He comprobado que el cobro externo está recibido. TotusTPV registra el cobro; no opera el datáfono ni el banco.')}</label>
   ${!live()?`<label>Simular resultado<select name="scenario">${[['normal','Venta correcta'],['lost-response','Respuesta perdida: recuperar sin repetir'],['rejected','Pago rechazado']].map(([key,label])=>`<option value="${key}" ${paymentValues.scenario===key?'selected':''}>${label}</option>`).join('')}</select></label>`:''}
   <div class="inline-actions">${button('cancel-payment','Volver al ticket')}<button class="btn primary" type="submit">${payment.localEstimate?'Guardar venta en este dispositivo':wording('Confirmar venta de práctica','Confirmar cobro y crear pedido')}</button></div></form>`;}

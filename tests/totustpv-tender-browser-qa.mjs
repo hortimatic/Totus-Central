@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {startLocalServer} from './local-static-server.mjs';
-const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true});
+const server=await startLocalServer({enabled:true,port:0}),browser=await chromium.launch({headless:true});
 try{for(const width of [1440,390]){
  const page=await browser.newPage({viewport:{width,height:950}});
- await page.goto('http://127.0.0.1:4173/tests/totustpv-workspace.html');
+ await page.goto('http://127.0.0.1:'+server.address().port+'/tests/totustpv-workspace.html');
  await page.getByRole('button',{name:'Probar con datos ficticios'}).click();
  await page.getByRole('button',{name:'Abrir caja de práctica',exact:true}).click();
  await page.getByRole('button',{name:/Artículo de práctica/}).click();
