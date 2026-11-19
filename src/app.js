@@ -1,3 +1,4 @@
+import {createOperatorLogin} from './totustpv/operator-login.js';
 import {createPasswordConfirmation} from './totustpv/password-confirmation.js';
 import {installSearchableSelects} from './productos-controls.js';
 import {createRecurringExpensesUI} from './recurring-expenses-ui.js';
@@ -95,7 +96,7 @@ const centralCashUI=createCentralCashUI({actor:()=>state.user?.id,client:tpvClie
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const confirmTpvPassword=options=>createPasswordConfirmation({createClient:(url,key,options)=>window.supabase.createClient(url,key,options),url:TPV_SUPABASE_URL,key:TPV_SUPABASE_KEY,primaryAuth:sb.auth,currentActor:()=>state.user?.id})(options);
-const totusTpvUI=createTpvWorkspace({confirmPassword:confirmTpvPassword,actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
+const totusTpvUI=createTpvWorkspace({prepareOperatorLogin:options=>createOperatorLogin({createClient:(url,key,options)=>window.supabase.createClient(url,key,options),url:TPV_SUPABASE_URL,key:TPV_SUPABASE_KEY,primaryAuth:sb.auth,currentActor:()=>state.user?.id})(options),confirmPassword:confirmTpvPassword,actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
  operatorSettingsStore:async(drawer,settings=null)=>{try{return await rpc('totus_tpv_operator_settings',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings});}catch(error){throw Error(/TPV_OPERATOR_SETTINGS_STALE/.test(error.message)?'La configuración de operadores ha cambiado. Vuelve a consultarla antes de guardar.':/FORBIDDEN/.test(error.message)?'No tienes permiso para configurar los operadores de esta caja.':'No se ha podido consultar o guardar la configuración de operadores. Vuelve a intentarlo.');}},
  readOperatorChoices:drawer=>rpc('totus_tpv_operator_choices',{p_connection:drawer?.connectionId??null,p_shop:drawer?.shopId??null,p_drawer:drawer?.id??null}),
  onChangeOperator:async(target=null)=>{

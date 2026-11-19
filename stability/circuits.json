@@ -815,7 +815,17 @@
         "tests/totustpv-action-approval-edge-qa.mjs",
         "tests/totustpv-sensitive-offline-qa.mjs",
         "tests/totustpv-sensitive-actions-browser-qa.mjs",
-        "tests/totustpv-sensitive-actions-native-qa.mjs"
+        "tests/totustpv-sensitive-actions-native-qa.mjs",
+        "tests/totustpv-operator-switch-edge-qa.mjs",
+        "tests/totustpv-operator-switch-browser-qa.mjs",
+        "tests/totustpv-payment-settings-browser-qa.mjs",
+        "tests/totustpv-operator-switch-adapter-qa.mjs",
+        "tests/totustpv-operator-login-qa.mjs",
+        "tests/totustpv-operator-login-proof-qa.mjs",
+        "tests/totustpv-operator-login-races-qa.mjs",
+        "tests/totustpv-operator-login-sdk-browser-qa.mjs",
+        "tests/totustpv-budget-presentation-qa.mjs",
+        "tests/totustpv-budget-presentation-browser-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -832,7 +842,8 @@
         "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding and keep cart reductions separate; gift documents hide all monetary data by default, with only validated recorded discount amounts allowed by the explicit gift-discount preference, never prices, paid totals, taxes, payments or customer data.",
         "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización.",
         "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo; el regalo oculta grupos, precios, cobros, total pagado y clientes, y sólo presenta descuentos monetarios comprobados con su opción explícita activada.",
-        "Sensitive refund and explicit price overrides use verified recent same-account password proof, immutable scoped single-use approvals and current policy at atomic dispatch; no password/JWT enters financial or offline journals, ordinary sales and idempotent recovery remain compatible."
+        "Sensitive refund and explicit price overrides use verified recent same-account password proof, immutable scoped single-use approvals and current policy at atomic dispatch; no password/JWT enters financial or offline journals, ordinary sales and idempotent recovery remain compatible.",
+        "Optional outgoing-operator password confirmation verifies the current real account and fresh scoped target/policy without opening/closing cash or rewriting financial data; legacy operator settings remain compatible and configuration writes do not require permission to create sales."
       ]
     },
     {

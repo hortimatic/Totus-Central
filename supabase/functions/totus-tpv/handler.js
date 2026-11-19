@@ -1,4 +1,5 @@
 import {verifyPasswordProof} from '../../../src/totustpv/server/password-proof.js';
+import {verifyOperatorLoginProof} from '../../../src/totustpv/server/operator-login-proof.js';
 import {listWebOrders,readWebOrderReceipt,webOrderQuery} from '../../../src/totustpv/server/web-order-receipt.js';
 import {readHistoricalGroupRates} from '../../../src/totustpv/server/receipt-group-rates.js';
 import {createSignatureService} from '../../../src/totustpv/server/signature-service.js';
@@ -89,14 +90,14 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const rawInput=await boundedText(req,6291456),input=JSON.parse(rawInput);
    need(input?.action==='product-intake-prepare'||new TextEncoder().encode(rawInput).byteLength<=65536,'TPV_REQUEST_INVALID');
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
-    ['action-policy','action-approval','offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','access-batch-get','access-batch-save','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','web-orders','web-receipt','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+    ['operator-switch-policy','operator-switch-verify','action-policy','action-approval','offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','access-batch-get','access-batch-save','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','web-orders','web-receipt','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
      'product-categories','product-category-prepare','product-category-get','product-category-step','product-category-cancel',
      'signature-prepare','signature-find','signature-get','signature-sign','signature-cancel','central-cash-context','central-cash-read','billing-context','billing-list','billing-signature','billing-document','budgets','budget-get','budget-create','budget-open','budget-cancel','returnable','prepare-refund','submit-refund','recover-refund','cancel-refund'].includes(input.action),
     'TPV_REQUEST_INVALID');
-   const permitted={'action-policy':['action','selection','operationId','settings'],'action-approval':['action','selection','operationId','targetId','kind','proofJwt'],'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId','operatorAcknowledgement','approvalId'],'offline-recover':['action','selection','operationId','operatorAcknowledgement','approvalId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
+   const permitted={'operator-switch-policy':['action','selection','operationId','settings'],'operator-switch-verify':['action','selection','operationId','targetId','proofJwt'],'action-policy':['action','selection','operationId','settings'],'action-approval':['action','selection','operationId','targetId','kind','proofJwt'],'signature-find':['action','selection','operationId'],'signature-prepare':['action','selection','operationId','saleId'],'signature-get':['action','selection','operationId'],'signature-sign':['action','selection','operationId','originalSha256','ink','accepted'],'signature-cancel':['action','selection','operationId'],'offline-sync':['action','selection','operationId','operatorAcknowledgement','approvalId'],'offline-recover':['action','selection','operationId','operatorAcknowledgement','approvalId'],'offline-receive':['action','selection','operationId','deviceId','ticket'],'offline-get':['action','selection','operationId'],context:['action'],configure:['action','selection','operationId','revision','storeId','operatorId','permissions','confirmQaSetup','paymentMethods'],
     workstations:['action','connectionId','revision'],
     'central-cash-context':['action'],'central-cash-read':['action','selection','section','query'],
     'billing-context':['action'],'billing-list':['action','selection','query'],'billing-signature':['action','selection','operationId'],
@@ -265,7 +266,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     need(row?.connectionId===TOTUS_QA_POLICY.connectionId&&row.environment==='qa'&&row.nativeProfile?.verified===true&&row.nativeProfile.configured===true&&
      row.nativeProfile.native_version==='8.2.8'&&row.nativeProfile.shop_id===row.shopId&&uuid(row.nativeProfile.installation_id),
      'TPV_WORKSTATION_NOT_CONFIGURED');
-    const readWithoutCash=['action-policy','signature-find','signature-get','payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','web-orders','web-receipt','customers','customer-metadata',
+    const readWithoutCash=['operator-switch-policy','operator-switch-verify','action-policy','signature-find','signature-get','payment-options','budgets','budget-get','budget-create','budget-cancel','cash-reports','categories','catalogue','orders','document','web-orders','web-receipt','customers','customer-metadata',
      'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action);
     // SQL checks the historical session against this exact assignment, then
     // permits immutable cash replay before rejecting a new closed-session write.
@@ -277,6 +278,26 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      storeId:row.storeId,shopId:row.shopId,drawerId:row.drawerId,sessionId,currency:row.nativeProfile.currency,environment:'qa'}};
    }
    const {row,scope}=await selected(),admin=factory(url,secret,options),rpc=(name,args)=>admin.rpc(name,args);
+   if(input.action==='operator-switch-policy')return respond(check(await scoped.rpc('totus_tpv_operator_switch_policy',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_settings:input.settings??null})));
+   if(input.action==='operator-switch-verify'){
+    need(input.targetId===null||uuid(input.targetId),'TPV_OPERATOR_SWITCH_INVALID');
+    async function snapshot(){
+     const fresh=await selected();need(Object.keys(scope).every(key=>scope[key]===fresh.scope[key]),'TPV_CONTEXT_STALE');
+     const args={p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId},choices=check(await scoped.rpc('totus_tpv_operator_choices',args)),rules=check(await scoped.rpc('totus_tpv_operator_switch_policy',{...args,p_settings:null}));
+     need(choices?.actorId===user.id&&choices.enabled!==false&&Array.isArray(choices.items),'TPV_OPERATOR_SWITCH_DISABLED');
+     need(typeof rules?.requireBeforeSwitch==='boolean'&&Number.isSafeInteger(rules.revision)&&rules.revision>=0,'TPV_OPERATOR_SETTINGS_INVALID');
+     const target=input.targetId===null?null:choices.items.find(row=>row.operatorId===input.targetId);
+     need(input.targetId===null||target&&typeof target.name==='string'&&typeof target.loginEmail==='string','TPV_OPERATOR_SWITCH_TARGET_CHANGED');
+     return {rules,target:target?{operatorId:target.operatorId,name:target.name,loginEmail:target.loginEmail}:null};
+    }
+    const initial=await snapshot();
+    if(initial.rules.requireBeforeSwitch&&initial.target){
+     const proof=await verifyOperatorLoginProof({authenticate:token=>factory(url,key,options).auth.getUser(token),primaryToken:bearer,proofToken:input.proofJwt,actorId:user.id,targetId:initial.target.operatorId,authUrl:url});
+     need(check(await rpc('totus_tpv_operator_switch_proof',{p_actor:initial.target.operatorId,p_proof:proof}))===true,'TPV_REAUTH_REQUIRED');
+    }
+    const latest=await snapshot();need(latest.rules.revision===initial.rules.revision&&latest.rules.requireBeforeSwitch===initial.rules.requireBeforeSwitch,'TPV_OPERATOR_SETTINGS_STALE');
+    return respond({verified:true,requestId:input.operationId,actorId:user.id,drawerId:scope.drawerId,policyRevision:latest.rules.revision,requiresPassword:latest.rules.requireBeforeSwitch,target:latest.target});
+   }
    if(input.action==='action-policy')return respond(check(await scoped.rpc('totus_tpv_sensitive_settings',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_settings:input.settings??null})));
    if(input.action==='action-approval'){
     need(uuid(input.targetId)&&['refund','price'].includes(input.kind),'TPV_APPROVAL_INVALID');

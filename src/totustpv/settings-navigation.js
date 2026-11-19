@@ -7,7 +7,7 @@ export function mountSettingsNavigation(host) {
   const label=node.querySelector(':scope > legend')?.textContent.trim();
   if(label)sections.push({node,label});
  }
- for(const selector of ['.tpv-receipt-preview','.tpv-receipt-series','.tpv-menu-links','.tpv-return-policy','.tpv-cash-visibility','.tpv-operator-settings','.tpv-signature-settings','.tpv-order-notices','.tpv-settings-admin','.tpv-settings:has([data-tpv-form="payment-settings"])']){
+ for(const selector of ['.tpv-receipt-preview','.tpv-receipt-series','.tpv-menu-links','.tpv-return-policy','.tpv-cash-visibility','.tpv-operator-settings','.tpv-sensitive-settings','.tpv-operator-auth-settings','.tpv-signature-settings','.tpv-order-notices','.tpv-settings-admin','.tpv-settings:has([data-tpv-form="payment-settings"])']){
   const node=host.querySelector(selector),label=node?.querySelector('h3,h4,legend')?.textContent.trim();
   if(node&&label)sections.push({node,label});
  }

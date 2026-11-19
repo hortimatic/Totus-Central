@@ -1,3 +1,4 @@
+import {operatorSwitchPolicy,operatorSwitchPolicyHtml} from './operator-switch-policy.js';
 import {sensitiveSettings,sensitiveSettingsHtml,createPasswordPrompt} from './sensitive-actions.js';
 import {loadGiftReceipt} from './gift-discounts.js';
 import {operatorSettings,operatorSettingsHtml} from './operator-settings.js';
@@ -60,8 +61,9 @@ const paymentLabel=method=>({cash:'Efectivo',card:'Tarjeta',bizum:'Bizum',transf
  * No code in this browser module can import the privileged checkout adapters.
  */
 export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
- confirmPassword=null,onConfigure=null,canConfigure=()=>false,onChangeOperator=null,readOperatorChoices=null,onOnlineOrders=null,canOnlineOrders=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
+ confirmPassword=null,prepareOperatorLogin=null,onConfigure=null,canConfigure=()=>false,onChangeOperator=null,readOperatorChoices=null,onOnlineOrders=null,canOnlineOrders=()=>false,onBilling=null,canBilling=()=>false,onCash=null,canCentralCash=()=>false,readSetup=null,createLiveAdapter=null,
  readConfiguration=null,configureWorkstation=null,cashVisibilityStore=null,operatorSettingsStore=null,drawerManagement=()=>null,workspacePreferences=null,receiptNumbering=null,menuLinksStore=null,returnPolicyStore=null,canReturnPolicy=()=>false,signaturePolicyStore=null,canSignatureSettings=()=>false,canAssign=()=>false,canCustomer=()=>false,canStock=()=>false,canCreateProduct=()=>false,canReadCost=()=>false,autoOpen=false}={}) {
+ let operatorAuthRules=operatorSwitchPolicy();
  let sensitiveRules=sensitiveSettings();const passwordPrompt=createPasswordPrompt();
  let operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false};
  let cashVisibilityRules={hideSummary:false};
@@ -138,6 +140,25 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(result.operationId!==operationId||result.kind!==kind||typeof result.approvalId!=='string'||!Number.isSafeInteger(result.expiresAt)||result.expiresAt<=Date.now())throw Error('La confirmación ha caducado. Vuelve a confirmar tu cuenta.');
   return result.approvalId;
  }
+ async function verifyOperatorHandoff(target){
+  if(!live()||!adapter.verifyOperatorSwitch)return target;
+  const run=generation,owner=identity(),drawerId=session?.drawerId||selectedDrawer,requestId=crypto.randomUUID(),targetId=target?.operatorId??null;
+  const current=()=>run===generation&&owner===identity()&&!!host&&allowed()&&(session?.drawerId||selectedDrawer)===drawerId;
+  operatorAuthRules=operatorSwitchPolicy(await adapter.operatorSwitchPolicy());if(!current())return false;
+  const verify=proofJwt=>{if(!current())throw Error('La sesión ha cambiado.');return adapter.verifyOperatorSwitch({requestId,targetId,...(proofJwt?{proofJwt}:{})});};
+  let result,transfer;
+  if(operatorAuthRules.requireBeforeSwitch&&targetId){
+   if(!prepareOperatorLogin)throw Error('No se puede iniciar la cuenta seleccionada desde este puesto. Tu sesión sigue abierta.');
+   transfer=await passwordPrompt.request({account:target.name||target.loginEmail,purpose:'el acceso del operador',description:'Introduce la contraseña de la cuenta seleccionada. Cancelar mantiene tu sesión abierta.',isCurrent:current,disposeResult:value=>value?.cancel(),confirm:password=>prepareOperatorLogin({target,password,verify,isCurrent:current})});
+   if(!transfer)return false;
+   result=transfer.verification;
+  }else result=await verify();
+  if(!result||!current()){await transfer?.cancel();return false;}
+  if(result.verified!==true||result.requestId!==requestId||result.actorId!==owner||result.drawerId!==drawerId||typeof result.requiresPassword!=='boolean'||!Number.isSafeInteger(result.policyRevision)||result.policyRevision<0||((result.target?.operatorId??null)!==targetId)){await transfer?.cancel();throw Error('No se ha podido comprobar el cambio de operador. Tu sesión sigue abierta.');}
+  operatorAuthRules={requireBeforeSwitch:result.requiresPassword,revision:result.policyRevision};
+  if(transfer){try{await transfer.adopt();}finally{await transfer.cancel();}return false;}
+  return result.target??{loginEmail:'',name:''};
+ }
  function contextBar(){const storeId=session?.storeId||selectedStore||context.stores[0]?.id;
   const drawers=context.drawers.filter(d=>d.storeId===storeId);
   return `<div class="tpv-context"><label>Tienda<select data-tpv-store ${session?'disabled':''}>
@@ -184,7 +205,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   host.querySelector('.tpv-actions')?.addEventListener('toggle',fitActionsMenu);
   if(!busy&&tab==='history'&&focusOrderLookup){const field=host.querySelector('[data-tpv-order-search] [name=orderId]');if(field){field.focus();field.select();focusOrderLookup=false;}}
  }
- function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?displayPreferencesFromForm(new Map(Object.entries(formValues.preferences))):displayOptions)}</fieldset>${searchPreferencesHtml(formValues.preferences?searchSettingsDraft():searchOptions)}${cataloguePreferencesHtml(formValues.preferences?cataloguePreferencesFromForm(new Map(Object.entries(formValues.preferences))):catalogueOptions,categories)}${lineOptionsHtml(formValues.preferences?lineOptionsFromForm(new Map(Object.entries(formValues.preferences))):priceRules,can('edit'))}${parkingOptionsHtml(formValues.preferences&&canSell()?parkingOptionsFromForm(new Map(Object.entries(formValues.preferences))):parkingRules,canSell())}${stockPolicyHtml(formValues.preferences&&canSell()?stockPolicyFromForm(new Map(Object.entries(formValues.preferences))):stockRules,canSell())}${receiptOptionsHtml(receiptSettingsDraft())}${cashOptionsHtml(cashSettingsDraft())}${customerDisplayOptionsHtml(formValues.preferences?customerDisplayOptionsFromForm(new Map(Object.entries(formValues.preferences))):customerScreenOptions)}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div><details data-tpv-gift-preview-shell ${receiptSettingsDraft().showGiftDiscounts?'open':''}><summary>Vista previa del ticket regalo</summary><div data-tpv-gift-preview>${giftReceiptPreviewHtml(receiptSettingsDraft())}</div></details></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p><button class="btn primary" type="submit">Guardar mostrador</button></form>${numbering?receiptSeriesHtml(numbering,can('edit'),formValues['receipt-series']):''}${menuLinksStore?menuLinksHtml(customMenuLinks,formValues['menu-links']):''}${operatorSettingsStore?operatorSettingsHtml(operatorRules,canAssign(),formValues['operator-settings']):''}${adapter?.actionPolicy?sensitiveSettingsHtml(sensitiveRules,canAssign(),formValues['sensitive-settings']):''}${cashVisibilityStore?cashVisibilityHtml(cashVisibilityRules,canAssign(),formValues['cash-visibility']):''}${returnPolicyStore?returnPolicyHtml(returnRules,canReturnPolicy(),formValues['return-policy']):''}${signaturePolicyStore?signatureOptionsHtml(signatureRules,canSignatureSettings(),formValues['signature-policy']):''}${onOnlineOrders&&canOnlineOrders()?`<section class="tpv-order-notices"><h4>Avisos de pedidos online</h4><p>Consulta los avisos y la detección automática de Central. Puedes revisar un aviso sin perder el ticket que estás preparando.</p>${button('online-orders','Abrir avisos de pedidos')}</section>`:''}${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
+ function settingsHtml(){const draftView=formValues.preferences?.viewMode||catalogueView,draftCategory=Number(formValues.preferences?.initialCategoryId??initialCategoryId);return `<section class="card card-pad tpv-settings"><h3>Configuración de TotusTPV</h3><form data-tpv-form="preferences"><h4>Mostrador · tu cuenta y esta caja</h4><label>Vista al iniciar<select name="viewMode">${[['grid','Fotos'],['compact','Compacta'],['list','Lista'],['table','Tabla']].map(([id,label])=>`<option value="${id}" ${id===draftView?'selected':''}>${label}</option>`).join('')}</select></label><label>Categoría al iniciar<select name="initialCategoryId"><option value="0">Todas las categorías</option>${categories.map(c=>`<option value="${c.id}" ${c.id===draftCategory?'selected':''}>${esc(c.label)}</option>`).join('')}</select></label><fieldset><legend>Artículos y ticket</legend>${displayPreferencesHtml(formValues.preferences?displayPreferencesFromForm(new Map(Object.entries(formValues.preferences))):displayOptions)}</fieldset>${searchPreferencesHtml(formValues.preferences?searchSettingsDraft():searchOptions)}${cataloguePreferencesHtml(formValues.preferences?cataloguePreferencesFromForm(new Map(Object.entries(formValues.preferences))):catalogueOptions,categories)}${lineOptionsHtml(formValues.preferences?lineOptionsFromForm(new Map(Object.entries(formValues.preferences))):priceRules,can('edit'))}${parkingOptionsHtml(formValues.preferences&&canSell()?parkingOptionsFromForm(new Map(Object.entries(formValues.preferences))):parkingRules,canSell())}${stockPolicyHtml(formValues.preferences&&canSell()?stockPolicyFromForm(new Map(Object.entries(formValues.preferences))):stockRules,canSell())}${receiptOptionsHtml(receiptSettingsDraft())}${cashOptionsHtml(cashSettingsDraft())}${customerDisplayOptionsHtml(formValues.preferences?customerDisplayOptionsFromForm(new Map(Object.entries(formValues.preferences))):customerScreenOptions)}<section class="tpv-receipt-preview" aria-label="Vista previa del justificante"><h4>Vista previa</h4><div data-tpv-receipt-preview>${receiptPreviewHtml(receiptSettingsDraft())}</div><details data-tpv-gift-preview-shell ${receiptSettingsDraft().showGiftDiscounts?'open':''}><summary>Vista previa del ticket regalo</summary><div data-tpv-gift-preview>${giftReceiptPreviewHtml(receiptSettingsDraft())}</div></details></section><p class="small muted">Se guarda en tu cuenta de Central y se recupera en otros ordenadores. Las columnas de la vista Tabla se configuran desde su propio botón Columnas.</p><button class="btn primary" type="submit">Guardar mostrador</button></form>${numbering?receiptSeriesHtml(numbering,can('edit'),formValues['receipt-series']):''}${menuLinksStore?menuLinksHtml(customMenuLinks,formValues['menu-links']):''}${operatorSettingsStore?operatorSettingsHtml(operatorRules,canAssign(),formValues['operator-settings']):''}${adapter?.actionPolicy?sensitiveSettingsHtml(sensitiveRules,canAssign(),formValues['sensitive-settings']):''}${adapter?.operatorSwitchPolicy?operatorSwitchPolicyHtml(operatorAuthRules,canAssign(),formValues['operator-auth-settings']):''}${cashVisibilityStore?cashVisibilityHtml(cashVisibilityRules,canAssign(),formValues['cash-visibility']):''}${returnPolicyStore?returnPolicyHtml(returnRules,canReturnPolicy(),formValues['return-policy']):''}${signaturePolicyStore?signatureOptionsHtml(signatureRules,canSignatureSettings(),formValues['signature-policy']):''}${onOnlineOrders&&canOnlineOrders()?`<section class="tpv-order-notices"><h4>Avisos de pedidos online</h4><p>Consulta los avisos y la detección automática de Central. Puedes revisar un aviso sin perder el ticket que estás preparando.</p>${button('online-orders','Abrir avisos de pedidos')}</section>`:''}${canAssign()&&readConfiguration?`<div class="tpv-settings-admin"><h4>Puestos y operadores</h4><p>Asigna establecimientos, cajas y medios de cobro a los usuarios de Central.</p>${button('assign','Configurar puesto y operadores')}</div>`:''}</section>`;}
  function effectiveReceiptStyle(){return {...receiptStyle,showTaxBreakdown:displayOptions.showTaxBreakdown};}
  function receiptSettingsDraft(){return {...(formValues.preferences?receiptOptionsFromForm(new Map(Object.entries(formValues.preferences))):receiptStyle),showTaxBreakdown:formValues.preferences?formValues.preferences.showTaxBreakdown==='on':displayOptions.showTaxBreakdown};}
  function cashSettingsDraft(){const selected=formValues.preferences?.cashDenominations;return selected===undefined?cashStyle:{denominations:(Array.isArray(selected)?selected:[selected]).map(Number)};}
@@ -450,7 +471,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(hasDraft())throw Error('Antes de cambiar de operador, termina o aparca el ticket y guarda o cancela los cambios pendientes. Los cobros enviados deben recuperarse antes de salir.');
    if(readOperatorChoices){
     const run=generation,owner=identity(),drawer=live()?context?.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer)):undefined;let items=[],unavailable=false,enabled=true;
-    try{const data=await readOperatorChoices(drawer);if(run!==generation||owner!==identity()||!host)return;guard();const availability=operatorAvailability(data,owner);items=availability.items;enabled=availability.enabled;}catch{if(run!==generation||owner!==identity()||!host)return;unavailable=true;}
+    try{const data=await readOperatorChoices(drawer);if(run!==generation||owner!==identity()||!host)return;guard();const availability=operatorAvailability(data,owner);items=availability.items.filter(row=>row.operatorId!==owner);enabled=availability.enabled;}catch{if(run!==generation||owner!==identity()||!host)return;unavailable=true;}
     if(!enabled){operatorRules={...operatorRules,switchEnabled:false};throw Error('El cambio de operador está desactivado en este puesto. Una persona autorizada puede revisarlo en Configuración.');}
     let selected=await operatorPicker.choose({items,unavailable});if(!selected||run!==generation||owner!==identity()||!host)return;
     if(!unavailable){
@@ -459,12 +480,13 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
      if(!fresh.enabled){operatorRules={...operatorRules,switchEnabled:false};throw Error('El cambio de operador está desactivado en este puesto. Una persona autorizada puede revisarlo en Configuración.');}
      if(selected.operatorId){const verified=fresh.items.find(r=>r.operatorId===selected.operatorId&&r.loginEmail===selected.loginEmail);if(!verified)throw Error('El acceso de esa persona ha cambiado. Vuelve a elegir un operador.');selected=verified;}
     }
-    guard();await onChangeOperator(selected);return;
+    const verified=await verifyOperatorHandoff(selected);if(verified===false)return;guard();await onChangeOperator(verified);return;
    }
    if(!await askCurrent('Se cerrará tu sesión de Central en este equipo. La caja seguirá abierta y la siguiente persona entrará con su propia cuenta y sus permisos. ¿Cambiar de operador?',{acceptLabel:'Cerrar sesión y cambiar'}))return;
-   guard();await onChangeOperator();
+   const verified=await verifyOperatorHandoff();if(verified===false)return;guard();await onChangeOperator(verified);
   });
   if(action==='refresh-sensitive-settings'&&live()&&adapter.actionPolicy)return work(async()=>{sensitiveRules=sensitiveSettings(await adapter.actionPolicy());delete formValues['sensitive-settings'];formDirty=Object.keys(formValues).length>0;notice='Confirmaciones de cuenta actualizadas.';});
+  if(action==='refresh-operator-auth'&&live()&&adapter.operatorSwitchPolicy)return work(async()=>{if(formValues['operator-auth-settings']&&!await askCurrent('¿Descartar los cambios de contraseña del cambio de operador?',{acceptLabel:'Volver a consultar'}))return;operatorAuthRules=operatorSwitchPolicy(await adapter.operatorSwitchPolicy());delete formValues['operator-auth-settings'];formDirty=Object.keys(formValues).length>0;notice='Confirmación del cambio de operador actualizada.';});
   if(action==='refresh-operator-settings'&&live()&&operatorSettingsStore)return work(async()=>{
    if(formValues['operator-settings']&&!await askCurrent('¿Descartar los cambios de operadores sin guardar?',{acceptLabel:'Volver a consultar'}))return;
    const run=generation,owner=identity(),drawer=context.drawers.find(d=>d.id===(session?.drawerId||selectedDrawer));const observed=operatorSettings(await operatorSettingsStore(drawer));
@@ -728,12 +750,13 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const saved=workspacePreferences&&drawer?await workspacePreferences(drawer):null;ensureCurrent();
   const loadedNumbering=receiptNumbering&&drawer?receiptSeries(await receiptNumbering(drawer)):null;ensureCurrent();
   const loadedLinks=menuLinksStore&&drawer?normalizeMenuLinks(await menuLinksStore(drawer)):[];ensureCurrent();
+  const loadedOperatorAuth=source.operatorSwitchPolicy?operatorSwitchPolicy(await source.operatorSwitchPolicy()):operatorSwitchPolicy();ensureCurrent();
   const loadedSensitive=source.actionPolicy?sensitiveSettings(await source.actionPolicy()):sensitiveSettings();ensureCurrent();
   const loadedOperators=operatorSettingsStore&&drawer?operatorSettings(await operatorSettingsStore(drawer)):{switchEnabled:true,revision:0};ensureCurrent();
   const loadedVisibility=cashVisibilityStore&&drawer?cashVisibility(await cashVisibilityStore(drawer)):{hideSummary:false};ensureCurrent();
   const loadedReturns=returnPolicyStore&&drawer?returnPolicy(await returnPolicyStore(drawer)):{allowPartial:true};ensureCurrent();
   const loadedSignature=signaturePolicyStore&&drawer?signatureOptions(await signaturePolicyStore(drawer)):signatureOptions();ensureCurrent();
-  operatorRules=loadedOperators;sensitiveRules=loadedSensitive;cashVisibilityRules=loadedVisibility;signatureRules=loadedSignature;returnRules=loadedReturns;drawerPayments=payments;categories=loadedCategories;numbering=loadedNumbering;customMenuLinks=loadedLinks;
+  operatorRules=loadedOperators;operatorAuthRules=loadedOperatorAuth;sensitiveRules=loadedSensitive;cashVisibilityRules=loadedVisibility;signatureRules=loadedSignature;returnRules=loadedReturns;drawerPayments=payments;categories=loadedCategories;numbering=loadedNumbering;customMenuLinks=loadedLinks;
   displayOptions=displayPreferences(saved?.display);searchOptions=searchPreferences(saved?.search);includeDisabledStock=searchOptions.includeDisabledStock;catalogueOptions=cataloguePreferences(saved?.catalogue);stockRules=stockPolicy(saved?.stockPolicy);priceRules=lineOptions(saved?.lineOptions);parkingRules=parkingOptions(saved?.parking);
   receiptStyle=receiptOptions(saved?.receipt);
   cashStyle=cashOptions(saved?.cash);
@@ -790,7 +813,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    event.preventDefault();if(!busy)return work(()=>productIntake.prepare());return;}
   const form=event.target.closest('[data-tpv-form]');if(!form||!host.contains(form))return;event.preventDefault();
   if(busy)return;const formKind=form.dataset.tpvForm;
-  if(!['preferences','configure','receipt-series','menu-links','return-policy','signature-policy','cash-visibility','operator-settings'].includes(formKind)&&!(['open','movement','close'].includes(formKind)?canManageCash():canSell()))return;
+  if(!['preferences','configure','receipt-series','menu-links','return-policy','signature-policy','cash-visibility','operator-settings','sensitive-settings','operator-auth-settings','payment-settings'].includes(formKind)&&!(['open','movement','close'].includes(formKind)?canManageCash():canSell()))return;
   // Capture form values before work() redraws and disables controls.
   const fields=new FormData(form),kind=form.dataset.tpvForm,storeId=host.querySelector('[data-tpv-store]')?.value,
    drawerId=host.querySelector('[data-tpv-drawer]')?.value;
@@ -822,6 +845,10 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
     if(run!==generation||owner!==identity()||!host)throw Error('La sesión ha cambiado. Vuelve a consultar la configuración.');
     if(JSON.stringify(observed)!==JSON.stringify(settings))throw Error('No se ha confirmado la configuración de firma. Conserva el formulario y vuelve a consultarla.');
     signatureRules=observed;notice='Configuración de firma guardada para esta caja.';
+   }else if(kind==='operator-auth-settings'){
+    if(!live()||!adapter.operatorSwitchPolicy||!canAssign())throw Error('No tienes permiso para configurar el cambio de operador.');
+    operatorAuthRules=operatorSwitchPolicy(await adapter.operatorSwitchPolicy({requireBeforeSwitch:fields.get('requireBeforeSwitch')==='on',expectedRevision:operatorAuthRules.revision}));
+    delete formValues['operator-auth-settings'];formDirty=Object.keys(formValues).length>0;notice='Contraseña del cambio de operador guardada para esta caja.';
    }else if(kind==='sensitive-settings'){
     if(!live()||!adapter.actionPolicy||!canAssign())throw Error('No tienes permiso para configurar las confirmaciones de esta caja.');
     sensitiveRules=sensitiveSettings(await adapter.actionPolicy({requireRefund:fields.get('requireRefund')==='on',requirePrice:fields.get('requirePrice')==='on',expectedRevision:sensitiveRules.revision}));

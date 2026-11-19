@@ -90,7 +90,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   need(activeDraft.status==='claimed'&&activeDraft.mine&&activeDraft.sessionId===session.id,'El borrador ha cambiado. Consulta de nuevo los tickets aparcados.');
  }
  async function call(action,values={},id){let result;try{result=await invoke({action,...(action==='context'?{}:{selection:selection(),operationId:id||uuid()}),...values});}
-  catch(error){if(/FORBIDDEN|PERMISSION|AUTH_REQUIRED|CONTEXT_STALE|CONNECTION_STALE/.test(error?.code||error?.message||'')){offlineAccessDenied=true;cachedPaymentOptions=null;try{workstationCache.revoke();}catch{}}throw error;}
+  catch(error){const denial=error?.code||error?.message||'';if(denial!=='TPV_REAUTH_REQUIRED'&&/FORBIDDEN|PERMISSION|AUTH_REQUIRED|CONTEXT_STALE|CONNECTION_STALE/.test(denial)){offlineAccessDenied=true;cachedPaymentOptions=null;try{workstationCache.revoke();}catch{}}throw error;}
   const draft=value=>({...value,...parkingExpiry(value)});
   if(action==='drafts'){need(Array.isArray(result),'No se han podido consultar los tickets aparcados.');return result.map(draft);}
   return ['get-draft','park','claim-draft','release-draft','archive-draft'].includes(action)?draft(result):result;}
@@ -382,6 +382,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(reference===undefined||typeof reference==='string'&&/^[A-Za-z0-9-]{1,10}$/.test(reference),'Escribe una referencia válida.');
    need(orderId===undefined||reference===undefined,'Busca por número o por referencia.');
    return (await call('orders',reference!==undefined?{reference:reference.toUpperCase()}:orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
+  async operatorSwitchPolicy(settings){return call('operator-switch-policy',settings===undefined?{}:{settings});},
+  async verifyOperatorSwitch({requestId,targetId,proofJwt}){return call('operator-switch-verify',{targetId,...(proofJwt?{proofJwt}:{})},requestId);},
   async actionPolicy(settings){return call('action-policy',settings===undefined?{}:{settings});},
   async approveAction({requestId,targetId,kind,proofJwt}){return call('action-approval',{targetId,kind,proofJwt},requestId);},
   async webOrders(query={}){const rows=await call('web-orders',{query});need(Array.isArray(rows),'No se pudieron consultar los pedidos de la web.');return rows;},

@@ -1,4 +1,9 @@
 const messages={
+ TPV_OPERATOR_SWITCH_INVALID:'Vuelve a elegir quién va a continuar.',
+ TPV_OPERATOR_SWITCH_DISABLED:'El cambio de operador está desactivado en este puesto.',
+ TPV_OPERATOR_SWITCH_TARGET_CHANGED:'El acceso de esa persona ha cambiado. Vuelve a elegir un operador.',
+ TPV_OPERATOR_SETTINGS_STALE:'La configuración de operadores ha cambiado. Vuelve a consultarla.',
+
  TPV_REAUTH_REQUIRED:'Confirma tu cuenta de nuevo para autorizar esta operación.',
  TPV_ACTION_APPROVAL_REQUIRED:'Esta operación necesita una confirmación de cuenta actualizada. El ticket se conserva.',
  TPV_APPROVAL_INVALID:'Vuelve a abrir la confirmación de esta operación.',

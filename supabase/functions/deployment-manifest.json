@@ -239,7 +239,8 @@
         "supabase/functions/totus-connections/prestashop.js",
         "supabase/functions/totus-connections/transport.js",
         "supabase/functions/totus-tpv/handler.js",
-        "supabase/functions/totus-tpv/index.ts"
+        "supabase/functions/totus-tpv/index.ts",
+        "src/totustpv/server/operator-login-proof.js"
       ]
     }
   ]

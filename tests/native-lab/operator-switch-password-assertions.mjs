@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+export async function exerciseOperatorSwitchPassword({db,id,scope}){
+ await db.exec('reset role');const drawer=id(12800),person=id(9531);
+ await db.query('insert into public.ops_cash_drawers(id,store_id,active,name) values($1,$2,true,$3)',[drawer,scope.storeId,'Caja contraseña de operador']);
+ await db.query('insert into private.totus_tpv_assignments select environment,actor_id,connection_id,website_key,store_id,shop_id,$1,can_sell,can_reconcile,can_open,active from private.totus_tpv_assignments where actor_id=$2 and connection_id=$3 and drawer_id=$4',[drawer,scope.actorId,scope.connectionId,scope.drawerId]);
+ await db.query('insert into private.totus_tpv_assignments select environment,$1,connection_id,website_key,store_id,shop_id,drawer_id,false,true,false,active from private.totus_tpv_assignments where actor_id=$2 and drawer_id=$3',[person,scope.actorId,drawer]);
+ const snapshot=async()=>{await db.exec('reset role');const names=['totus_tpv_operations','totus_tpv_sessions','totus_tpv_cash_movements','totus_tpv_refunds','totus_tpv_payment_events'];return Object.fromEntries(await Promise.all(names.map(async name=>[name,(await db.query('select to_jsonb(t) data from private.'+name+' t order by to_jsonb(t)::text')).rows])));};const before=await snapshot();
+ const role=async name=>db.exec('reset role;set role '+name),auth=async who=>{await role('authenticated');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[who]);};
+ const settings=async(value=null,target=drawer)=>(await db.query('select public.totus_tpv_operator_switch_policy($1,$2,$3,$4::jsonb) result',[scope.connectionId,scope.shopId,target,value===null?null:JSON.stringify(value)])).rows[0].result;
+ const legacy=async(value=null)=>(await db.query('select public.totus_tpv_operator_settings($1,$2,$3,$4::jsonb) result',[scope.connectionId,scope.shopId,drawer,value===null?null:JSON.stringify(value)])).rows[0].result;
+ await auth(scope.actorId);assert.deepEqual(await settings(),{requireBeforeSwitch:false,revision:0});
+ assert.deepEqual(await settings({requireBeforeSwitch:true,expectedRevision:0}),{requireBeforeSwitch:true,revision:1});
+ assert.deepEqual(await legacy(),{switchEnabled:true,requireAtCheckout:false,revision:0},'Legacy strict response does not gain an unexpected key');
+ assert.equal((await legacy({switchEnabled:false,requireAtCheckout:true,expectedRevision:0})).revision,1);
+ assert.deepEqual(await settings(),{requireBeforeSwitch:true,revision:1},'Old writes preserve the new option');
+ assert.equal((await settings({requireBeforeSwitch:true,expectedRevision:0})).revision,1,'Lost reply retry keeps exact intent');
+ await assert.rejects(settings({requireBeforeSwitch:false,expectedRevision:0}),/STALE/);
+ for(const bad of [{requireBeforeSwitch:'true',expectedRevision:2},{requireBeforeSwitch:false,expectedRevision:'2'},{requireBeforeSwitch:false,expectedRevision:2,actorId:scope.actorId},{}])await assert.rejects(settings(bad),/INVALID/);
+ await assert.rejects(settings(null,id(12801)),/TPV_/);
+ await auth(person);assert.deepEqual(await settings(),{requireBeforeSwitch:true,revision:1});await assert.rejects(settings({requireBeforeSwitch:false,expectedRevision:1}),/FORBIDDEN/);
+ await assert.rejects(db.query('select * from private.totus_tpv_operator_settings'),/permission denied/);
+ await auth(scope.actorId);assert.deepEqual(await settings({requireBeforeSwitch:false,expectedRevision:1}),{requireBeforeSwitch:false,revision:2});assert.equal((await legacy()).requireAtCheckout,true);assert.equal((await legacy()).switchEnabled,false);
+ const time=Math.floor(Date.now()/1000),proof={actorId:person,proofSessionId:id(12802),passwordAt:time,expiresAt:time+110};
+ const verify=async value=>(await db.query('select public.totus_tpv_operator_switch_proof($1,$2::jsonb) result',[person,JSON.stringify(value)])).rows[0].result;
+ await assert.rejects(verify(proof),/permission denied/);await role('postgres');await db.query('insert into auth.sessions(id,user_id) values($1,$2)',[proof.proofSessionId,person]);await role('service_role');assert.equal(await verify(proof),true);
+ for(const bad of [{...proof,actorId:scope.actorId},{...proof,passwordAt:time-121},{...proof,expiresAt:time},{...proof,proofSessionId:id(12803)},{...proof,token:'not permitted'}])await assert.rejects(verify(bad),/TPV_REAUTH_REQUIRED/);
+ await role('postgres');await db.query('delete from auth.sessions where id=$1',[proof.proofSessionId]);await role('service_role');await assert.rejects(verify(proof),/TPV_REAUTH_REQUIRED/);
+ await assert.rejects(settings(),/permission denied/);await role('anon');await assert.rejects(settings(),/permission denied/);await assert.rejects(verify(proof),/permission denied/);
+ assert.deepEqual(await snapshot(),before,'Settings and handoff proof checks must not mutate any financial journal or cash session');
+ console.log('PASS operator switch password SQL: scoped optional default, manager/independent revision, strict legacy response preserved, old-client writes retain the new flag, stale/forged and read-only writes denied, fresh Auth session proof only service-side, expired/foreign/closed proof rejected and all financial rows unchanged. Isolated SQL only.');
+}

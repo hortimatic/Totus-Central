@@ -10,10 +10,12 @@ try{
   window.paymentBoxes=[crypto.randomUUID(),crypto.randomUUID()];window.paymentSaved=[];window.paymentConfirm=false;window.paymentPrompts=[];
   const rows=paymentBoxes.map((id,index)=>({environment:'qa',connectionId:connection,connectionRevision:1,storeId:store,storeName:'Tienda ficticia',drawerId:id,drawerName:'Caja '+(index+1),shopId:1,session:null,canSell:true,canOpen:true,canReconcile:true}));
   const saved=Object.fromEntries(paymentBoxes.map((id,index)=>[id,{revision:0,options:{enabledMethods:['cash','card'],labels:{cash:'Efectivo caja '+(index+1),card:'Tarjeta'}}}]));
-  window.paymentWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true,full_name:'Operador ficticio'}),can:()=>true,canAssign:()=>true,autoOpen:true,
+  window.paymentWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true,full_name:'Operador ficticio'}),can:action=>action!=='create',canAssign:()=>true,autoOpen:true,
    confirm:async message=>{paymentPrompts.push(message);return paymentConfirm;},createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async input=>{
     if(input.action==='context')return {actorId:actor,workstations:rows};
     if(input.action==='categories')return {categories:[],has_more:false};
+    if(input.action==='action-policy')return {requireRefund:false,requirePrice:false,revision:0};
+    if(input.action==='operator-switch-policy')return {requireBeforeSwitch:false,revision:0};
     if(input.action==='payment-options'){const id=input.selection.drawerId;if(input.settings){paymentSaved.push({id,settings:input.settings});saved[id]={revision:saved[id].revision+1,options:input.settings};}return structuredClone(saved[id]);}
     throw Error('Unexpected fixture action '+input.action);
    }})});paymentWorkspace.mount(document.querySelector('#tpv'));
