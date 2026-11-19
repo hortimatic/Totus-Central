@@ -9,6 +9,7 @@ function fixture({denied=false,badAuth=false,revision=7}={}){
   auth:{getUser:async()=>badAuth?{error:{message:'Denied'}}:{data:{user:{id:actor,user_metadata:{actorId:operator}}}}},
   rpc:async(name,args)=>{calls.push({name,args,key});
    if(name==='totus_api_manager')return denied?{error:{message:'TPV_CONFIGURATION_FORBIDDEN'}}:{data:{connections:[{id:connection,revision}]}};
+   if(name==='totus_tpv_workstation_access_batch')return {data:args.p_data?{id:args.p_request_id,connectionId:connection,confirmed:true,group:args.p_data.group,items:[]}:null};
    if(name==='totus_tpv_workstation_access')return {data:{connectionId:connection,revision,items:[]}};
    if(name==='totus_tpv_update_workstation_access')return {data:{...args.p_data,revision:args.p_data.expectedRevision+1}};
    throw Error('Unexpected RPC '+name);
@@ -41,4 +42,13 @@ test('forged identity, foreign targets and malformed permissions fail before pri
   {...update,permissions:{...update.permissions,admin:true}},{...update,selection:{...update.selection,connectionId:operator}}]){
   const f=fixture();assert.equal((await f.call(body)).status,400);assert.equal(f.calls.some(call=>call.factory==='privileged-fixture'),false);
  }
+});
+
+
+test('grouped access uses only verified manager scope and no shop credentials, including recovery',async()=>{
+ const payload={action:'access-batch-save',selection:{connectionId:connection},revision:7,operationId:requestId,group:{kind:'store',id:drawer},targets:[{operatorId:operator,drawerId:drawer,shopId:1,assignmentRevision:3}],permissions:update.permissions,active:true};
+ const f=fixture();assert.equal((await f.call(payload)).status,200);const saved=f.calls.find(c=>c.name==='totus_tpv_workstation_access_batch');assert.equal(saved.args.p_actor,actor);assert.deepEqual(saved.args.p_data,{group:payload.group,targets:payload.targets,permissions:payload.permissions,active:true});assert.equal(f.calls.some(c=>c.name==='totus_api_server'),false);
+ const lookup={action:'access-batch-get',selection:{connectionId:connection},revision:7,operationId:requestId};assert.deepEqual((await f.call(lookup)).body,null);assert.equal(f.calls.filter(c=>c.name==='totus_tpv_workstation_access_batch').at(-1).args.p_data,null);
+ for(const options of [{denied:true},{badAuth:true},{revision:8}]){const x=fixture(options);assert.notEqual((await x.call(lookup)).status,200);assert.equal(x.calls.some(c=>c.factory==='privileged-fixture'),false);}
+ for(const patch of [{actorId:operator},{group:{kind:'all',id:drawer}},{targets:[]},{targets:Array(101).fill(payload.targets[0])},{targets:[payload.targets[0],payload.targets[0]]},{targets:[{...payload.targets[0],assignmentRevision:0}]},{selection:{connectionId:connection,shopId:1}},{permissions:{...payload.permissions,admin:true}},{active:'true'}]){const x=fixture();assert.equal((await x.call({...payload,...patch})).status,400);assert.equal(x.calls.some(c=>c.factory==='privileged-fixture'),false);}
 });

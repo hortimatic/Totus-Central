@@ -1,3 +1,4 @@
+import {exerciseAccessBatches} from './native-lab/access-batch-assertions.mjs';
 import {exerciseSignatures} from './native-lab/signature-assertions.mjs';
 import {exerciseMenuLinks} from './native-lab/menu-links-assertions.mjs';
 import {exerciseQuoteRefresh} from './native-lab/quote-refresh-assertions.mjs';
@@ -76,6 +77,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261116192744_totustpv_stock_receipts.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261116205052_totustpv_catalogue_layout.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117021112_totustpv_workstation_access.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261119024928_totustpv_grouped_workstation_access.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117031559_totustpv_customer_display.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117052454_totustpv_product_intake.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261117093928_totustpv_cash_counting.sql',import.meta.url),'utf8'));
@@ -798,5 +800,6 @@ try {
  await denied(()=>db.query('delete from private.totus_tpv_product_intakes'),/permission denied/);
  await db.exec('reset role');
  console.log(`PASS TotusTPV PostgreSQL journal: ${assertions} assertions; real SQL transactions/constraints/roles in isolated PGlite. No remote database or PrestaShop writes.`);
+ await exerciseAccessBatches({db,id,connection:qaConnection,manager:id(5)});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

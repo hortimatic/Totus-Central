@@ -27,7 +27,7 @@ export function createWorkstationAccessPanel({canManage,invoke,uuid=()=>crypto.r
    ${pending?'<p class="note">El resultado de esta solicitud todavía no está confirmado. Reintenta los mismos cambios o actualiza los accesos para comprobar cómo han quedado.</p>':''}</form></section>`;
   return `<section class="tpv-access-panel"><h4>Accesos a las cajas</h4><p>Elige quién puede vender, consultar o gestionar el efectivo en cada caja.</p>
    <div class="tpv-access-list">${rows.map((row,index)=>`<article><div><strong>${esc(row.operatorName)}</strong><small>${esc(row.storeName)} · ${esc(row.drawerName)}</small><small>${row.permissions.sell?'Vende y consulta':'Consulta'}${row.permissions.open?' · Gestiona caja':''}</small></div><span>${row.active?'Activo':'Sin acceso'}</span><button class="btn secondary" type="button" data-tpv-access-edit="${index}">Cambiar acceso</button></article>`).join('')||'<p>No hay accesos asignados. Prepara el primer puesto con el formulario de esta pantalla.</p>'}</div>
-   <button class="btn secondary" type="button" data-tpv-access-refresh>Actualizar accesos</button></section>`;
+   <div class="inline-actions"><button class="btn secondary" type="button" data-tpv-access-batch-open>Gestionar por tienda o empleado</button><button class="btn secondary" type="button" data-tpv-access-refresh>Actualizar accesos</button></div></section>`;
  }
  async function save(){if(!canManage()||!configuration||!editing||!draft)throw Error('No tienes permiso para gestionar este acceso.');
   const run=epoch,source=structuredClone(editing),intent={action:'update-workstation-access',revision:configuration.revision,

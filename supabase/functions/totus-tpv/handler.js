@@ -86,7 +86,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const rawInput=await boundedText(req,6291456),input=JSON.parse(rawInput);
    need(input?.action==='product-intake-prepare'||new TextEncoder().encode(rawInput).byteLength<=65536,'TPV_REQUEST_INVALID');
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
-    ['offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+    ['offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','access-batch-get','access-batch-save','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
@@ -99,6 +99,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'billing-context':['action'],'billing-list':['action','selection','query'],'billing-signature':['action','selection','operationId'],
     'billing-document':['action','selection','operationId','kind','refundId'],
     'update-workstation-access':['action','selection','operationId','revision','operatorId','assignmentRevision','permissions','active'],
+    'access-batch-get':['action','selection','operationId','revision'],'access-batch-save':['action','selection','operationId','revision','group','targets','permissions','active'],
     open:['action','selection','operationId','openingCents'],catalogue:['pricingQuantity','action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId','inventoryOnly'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
     history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
@@ -180,6 +181,17 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
        fresh.nativeProfile?.installation_id===row.nativeProfile.installation_id,'TPV_BILLING_CONTEXT_STALE');
       need(init.method==='GET','TPV_BILLING_READ_ONLY');return request(target,init);}});
     return respond(await readBillingDocument({rpc,scope,operationId:input.operationId,kind:input.kind,refundId:input.refundId,transport}));
+   }
+   if(['access-batch-get','access-batch-save'].includes(input.action)){
+    need(input.selection&&typeof input.selection==='object'&&!Array.isArray(input.selection)&&Object.keys(input.selection).length===1&&input.selection.connectionId===TOTUS_QA_POLICY.connectionId&&uuid(input.operationId)&&positive(input.revision),'TPV_ACCESS_BATCH_INVALID');
+    if(input.action==='access-batch-save'){
+     need(input.group&&typeof input.group==='object'&&Object.keys(input.group).length===2&&['kind','id'].every(k=>Object.hasOwn(input.group,k))&&['store','operator'].includes(input.group.kind)&&uuid(input.group.id)&&
+      Array.isArray(input.targets)&&input.targets.length>0&&input.targets.length<=100&&input.targets.every(t=>t&&typeof t==='object'&&Object.keys(t).length===4&&Object.keys(t).every(k=>['operatorId','drawerId','shopId','assignmentRevision'].includes(k))&&uuid(t.operatorId)&&uuid(t.drawerId)&&positive(t.shopId)&&positive(t.assignmentRevision))&&new Set(input.targets.map(t=>[t.operatorId,t.drawerId,t.shopId].join(':'))).size===input.targets.length&&
+      typeof input.active==='boolean'&&input.permissions&&typeof input.permissions==='object'&&Object.keys(input.permissions).length===3&&['sell','open','reconcile'].every(k=>typeof input.permissions[k]==='boolean')&&(!input.active||input.permissions.reconcile===true),'TPV_ACCESS_BATCH_INVALID');
+    }
+    const manager=check(await scoped.rpc('totus_api_manager'));need(manager?.connections?.some(c=>c.id===input.selection.connectionId&&c.revision===input.revision),'TPV_CONTEXT_STALE');
+    const admin=factory(url,secret,options);return respond(check(await admin.rpc('totus_tpv_workstation_access_batch',{p_actor:user.id,p_connection:input.selection.connectionId,p_revision:input.revision,p_request_id:input.operationId,
+     p_data:input.action==='access-batch-get'?null:{group:input.group,targets:input.targets,permissions:input.permissions,active:input.active}})));
    }
    if(['workstations','update-workstation-access'].includes(input.action)){
     const connectionId=input.action==='workstations'?input.connectionId:input.selection?.connectionId;

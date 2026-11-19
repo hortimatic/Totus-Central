@@ -1,4 +1,6 @@
 const messages={
+ TPV_ACCESS_BATCH_INVALID:'Revisa el grupo, los accesos seleccionados y sus permisos antes de guardar.',
+ TPV_ACCESS_BATCH_GROUP_MISMATCH:'Un acceso no pertenece al grupo elegido. Actualiza la lista antes de preparar los cambios.',
  TPV_REFUND_ORIGINAL_PAYMENT_REQUIRED:'Esta caja exige repartir el reintegro entre los medios originales. Vuelve a consultar la venta y revisa el reparto antes de confirmar.',
  TPV_SIGNATURE_DOCUMENT_INVALID:"Revisa la factura seleccionada y vuelve a abrir sus documentos. No repitas la venta.",
  TPV_SIGNATURE_DOCUMENT_HASH_MISMATCH:"Revisa la factura seleccionada y vuelve a abrir sus documentos. No repitas la venta.",

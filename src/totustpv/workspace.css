@@ -190,3 +190,10 @@
 
 /* Keep the counter navigation in one usable row before and after cash opening. */
 :is(#content .totus-tpv,.totus-tpv) .tpv-main-nav{display:flex;flex-direction:row;align-items:center;gap:4px;flex-wrap:nowrap}:is(#content .totus-tpv,.totus-tpv) .tpv-main-nav>.tab{flex:1 1 0;width:auto;min-width:0;margin:0}:is(#content .totus-tpv,.totus-tpv) .tpv-main-nav>.tpv-actions{flex:0 0 auto;margin-left:auto}@media(max-width:760px){:is(#content .totus-tpv,.totus-tpv) .tpv-main-nav>.tab{min-height:44px;padding:8px 4px;font-size:.8rem;white-space:normal}:is(#content .totus-tpv,.totus-tpv) .tpv-main-nav>.tpv-actions>summary{min-height:44px;box-sizing:border-box;padding:10px 6px;font-size:.8rem;max-width:84px}}
+
+.tpv-access-batch form{display:grid;gap:1rem;max-width:52rem}
+.tpv-access-batch label{display:grid;gap:.4rem}
+.tpv-access-batch .tpv-check{display:flex;align-items:flex-start;gap:.65rem;padding:.75rem}
+.tpv-access-batch .tpv-access-list{max-height:22rem;overflow:auto;overscroll-behavior:contain}
+.tpv-access-batch fieldset{min-width:0;border:1px solid var(--border,#dce3ed);border-radius:.75rem}
+.tpv-access-batch .inline-actions{flex-wrap:wrap}

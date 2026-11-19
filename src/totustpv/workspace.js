@@ -1,3 +1,4 @@
+import {createAccessBatchPanel} from './workstation-access-batch.js';
 import {createSignaturePanel} from './signature-panel.js';
 import {signatureOptions,signatureOptionsFromForm,signatureOptionsHtml} from './signature-options.js';
 import {tenderSummaryHtml} from './tender-summary.js';
@@ -91,6 +92,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   canRead:()=>live()&&(canReadCost()||canCreateProduct())&&stationPermission('canReconcile'),
   confirmDiscard:message=>askCurrent(message,{acceptLabel:'Continuar'}),onProgress:()=>render()});
  const catalogueTable=createCatalogueTable({canReadCost});
+ const accessBatch=createAccessBatchPanel({actor:()=>identity(),canManage:canAssign,invoke:request=>configureWorkstation(request),storage});
  const accessPanel=createWorkstationAccessPanel({canManage:canAssign,invoke:request=>configureWorkstation(request)});
  const customerScreen=createCustomerDisplay({getOptions:()=>customerScreenOptions,
   allowed:()=>!!host&&mountedActor===identity()&&allowed()&&!!adapter&&!!context&&!!session,
@@ -163,7 +165,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  function cashSettingsDraft(){const selected=formValues.preferences?.cashDenominations;return selected===undefined?cashStyle:{denominations:(Array.isArray(selected)?selected:[selected]).map(Number)};}
  function updateReceiptPreview(target){if(!target.name?.startsWith('receipt-')&&target.name!=='showTaxBreakdown')return;
   const preview=host?.querySelector('[data-tpv-receipt-preview]');if(preview)preview.innerHTML=receiptPreviewHtml({...receiptOptionsFromForm(new FormData(target.form)),showTaxBreakdown:new FormData(target.form).get('showTaxBreakdown')==='on'});}
- function configurationHtml(){if(accessPanel.isEditing())return accessPanel.html();const c=configuration,store=c.stores.some(row=>row.id===formValues.configure?.store)?formValues.configure.store:c.stores[0]?.id,
+ function configurationHtml(){if(accessBatch.isOpen())return accessBatch.html();if(accessPanel.isEditing())return accessPanel.html();const c=configuration,store=c.stores.some(row=>row.id===formValues.configure?.store)?formValues.configure.store:c.stores[0]?.id,
   drawers=c.drawers.filter(row=>row.store_id===store);
   return `<form data-tpv-form="configure" class="tpv-configuration"><h4>Asignar un puesto de preproducción</h4><p>${esc(c.origin)} · conexión verificada, revisión ${c.revision}. Selecciona establecimientos y usuarios ya registrados en Central.</p>
    <div class="inline-actions">${drawerManagement()?`<a class="btn" href="${esc(drawerManagement())}" target="_blank" rel="noopener">Crear y gestionar cajas ↗</a>`:''}${button('refresh-configuration','Actualizar tiendas y cajas')}</div><p class="small muted">La gestión se abre en otra pestaña. Al volver, actualiza esta lista para ver las cajas guardadas. Tus selecciones y el ticket se conservan.</p>
@@ -291,10 +293,11 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   const values=Object.fromEntries(new FormData(form));formValues[form.dataset.tpvForm]=values;
   if(form.dataset.tpvForm==='preferences'){values.cashDenominations=new FormData(form).getAll('cashDenominations');values.searchFields=new FormData(form).getAll('searchFields');values.excludedCategories=new FormData(form).getAll('excludedCategories');}
   if(form.dataset.tpvForm==='pay')paymentValues=values;formDirty=true;}
- const hasDraft=()=>!!host&&(lines.length>0||!!draftInfo||!!payment||!!returnForm||formDirty||receipt?.status==='uncertain'||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft()||signaturePanel.hasDraft());
+ const hasDraft=()=>!!host&&(lines.length>0||!!draftInfo||!!payment||!!returnForm||formDirty||receipt?.status==='uncertain'||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft()||accessBatch.hasDraft()||signaturePanel.hasDraft());
  async function askCurrent(message,options){const run=generation,owner=identity();const accepted=await confirm(message,options);
   return accepted===true&&run===generation&&owner===identity()&&!!host;}
  async function requestLeave(){if(busy)return false;if(!hasDraft())return true;
+  if(accessBatch.hasPending())return askCurrent('¿Salir de TotusTPV? La solicitud de accesos seguirá guardada para recuperar su resultado. Los demás cambios sin guardar se perderán.');
   return askCurrent(wording('¿Salir de TotusTPV? Los cambios sin confirmar se perderán. Los tickets de práctica pendientes seguirán en su historial.',
    '¿Salir y descartar los cambios sin aparcar? Los tickets aparcados y las operaciones registradas seguirán en el servidor.'));}
  function scheduleCatalogueRefresh(){clearTimeout(catalogueRefreshTimer);if(!products.building)return;
@@ -419,6 +422,24 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    await productIntake.click(target);if(!productIntake.isOpen()&&session)await reloadProducts();
   });
   if(action==='customer-display'){try{customerScreen.open();failure='';}catch(error){failure=error.message;}render();return;}
+  if(target.hasAttribute('data-tpv-access-batch-open'))return work(async()=>{
+   if((accessPanel.hasDraft()||formValues.configure)&&!await askCurrent('¿Descartar los cambios sin guardar?',{acceptLabel:'Descartar cambios'}))return;
+   accessBatch.open(configuration);delete formValues.configure;formDirty=Object.keys(formValues).length>0;
+  });
+  if(target.hasAttribute('data-tpv-batch-back'))return work(()=>accessBatch.back());
+  if(target.hasAttribute('data-tpv-batch-close'))return work(async()=>{
+   if(accessBatch.hasDraft()&&!accessBatch.hasPending()&&!await askCurrent('¿Descartar los cambios de este bloque sin guardar?',{acceptLabel:'Descartar cambios'}))return;
+   accessBatch.close();
+  });
+  if(target.hasAttribute('data-tpv-batch-save')||target.hasAttribute('data-tpv-batch-recover'))return work(async()=>{
+   try{
+    if(target.hasAttribute('data-tpv-batch-save'))await accessBatch.save();else await accessBatch.recover();
+    notice='Bloque de accesos guardado y comprobado. El historial y las cajas abiertas se conservan.';
+   }finally{
+    if(accessBatch.affectsActor(identity())&&live()){adapter=null;context=null;session=null;products=[];tab='sale';reports.reset();customers.reset();}
+   }
+   configuration=await readConfiguration();accessPanel.load(configuration);
+  });
   if(target.hasAttribute('data-tpv-access-edit')||target.hasAttribute('data-tpv-access-cancel')||target.hasAttribute('data-tpv-access-refresh'))return work(async()=>{
    if(!canAssign())throw Error('No tienes permiso para gestionar los accesos.');
    if((accessPanel.hasDraft()||formValues.configure)&&!await askCurrent('¿Descartar los cambios sin guardar?',{acceptLabel:'Descartar cambios'}))return;
@@ -526,7 +547,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    rememberForm(form);return;
   }
   if(action==='assign'&&canAssign()&&readConfiguration)return work(async()=>{
-   if(lines.length||payment||returnForm||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
+   if(lines.length||payment||returnForm||customers.hasDraft()||stockIntake.hasDraft()||productIntake.hasDraft()||accessPanel.hasDraft()||accessBatch.hasDraft())throw Error('Aparca o termina el ticket y la edición actual antes de configurar el puesto.');
    configuration=await readConfiguration();accessPanel.load(configuration);configurationId=crypto.randomUUID();if(adapter&&context)tab='configuration';});
   if(action==='refresh-configuration'&&canAssign()&&readConfiguration)return work(async()=>{
    const form=host.querySelector('[data-tpv-form="configure"]');if(form)rememberForm(form);
@@ -592,7 +613,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
    if(!form.querySelector('.tpv-menu-link-row:not([hidden])'))form.querySelector('.tpv-menu-link-row').hidden=false;
    form.querySelector('[data-tpv-action="add-menu-link"]').hidden=false;if(changed)rememberForm(form);return;
   }
-  if(action==='exit'){if(!await requestLeave())return;barcodePanel.reset();adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();stockIntake.reset();productIntake.reset();draftInfo=null;parked=[];render();return;}
+  if(action==='exit'){if(!await requestLeave())return;accessBatch.reset();barcodePanel.reset();adapter=null;context=null;session=null;lines=[];payment=null;receipt=null;returnForm=null;formValues={};formDirty=false;selectedCustomer=null;customers.reset();reports.reset();stockIntake.reset();productIntake.reset();draftInfo=null;parked=[];render();return;}
   if(['sale','history','session','stock','drafts'].includes(action))return work(()=>changeTab(action));
   if(action==='park')return work(async()=>{if(!parkingRules.enabled)throw Error('El aparcado está desactivado para tu cuenta y esta caja. Puedes consultar los tickets anteriores desde Más acciones.');if(!live()||!canSell()||!lines.length||payment||returnForm)throw new Error('Termina el cobro o la devolución antes de aparcar otro ticket.');
    const {adjustment,coupon,note}=ticketAdjustments(),label=formValues.ticket?.draftLabel?.trim()||draftInfo?.label||'Ticket '+new Date().toLocaleString('es-ES');
@@ -671,6 +692,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
  }
  async function submit(event){
   const barcodeForm=event.target.closest('[data-tpv-barcode-form]');if(barcodeForm&&host?.contains(barcodeForm)){event.preventDefault();if(!busy){guard();return barcodePanel.submit(barcodeForm);}return;}
+  const batchForm=event.target.closest('[data-tpv-access-batch-form]');if(batchForm&&host?.contains(batchForm)){event.preventDefault();if(!busy)return work(()=>accessBatch.review(batchForm));return;}
   const accessForm=event.target.closest('[data-tpv-access-form]');if(accessForm&&host?.contains(accessForm)){
    event.preventDefault();if(busy)return;accessPanel.capture(accessForm);
    return work(async()=>{const changed=await accessPanel.save();
@@ -862,6 +884,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   if(event.target.matches('[data-tpv-view]')){if(variantProduct)variantView=event.target.value;else catalogueView=event.target.value;render();return;}
   if(event.target.matches('[data-tpv-disabled-stock]')){if(tab!=='stock'||!canReceiveStock())return;const value=event.target.checked;searchRevision++;clearTimeout(searchTimer);return work(async()=>{includeDisabledStock=value;products=[];variantProduct=0;variantGroupId=0;productPage=0;await reloadProducts();});}
   if(event.target.matches('[data-tpv-category]')){categoryId=Number(event.target.value);productPage=0;variantProduct=0;return work(reloadProducts);}
+  const batchForm=event.target.closest('[data-tpv-access-batch-form]');if(batchForm){if(event.type==='change'&&accessBatch.filter(event.target)){render();return;}accessBatch.capture(batchForm);return;}
   if(accessPanel.input(event.target))return;
   rememberForm(event.target);
   if(event.target.closest('[data-tpv-form="ticket"]'))reflectLineTotals();
@@ -900,6 +923,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   }
   if(event.target.closest('[data-tpv-client-form]')){customers.input(event.target.form);return;}
   if(event.target.dataset.tpvLineValue&&!payment&&can('edit')){const line=lines.find(l=>l.productId===event.target.dataset.tpvLineValue);if(line){line.discountValue=event.target.value;reflectLineTotals();}return;}
+  const batchForm=event.target.closest('[data-tpv-access-batch-form]');if(batchForm){if(event.type==='change'&&accessBatch.filter(event.target)){render();return;}accessBatch.capture(batchForm);return;}
   if(accessPanel.input(event.target))return;
   if(!event.target.matches('[data-tpv-search]')){rememberForm(event.target);if(event.target.closest('[data-tpv-form="ticket"]'))reflectLineTotals();if(event.target.closest('[data-tpv-form="pay"]'))reflectTender();return;}search=event.target.value;productPage=0;variantProduct=0;clearTimeout(searchTimer);
   const run=generation,request=++searchRevision,query=search,currentTab=tab,inventoryQuery=inventoryCatalogueQuery();searchTimer=setTimeout(async()=>{try{const found=await adapter.searchProducts({sessionId:session.id,search:query,categoryId,sortField:catalogueSort.field,sortDirection:catalogueSort.direction,searchFields:searchOptions.fields,catalogueFilters:currentCatalogueFilters(),...inventoryQuery});
@@ -927,7 +951,7 @@ export function createTpvWorkspace({actor,can,storage,confirm=async()=>false,
   panel.style.top=up?'auto':'100%';panel.style.bottom=up?'100%':'auto';panel.style.maxHeight=Math.max(44,Math.min(480,(up?above:below)-12))+'px';
  }
  function sizeWorkspace(){if(host){host.style.setProperty('--tpv-height',Math.max(360,window.innerHeight-Math.max(0,host.getBoundingClientRect().top)-12)+'px');fitActionsMenu();}}
- function dispose(){basketPriceRevision++;basketPreview=null;clearTimeout(basketPriceTimer);catalogueBackground.stop();clearTimeout(onlineSyncTimer);onlineSyncTimer=null;onlineSyncRequested=false;offlinePanel.reset();signaturePanel.reset();barcodePanel.reset();quantityPicker.cancel();lineNameEditor.cancel();customerScreen.close();accessPanel.reset();productIntake.reset();if(audioFeedback){void audioFeedback.close().catch(()=>{});audioFeedback=null;}generation++;searchRevision++;clearTimeout(searchTimer);clearTimeout(catalogueRefreshTimer);abort?.abort();catalogueTable.dispose();host=null;busy=false;scanQueue=[];scanning=false;mobilePane='catalogue';}
+ function dispose(){basketPriceRevision++;basketPreview=null;clearTimeout(basketPriceTimer);catalogueBackground.stop();clearTimeout(onlineSyncTimer);onlineSyncTimer=null;onlineSyncRequested=false;offlinePanel.reset();signaturePanel.reset();barcodePanel.reset();quantityPicker.cancel();lineNameEditor.cancel();customerScreen.close();accessBatch.reset();accessPanel.reset();productIntake.reset();if(audioFeedback){void audioFeedback.close().catch(()=>{});audioFeedback=null;}generation++;searchRevision++;clearTimeout(searchTimer);clearTimeout(catalogueRefreshTimer);abort?.abort();catalogueTable.dispose();host=null;busy=false;scanQueue=[];scanning=false;mobilePane='catalogue';}
  return {mount(root){dispose();host=root;mountedActor=identity();
    budgetPending=false;
    includeDisabledStock=false;
