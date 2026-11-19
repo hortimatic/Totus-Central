@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCentralTpvHandler} from '../supabase/functions/totus-tpv/handler.js';
 const actor='00000000-0000-4000-8000-000000000001',drawer='00000000-0000-4000-8000-000000000002',session='00000000-0000-4000-8000-000000000003',connection='b554f6cc-4df1-412b-b063-e1cbd82d9e66';
-function fixture({enabled=false,requireSaleNote=false,capability={source:'native-product-capabilities',product_id:12,shop_id:1,unit_price_override:true}}={}){
+function fixture({operatorRules={switchEnabled:true,revision:0,requireAtCheckout:false},enabled=false,requireSaleNote=false,capability={source:'native-product-capabilities',product_id:12,shop_id:1,unit_price_override:true}}={}){
  const calls=[],outbound=[],errors=[];const row={connectionId:connection,connectionRevision:5,shopId:1,storeId:actor,drawerId:drawer,environment:'qa',profileRevision:1,session:{id:session,status:'open'},canSell:true,canReconcile:true,canOpen:true,nativeProfile:{verified:true,configured:true,native_version:'8.2.8',installation_id:actor,shop_id:1,currency:'EUR',paid_state_id:4,payment_labels:{cash:'Efectivo',card:'Tarjeta'}}};
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
  const factory=(url,key)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args)=>{calls.push({name,key,args});
   if(name==='totus_tpv_context')return {data:{actorId:actor,workstations:[row]}};
   if(name==='totus_tpv_payment_options')return {data:{revision:0,options:{enabledMethods:['cash','card'],labels:{cash:'Efectivo',card:'Tarjeta'}}}};
+  if(name==='totus_tpv_operator_settings')return {data:operatorRules};
   if(name==='totus_tpv_check')return {data:true};
   if(name==='totus_tpv_stock_policy')return {data:{allowOutOfStock:false}};
   if(name==='totus_tpv_line_options')return {data:{allowPriceChanges:enabled,requireSaleNote}};
@@ -42,4 +43,8 @@ test('required or malformed private notes stop before native write; old capabili
  for(const note of [undefined,'   ']){const f=fixture({requireSaleNote:true});assert.equal((await f.call({lines,...(note===undefined?{}:{note})})).body.error,'TPV_SALE_NOTE_REQUIRED');assert.equal(f.outbound.length,0);assert.equal(f.calls.some(row=>row.name==='totus_tpv_native_command'),false);}
  for(const note of [null,1,[], '<script>private</script>','🙂'.repeat(501),'bad\u0000']){const f=fixture();assert.equal((await f.call({lines,note})).body.error,'TPV_SALE_NOTE_INVALID');assert.equal(f.outbound.length,0);}
  const f=fixture();assert.equal((await f.call({lines,note:'Nota privada'})).body.error,'TPV_NATIVE_SALE_NOTE_UNAVAILABLE');assert.equal(f.outbound.length,1);assert.equal(f.calls.some(row=>row.name==='totus_tpv_native_command'),false);
+});
+
+test('unavailable or malformed operator policy cannot silently allow a preparation',async()=>{
+ for(const operatorRules of [null,{}, {requireAtCheckout:'false'}]){const f=fixture({operatorRules}),r=await f.call();assert.equal(r.status,400);assert.equal(r.body.error,'TPV_OPERATOR_SETTINGS_UNAVAILABLE');assert.equal(f.outbound.some(row=>row.method==='POST'),false);}
 });
