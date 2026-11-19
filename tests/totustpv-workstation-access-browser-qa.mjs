@@ -10,7 +10,7 @@ try{for(const width of [1440,390]){
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js');
   const row={operatorId:'employee',drawerId:'drawer',shopId:1,storeId:'store',operatorName:'Persona ficticia',drawerName:'Caja ficticia',storeName:'Tienda ficticia',operatorActive:true,drawerActive:true,active:true,revision:1,permissions:{sell:true,open:true,reconcile:true}};
   window.accessFixture={row,requests:[],lose:true};
-  const configuration=()=>structuredClone({actorId:'manager',connectionId:'connection',revision:6,origin:'https://preproduccion.hortimatic.com',stores:[{id:'store',name:'Tienda ficticia'}],drawers:[{id:'drawer',store_id:'store',name:'Caja ficticia'}],operators:[{id:'employee',full_name:'Persona ficticia'}],accesses:[accessFixture.row]});
+  const configuration=()=>structuredClone({actorId:'manager',connectionId:'connection',revision:6,origin:'https://preproduccion.hortimatic.com',stores:[{id:'store',name:'Tienda ficticia'}],drawers:accessFixture.noDrawers?[]:[{id:'drawer',store_id:'store',name:'Caja ficticia'}],operators:[{id:'employee',full_name:'Persona ficticia'}],accesses:[accessFixture.row]});
   const adapter={mode:'qa',context:async()=>({stores:[{id:'store',name:'Tienda ficticia'}],drawers:[{id:'drawer',storeId:'store',name:'Caja ficticia',connectionId:'connection',shopId:1,canSell:true,canOpen:true,canReconcile:true}],sessions:[{id:'session',storeId:'store',drawerId:'drawer',status:'open'}]}),selectSession:async()=>{},categories:async()=>[],searchProducts:async()=>[]};
   accessFixture.workspace=createTpvWorkspace({actor:()=>({id:'manager',active:true}),can:()=>true,canAssign:()=>true,drawerManagement:()=>'/tests/app-mock.html?module=administracion&section=negocio',createLiveAdapter:()=>adapter,readConfiguration:async()=>{if(accessFixture.failRead)throw Error('Consulta temporalmente no disponible.');return configuration();},
    configureWorkstation:async request=>{accessFixture.requests.push(structuredClone(request));
@@ -31,6 +31,18 @@ try{for(const width of [1440,390]){
  await page.getByText('Tiendas y cajas actualizadas. Revisa la selección antes de asignar el puesto.',{exact:true}).waitFor();
  assert.equal(await assignment.locator('[name=shop]').inputValue(),'2');assert.equal(await assignment.locator('[name=bizum]').isChecked(),true);
  assert.equal(await page.evaluate(()=>accessFixture.requests.length),0,'Refreshing the list does not assign or mutate any workstation');
+ await page.evaluate(()=>accessFixture.noDrawers=true);
+ await page.getByRole('button',{name:'Actualizar tiendas y cajas',exact:true}).click();
+ await page.getByText('Este establecimiento todavía no tiene cajas. Crea una caja y actualiza esta lista para poder asignarla.',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Preparar y asignar puesto',exact:true}).isDisabled(),true);
+ assert.equal(await assignment.locator('[name=drawer]').isDisabled(),true);
+ assert.equal(await assignment.locator('[name=shop]').inputValue(),'2');
+ await page.evaluate(()=>accessFixture.noDrawers=false);
+ await page.getByRole('button',{name:'Actualizar tiendas y cajas',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('[name=drawer]').disabled);
+ assert.equal(await assignment.locator('[name=drawer]').inputValue(),'drawer');
+ assert.equal(await page.getByRole('button',{name:'Preparar y asignar puesto',exact:true}).isDisabled(),false);
+ assert.equal(await page.evaluate(()=>accessFixture.requests.length),0,'Creating and refreshing choices does not submit assignments');
  await page.evaluate(()=>accessFixture.failRead=true);
  await page.getByRole('button',{name:'Actualizar tiendas y cajas',exact:true}).click();
  await page.getByRole('alert').filter({hasText:'Consulta temporalmente'}).waitFor();

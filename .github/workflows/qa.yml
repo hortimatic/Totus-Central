@@ -44,6 +44,8 @@ jobs:
       - run: node tests/totustpv-offline-journal-browser-qa.mjs
       - run: node tests/totustpv-offline-panel-browser-qa.mjs
       - run: node tests/totustpv-offline-catalogue-browser-qa.mjs
+      - run: node --test tests/totustpv-menu-links-qa.mjs
+      - run: node tests/totustpv-menu-links-browser-qa.mjs
       - run: node tests/totustpv-workspace-browser-qa.mjs
       - run: node tests/totustpv-basket-preview-browser-qa.mjs
       - run: node tests/totustpv-offline-prepared-browser-qa.mjs

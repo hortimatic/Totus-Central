@@ -845,6 +845,30 @@
         "only current scoped catalogue micros and recently read allowed payment choices may prepare a local unmodified basket",
         "native delivery rechecks permissions and compares every captured amount before a single financial dispatch; conflicts cannot silently change collected totals"
       ]
+    },
+    {
+      "id": "totustpv-menu-links",
+      "paths": [
+        "src/totustpv/menu-links.js",
+        "src/totustpv/workspace.js",
+        "src/totustpv/settings-navigation.js",
+        "src/app.js",
+        "supabase/migrations/20261119000655_totustpv_menu_links.sql",
+        "tests/totustpv-menu-links",
+        "tests/native-lab/menu-links-assertions.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-menu-links-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-workspace-browser-qa.mjs",
+        "tests/module-navigation-browser-qa.mjs"
+      ],
+      "invariants": [
+        "custom links are scoped to the currently authenticated actor connection shop and drawer and cannot modify financial journals",
+        "only validated HTTPS or Central paths without embedded credentials are rendered with escaped labels and no opener ownership",
+        "links open in a separate tab preserving the current ticket and stale save responses cannot populate another account"
+      ]
     }
   ]
 }

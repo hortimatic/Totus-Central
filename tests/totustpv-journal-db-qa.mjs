@@ -1,3 +1,4 @@
+import {exerciseMenuLinks} from './native-lab/menu-links-assertions.mjs';
 import {exerciseQuoteRefresh} from './native-lab/quote-refresh-assertions.mjs';
 import {exerciseOfflineInbox} from './native-lab/offline-inbox-assertions.mjs';
 import assert from 'node:assert/strict';
@@ -107,6 +108,7 @@ try {
  await db.exec(await readFile(new URL('../supabase/migrations/20261118110722_totustpv_payment_reference_ledger.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118112532_totustpv_receipt_payment_references.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261119000655_totustpv_menu_links.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261118161436_totustpv_offline_quote_refresh.sql',import.meta.url),'utf8'));
 
@@ -382,6 +384,7 @@ try {
  await db.exec('set role anon');await denied(()=>prefs(),/permission denied/);
  await db.exec('reset role;set role authenticated');
  await db.exec(`set request.jwt.claim.sub='${id(5)}'`);
+ await exerciseMenuLinks({db,id,scope:qaScope,prefs});
  check((await prefs()).viewMode,'grid');check((await prefs(qaScope,{viewMode:'list',initialCategoryId:12})).initialCategoryId,12);
  check((await prefs()).customerDisplay,{enabled:false,showPrices:true,showCustomer:false,color:'#1773c9',fontSize:23});
  check((await prefs()).cash.denominations,[50000,20000,10000,5000,2000,1000,500,200,100,50,20,10,5,2,1]);
