@@ -23,6 +23,6 @@ export function withHistoricalGroupRates(document,details,orderId){
  return {...clean,lines:clean.lines.map(line=>{const values=groups.get(lineKey(line.name,line.reference??'',line.quantity));return values.every(value=>value===values[0])?{...line,group_reduction_percent_micros:values[0]}:line;})};
 }
 export async function readHistoricalGroupRates({document,orderId,read}){
- if(document?.kind!=='receipt'||!positive(orderId))return cleanDocument(document);
+ if(document?.kind!=='receipt'||!positive(orderId)||Number(document.order_id)!==Number(orderId)||!Array.isArray(document.lines)||document.lines.length<1||document.lines.length>200)return cleanDocument(document);
  try{const response=await read('order_details',{'filter[id_order]':'['+Number(orderId)+']',display:'[id,id_order,product_name,product_reference,product_quantity,group_reduction]',limit:'0,201'});return withHistoricalGroupRates(document,response?.order_details,orderId);}catch{return cleanDocument(document);}
 }

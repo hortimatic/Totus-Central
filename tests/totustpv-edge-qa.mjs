@@ -20,7 +20,7 @@ test('variant group names cannot expose other native fields or an unbounded meta
  assert.deepEqual(result.variant_groups,[{id:3,name:'Color'}]);
  for(const variant_groups of [null,{},Array(65).fill({id:1,name:'Color'}),[{id:0,name:'Color'}]])assert.throws(()=>catalogueForActor({items:[],variant_groups},false),/TPV_CATALOGUE_INVALID/);
 });
-function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows,nativeDocument,noSession=false}={}){
+function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=false,nativeRows,nativeDocument,wrongDocumentKind=false,noSession=false}={}){
  const calls=[],nativeRequests=[];let outbound=0;
  const env={get:key=>({SUPABASE_URL:'https://fixture.invalid',SUPABASE_ANON_KEY:'fixture-public',SUPABASE_SERVICE_ROLE_KEY:'fixture-server-only'}[key])};
  const row={connectionId:otherConnection?actor:connection,connectionRevision:5,shopId:1,storeId:actor,drawerId:drawer,
@@ -47,7 +47,8 @@ function fixture({badAuth=false,denied=false,otherConnection=false,reportDenied=
  const handle=createCentralTpvHandler({factory,env,resolve:async()=>['93.184.216.34'],request:async(url,options)=>{
   outbound++;nativeRequests.push({url,method:options.method});assert.equal(options.method,'GET');
   if(nativeRows===undefined)throw Error('Unexpected native request');
-  return new Response(JSON.stringify(nativeDocument??{orders:nativeRows}),{status:200,headers:{'Content-Type':'application/json'}});
+  const document=nativeDocument?{...nativeDocument,kind:wrongDocumentKind?nativeDocument.kind:new URL(url).searchParams.get('kind')}:null;
+  return new Response(JSON.stringify(document??{orders:nativeRows}),{status:200,headers:{'Content-Type':'application/json'}});
  }});
  const call=async(body,auth='Bearer verified-fixture-token')=>{
   const response=await handle(new Request('https://central.invalid/tpv',{method:'POST',headers:{...(auth?{Authorization:auth}:{}),
@@ -147,4 +148,9 @@ test('reference lookup rejects ambiguity, native scope mismatch and unsafe input
  assert.equal(denied.outbound,0);assert.equal(denied.calls.some(row=>row.name==='totus_api_server'),false);
  const numeric=fixture({nativeRows:[]});assert.equal((await numeric.call({...orderLookup,orderId:42})).status,200);
  assert.equal(numeric.outbound,0,'Numeric historical lookup stays independent of native availability');
+});
+
+test('a native document with a different requested kind is refused before any group lookup',async()=>{
+ const f=fixture({nativeRows:[],wrongDocumentKind:true,nativeDocument:{kind:'receipt',order_id:42,lines:[{name:'Private',reference:'R',quantity:1}],total_cents:150,customer:{email:'must-not-escape@example.invalid'}}});
+ const result=await f.call({action:'document',operationId:actor,selection:orderLookup.selection,kind:'gift'});assert.equal(result.status,400);assert.equal(result.body.error,'TPV_NATIVE_DOCUMENT_KIND_MISMATCH');assert.equal(f.nativeRequests.length,1);assert.doesNotMatch(JSON.stringify(result.body),/must-not-escape|150/);
 });

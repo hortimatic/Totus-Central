@@ -15,3 +15,8 @@ test('reader uses the minimal official API once, does not fetch gifts or current
  const gift=await readHistoricalGroupRates({document:{...document,kind:'gift',lines:[{...document.lines[0],group_reduction_percent_micros:7}]},orderId:42,read});assert.equal(calls.length,1);assert.equal(Object.hasOwn(gift.lines[0],'group_reduction_percent_micros'),false);
  assert.deepEqual(await readHistoricalGroupRates({document,orderId:42,read:async()=>{throw Error('Forbidden');}}),document);
 });
+
+test('incomplete, unrelated or oversized document metadata never triggers an extra official API read',async()=>{
+ const read=async()=>assert.fail('Invalid document must not trigger lookup');
+ for(const patch of [{order_id:43},{order_id:undefined},{lines:undefined},{lines:[]},{lines:Array.from({length:201},()=>document.lines[0])}])await readHistoricalGroupRates({document:{...document,...patch},orderId:42,read});
+});
