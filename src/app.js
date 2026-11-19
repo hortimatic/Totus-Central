@@ -120,6 +120,7 @@ const totusTpvUI=createTpvWorkspace({prepareOperatorLogin:options=>createOperato
  workspacePreferences:(drawer,preferences=null)=>rpc('totus_tpv_workspace_preferences',{
   p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_preferences:preferences}),
  receiptNumbering:(drawer,settings=null)=>rpc('totus_tpv_receipt_series',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
+ budgetSettingsStore:(drawer,settings=null)=>rpc('totus_tpv_budget_settings',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  menuLinksStore:(drawer,links=null)=>rpc('totus_tpv_menu_links',{p_actor:state.user?.id,p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_links:links}),
  cashVisibilityStore:(drawer,settings=null)=>rpc('totus_tpv_cash_visibility',{p_connection:drawer.connectionId,p_shop:drawer.shopId,p_drawer:drawer.id,p_settings:settings}),
  canReturnPolicy:()=>can('ventas','edit'),

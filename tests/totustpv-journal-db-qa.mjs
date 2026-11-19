@@ -1,3 +1,4 @@
+import {exerciseBudgetSettings} from './native-lab/budget-settings-assertions.mjs';
 import {exerciseOperatorSwitchPassword} from './native-lab/operator-switch-password-assertions.mjs';
 import {exerciseSensitiveApprovals} from './native-lab/sensitive-action-assertions.mjs';
 import {exerciseWebTicketSettings} from './native-lab/web-ticket-settings-assertions.mjs';
@@ -830,5 +831,9 @@ try {
  await db.exec('reset role');
  await db.exec(await readFile('supabase/migrations/20261119105113_totustpv_operator_switch_password.sql','utf8'));
  await exerciseOperatorSwitchPassword({db,id,scope:qaScope});
+ await db.exec('reset role');
+ await db.exec(await readFile('supabase/migrations/20261119122657_totustpv_budget_presentation_and_series.sql','utf8'));
+ await exerciseBudgetSettings({db,id,scope:qaScope});
+ await exerciseBudgetLedger({db,scope:qaScope,id,check,denied,presentation:{hidePrices:true},freshCashId:id(12900)});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}

@@ -825,7 +825,9 @@
         "tests/totustpv-operator-login-races-qa.mjs",
         "tests/totustpv-operator-login-sdk-browser-qa.mjs",
         "tests/totustpv-budget-presentation-qa.mjs",
-        "tests/totustpv-budget-presentation-browser-qa.mjs"
+        "tests/totustpv-budget-presentation-browser-qa.mjs",
+        "tests/totustpv-budget-settings-browser-qa.mjs",
+        "tests/totustpv-budget-settings-native-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

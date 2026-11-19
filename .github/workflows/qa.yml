@@ -87,6 +87,7 @@ jobs:
       - run: node tests/totustpv-line-name-browser-qa.mjs
       - run: node --test tests/totustpv-budget-adapter-qa.mjs tests/totustpv-budget-document-qa.mjs
       - run: node tests/totustpv-budget-browser-qa.mjs
+      - run: node tests/totustpv-budget-settings-browser-qa.mjs
       - run: node tests/totustpv-line-price-browser-qa.mjs
       - run: node tests/totustpv-parking-browser-qa.mjs
       - run: node tests/totustpv-tender-browser-qa.mjs

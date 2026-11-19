@@ -2,21 +2,23 @@ import assert from 'node:assert/strict';import {mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';import {startLocalServer} from '../local-static-server.mjs';
 /** The browser uses the real adapter and handler, isolated SQL and loopback
  * PrestaShop. Authentication and endpoint routing are explicit local fixtures. */
-export async function exerciseNativeBudgetBrowser({handle,actor,fixture,preferences,selection,paths,call,inspectCommercialCart}){
+export async function exerciseNativeBudgetBrowser({handle,actor,fixture,preferences,budgetSettings,selection,paths,call,inspectCommercialCart}){
  const server=await startLocalServer({enabled:true}),browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1440,height:950}});
  const errors=[],saves=[],submits=[];let loseSave=true,loseSubmit=true,saved;
  const posts=()=>paths.filter(row=>row.method==='POST').length;
  page.setDefaultTimeout(60000);page.on('pageerror',error=>errors.push(error.message));
  const initialize=async()=>page.evaluate(async actor=>{
   fixture.workspace.dispose();const {createTpvWorkspace}=await import('/src/totustpv/workspace.js'),{createCentralTpvAdapter}=await import('/src/totustpv/central-adapter.js');
-  window.nativeBudgetWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true}),can:()=>true,autoOpen:true,confirm:async()=>true,
+  window.nativeBudgetWorkspace=createTpvWorkspace({actor:()=>({id:actor,active:true}),can:()=>true,canAssign:()=>true,autoOpen:true,confirm:async()=>true,
    workspacePreferences:async(drawer,value)=>(await fetch('/__budget_preferences',{method:'POST',body:JSON.stringify({drawer,value})})).json(),
+   budgetSettingsStore:async(drawer,value)=>(await fetch('/__budget_settings',{method:'POST',body:JSON.stringify({drawer,value})})).json(),
    createLiveAdapter:()=>createCentralTpvAdapter({actorId:actor,storage:localStorage,invoke:async payload=>{
     const response=await fetch('/__budget_fixture',{method:'POST',body:JSON.stringify(payload)}),data=await response.json();if(!response.ok||data?.error){const error=Error(data?.error);error.code=data?.error;throw error;}return data;
    }})});nativeBudgetWorkspace.mount(document.querySelector('#tpv'));
  },actor);
  try{
   await page.route('**/*',route=>new URL(route.request().url()).origin==='http://127.0.0.1:4173'?route.continue():route.abort('blockedbyclient'));
+  await page.route('**/__budget_settings',async route=>{const {drawer,value}=JSON.parse(route.request().postData());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(await budgetSettings(drawer,value))});});
   await page.route('**/__budget_preferences',async route=>{const {drawer,value}=JSON.parse(route.request().postData());return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(await preferences(drawer,value))});});
   await page.route('**/__budget_fixture',async route=>{
    const payload=JSON.parse(route.request().postData()),response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(payload)})),body=await response.text();

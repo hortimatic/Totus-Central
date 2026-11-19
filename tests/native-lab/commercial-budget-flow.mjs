@@ -4,21 +4,22 @@ import {exerciseNativeBudgetBrowser} from './commercial-budget-browser.mjs';
 /** Real Central handler, migrated SQL and native commercial cart/quote HTTP.
  * First saves without cash; then explicitly converts, sells and refunds one
  * separate ordinary checkout. Everything stays in the local laboratory. */
-export async function exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,simulateBudgetConfirmLoss,simulateBudgetCreateFailure,simulateBudgetCreateRace}){
+export async function exerciseCommercialBudget({handle,call,selection,fixture,db,paths,inspectCommercialCart,actor,preferences,budgetSettings,simulateBudgetConfirmLoss,simulateBudgetCreateFailure,simulateBudgetCreateRace}){
  const {sessionId,...closedSelection}=selection,id=randomUUID(),payload={lines:[{productId:fixture.productId,attributeId:0,qty:10000}],title:'Oferta de mostrador',publicNote:'Válido durante 30 días',validDays:30};
  const raw=async body=>{const response=await handle(new Request('https://central.local/tpv',{method:'POST',headers:{Authorization:'Bearer synthetic-auth-fixture','Content-Type':'application/json'},body:JSON.stringify(body)}));return {status:response.status,result:await response.json()};};
  const inspect=async(sql,args=[])=>{await db.exec('reset role');return db.query(sql,args);};
  const sessions=()=>inspect('select count(*)::int n from private.totus_tpv_sessions');
  assert.equal((await sessions()).rows[0].n,0);const before=inspectCommercialCart(fixture.productId,0);
+ const settingsDrawer={id:closedSelection.drawerId,connectionId:closedSelection.connectionId,shopId:closedSelection.shopId};if(budgetSettings){const rules=await budgetSettings(settingsDrawer);assert.equal(rules.revision,0);await budgetSettings(settingsDrawer,{enabled:true,prefix:'P-',lastNumber:37,hidePrices:true,expectedRevision:0});}
  const saved=await call({action:'budget-create',selection:closedSelection,operationId:id,payload});
- assert.equal(saved.id,id);assert.match(saved.reference,/^P-[0-9]{6,}$/);assert.equal(saved.status,'saved');assert.equal(saved.snapshot.lines[0].qty,10000);assert.ok(saved.totalCents>0);
+ assert.equal(saved.id,id);assert.match(saved.reference,/^P-[0-9]{6,}$/);if(budgetSettings){assert.equal(saved.reference,'P-000038');assert.deepEqual(saved.presentation,{hidePrices:true});}assert.equal(saved.status,'saved');assert.equal(saved.snapshot.lines[0].qty,10000);assert.ok(saved.totalCents>0);
  assert.equal(saved.snapshot.nativeCartId,undefined);assert.equal(saved.snapshot.nativeQuoteFingerprint,undefined);
  assert.equal(saved.draftId,null);assert.equal(saved.orderId,null);assert.equal(saved.expired,false);
  assert.ok(saved.snapshot.merchant.name.length>0);assert.equal(saved.snapshot.customer,null);assert.equal(saved.snapshot.delivery,null);
  const posts=paths.filter(row=>row.method==='POST').length;assert.equal(posts,2);
  // Simulates a caller that lost the successful reply and repeats the same ID.
  assert.deepEqual(await call({action:'budget-create',selection:closedSelection,operationId:id,payload}),saved);
- assert.equal(paths.filter(row=>row.method==='POST').length,posts);
+ assert.equal(paths.filter(row=>row.method==='POST').length,posts);if(budgetSettings)assert.equal((await budgetSettings(settingsDrawer)).lastNumber,38);
  assert.deepEqual(await call({action:'budget-get',selection:closedSelection,operationId:id}),saved);
  const list=await call({action:'budgets',selection:closedSelection,operationId:randomUUID(),query:{search:saved.reference}});
  assert.equal(list.items.length,1);assert.equal(list.items[0].payload,undefined);assert.equal(list.items[0].snapshot,undefined);
@@ -85,6 +86,6 @@ export async function exerciseCommercialBudget({handle,call,selection,fixture,db
  assert.equal(inspectCommercialCart(fixture.productId,0).stock,before.stock);assert.equal((await call({action:'budget-get',selection,operationId:saleBudgetId})).status,'sold');
  const credit=await call({action:'document',selection,operationId:saleId,kind:'credit-note',refundId});assert.equal(credit.mime,'application/pdf');assert.equal(Buffer.from(credit.base64,'base64').subarray(0,5).toString(),'%PDF-');
  console.log('PASS budget conversion: separate payable native cart, expiry blocks first dispatch, expired already-dispatched sale recovers after lost Central confirmation without another POST, verified order/payment/invoice/stock, budget-to-order link, immutable original snapshot, refused second conversion, receipt, refund and restock. Local only.');
- await exerciseNativeBudgetBrowser({handle,actor,fixture,preferences,selection,paths,call,inspectCommercialCart});
+ await exerciseNativeBudgetBrowser({handle,actor,fixture,preferences,budgetSettings,selection,paths,call,inspectCommercialCart});
  return {budgetId:id,reference:saved.reference};
 }
