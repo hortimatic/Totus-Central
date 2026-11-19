@@ -187,6 +187,7 @@
         "src/totustpv/server/native-capability-adapter.js",
         "src/totustpv/server/native-request-service.js",
         "src/totustpv/server/native-transport.js",
+        "src/totustpv/server/receipt-group-rates.js",
         "src/totustpv/server/official-products.js",
         "src/totustpv/server/operator-payments.js",
         "src/totustpv/operator-acknowledgement.js",

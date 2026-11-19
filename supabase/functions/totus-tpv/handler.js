@@ -1,3 +1,4 @@
+import {readHistoricalGroupRates} from '../../../src/totustpv/server/receipt-group-rates.js';
 import {createSignatureService} from '../../../src/totustpv/server/signature-service.js';
 import {commercialFromExpected} from '../../../src/totustpv/offline-commercial.js';
 import {saleModifiers,sameSaleModifiers} from '../../../src/totustpv/sale-modifiers.js';
@@ -478,7 +479,8 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      return respond({...document,ticket_number:check(await rpc('totus_tpv_receipt_number',{p_scope:scope,p_operation:refund.id,p_kind:'return'}))});
     }
     need(input.refundId===undefined,'TPV_DOCUMENT_QUERY_INVALID');
-    const document=await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind});
+    const source=await transport.readNativeDocument({operationId:sale.id,sourceActorId:sale.scope.actorId,kind:input.kind});
+    const document=['receipt','gift'].includes(input.kind)?await readHistoricalGroupRates({document:source,orderId:sale.orderId,read:(resource,query)=>transport.read(resource,query)}):source;
     return respond(['receipt','gift'].includes(input.kind)?{...document,ticket_number:check(await rpc('totus_tpv_receipt_number',{p_scope:scope,p_operation:sale.id,p_kind:'sale'})),merchant_logo_origin:TOTUS_QA_POLICY.origin,
      merchant_origin:TOTUS_QA_POLICY.origin,operator_name:typeof sale.operatorName==='string'?sale.operatorName.slice(0,100):null,
      ...(input.kind==='receipt'?{total_tax_excl_cents:sale.expected.totalTaxExclCents}:{})}:document);

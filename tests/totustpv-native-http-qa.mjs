@@ -71,6 +71,10 @@ try{
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'offline'});
  }else if(process.argv.includes('--payment-reference-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'payment-reference'});
+ }else if(process.argv.includes('--receipt-discount-display-only')){
+  const group=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','set',String(configured.result.counter_customer_id)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
+  try{await exerciseCentralEdge({fixture:{...fixture,changeGroup:async()=>execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','change',String(group.groupId)],{encoding:'utf8',env,maxBuffer:1024*1024})},profile:configured.result,base,focus:'receipt-discount-display'});}
+  finally{execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','restore',JSON.stringify(group)],{encoding:'utf8',env,maxBuffer:1024*1024});}
  }else if(process.argv.includes('--receipt-variants-only')){
   const variant=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/variant-setup.php',String(fixture.productId)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   const renameReceiptVariant=async(product,attribute)=>JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/receipt-variant-rename.php',String(product),String(attribute)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));

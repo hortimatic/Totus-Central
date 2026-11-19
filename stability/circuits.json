@@ -709,7 +709,8 @@
         "tests/totustpv-commercial-quote-qa.mjs",
         "tests/native-lab/commercial-",
         "src/components.js",
-        "supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql"
+        "supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql",
+        "supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -796,7 +797,11 @@
         "tests/totustpv-offline-catalogue-adapter-qa.mjs",
         "tests/totustpv-catalogue-background-qa.mjs",
         "tests/totustpv-operator-checkout-browser-qa.mjs",
-        "tests/totustpv-operator-checkout-native-qa.mjs"
+        "tests/totustpv-operator-checkout-native-qa.mjs",
+        "tests/totustpv-receipt-discount-display-qa.mjs",
+        "tests/totustpv-receipt-discount-display-browser-qa.mjs",
+        "tests/totustpv-receipt-discount-display-native-qa.mjs",
+        "tests/totustpv-receipt-group-rates-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -811,7 +816,8 @@
         "unit price overrides require explicit saved options, current edit permission and scoped native capability; catalogue prices remain unchanged and native quote/payment evidence remains authoritative",
         "Private sale notes are sealed with the owned cart, required by server policy when configured, read back from a single private native Message, and excluded from customer documents and display",
         "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding, keep cart reductions separate and disclose no amounts in gift documents",
-        "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización."
+        "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización.",
+        "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo y el regalo nunca revela importes ni grupos."
       ]
     },
     {
