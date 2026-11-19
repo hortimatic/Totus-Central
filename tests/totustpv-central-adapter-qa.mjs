@@ -79,7 +79,7 @@ test('a selected variant group requires native confirmation and bounded metadata
  response={...response,variant_group_id:3,variant_groups:[{id:3,name:'Color'},{id:3,name:'Duplicate'}]};await assert.rejects(adapter.searchProducts({productId:12,variantGroupId:3}),/grupos/);
  await assert.rejects(adapter.searchProducts({variantGroupId:3}),/atributo/);
 });
-function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
+function fixture({requireOriginalPayment=false}={}){let sequence=0;const actor='00000000-0000-4000-8000-000000000001',requests=[],values=new Map(),
  storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)},station={environment:'qa',connectionId:'connection',
   shopId:1,storeId:'store',storeName:'Tienda',drawerId:'drawer',drawerName:'Caja',canOpen:true,canSell:true,canReconcile:true,session:null};
  let dispatches=0,movementLost=true,productReplyLost=true,productMissing=false;const productDrafts=new Map();
@@ -95,7 +95,7 @@ function fixture(){let sequence=0;const actor='00000000-0000-4000-8000-000000000
   case 'customer-write':return {verified:true,persisted:true,record_id:'7'};
   case 'product-intake-prepare':{const row={id:body.operationId,status:'ready',name:body.payload.name};productDrafts.set(row.id,row);if(productReplyLost){productReplyLost=false;throw Error('Lost product preparation reply');}return row;}
   case 'product-intake-get':{if(productMissing||!productDrafts.has(body.operationId)){const error=Error('Not found');error.code='TPV_PRODUCT_NOT_FOUND';throw error;}return productDrafts.get(body.operationId);}
-  case 'returnable':return {orderId:42,originalPaymentReferences:{card:'OP-ORIGINAL-42'},remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
+  case 'returnable':return {returnPolicy:{allowPartial:true,requireOriginalPayment},orderId:42,originalPaymentReferences:{card:'OP-ORIGINAL-42'},remaining_payments:{cash:400,card:401},items:[{detail_id:77,name:'Artículo',sold_quantity:2,
    returned_quantity:0,remaining_quantity:2,allocated_cents:801,refunded_cents:0}]};
   case 'prepare-refund':return {id:body.operationId,status:'ready',totalCents:401};
   default:throw Error('Unexpected action '+body.action);
@@ -190,4 +190,11 @@ test('offline delivery recovers a lost receipt in its original workstation and n
  assert.equal(requests.filter(r=>r.action==='offline-receive').length,1);assert.equal(requests.filter(r=>r.action==='offline-sync').length,1);assert.equal(requests.filter(r=>r.action==='offline-recover').length,1);
  const count=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket:{...ticket,totalCents:101}}),/no coincide/);assert.equal(requests.length,count+1);
  await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const before=requests.length;await assert.rejects(delivery.recover({operationId:operation,ticket}),/puesto ha cambiado/);assert.equal(requests.length,before);
+});
+
+
+test('mandatory original refund allocation is derived from verified balances and shown unchanged for confirmation',async()=>{
+ const f=fixture({requireOriginalPayment:true}),adapter=f.create();await adapter.context();await adapter.openSession({storeId:'store',drawerId:'drawer',openingCents:0});const source=await adapter.returnable({saleId:'sale'});assert.equal(source.requireOriginalPayment,true);
+ const args={saleId:'sale',operationId:'refund',items:[{productId:'77',qty:1,restock:false}]};await assert.rejects(adapter.prepareRefund({...args,refundMethod:'card'}),/exige repartir/);
+ const result=await adapter.prepareRefund(args);assert.deepEqual(result.payments,[{method:'cash',amountCents:200},{method:'card',amountCents:201}]);assert.deepEqual(f.requests.at(-1).payments,result.payments);
 });

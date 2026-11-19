@@ -936,6 +936,28 @@
         "Stored original PDF is immutable and hash verified; signature appends an acknowledgment page without changing issued invoice amounts.",
         "Scoped authorized signature retries recover the same archive without new sale, payment or native write."
       ]
+    },
+    {
+      "id": "totustpv-original-refund-payments",
+      "paths": [
+        "src/totustpv/refund-payments.js",
+        "src/totustpv/return-policy.js",
+        "supabase/migrations/20261119021524_totustpv_original_refund_payments.sql",
+        "tests/totustpv-original-refund",
+        "tests/totustpv-refund-payments-qa.mjs"
+      ],
+      "tests": [
+        "tests/totustpv-refund-payments-qa.mjs",
+        "tests/totustpv-refund-intent-qa.mjs",
+        "tests/totustpv-central-adapter-qa.mjs",
+        "tests/totustpv-journal-db-qa.mjs",
+        "tests/totustpv-menu-links-browser-qa.mjs",
+        "tests/totustpv-original-refund-browser-qa.mjs"
+      ],
+      "invariants": [
+        "Mandatory original-payment refunds use verified remaining balances and integer largest remainders, never exceeding a method balance or losing a cent.",
+        "Current drawer policy is checked before preparation and dispatch; already dispatched refunds remain recoverable without a second reintegro."
+      ]
     }
   ]
 }

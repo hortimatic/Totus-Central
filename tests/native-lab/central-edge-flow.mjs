@@ -97,6 +97,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118182903_totustpv_receipt_voucher_breakdown.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119000655_totustpv_menu_links.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119001830_totustpv_return_policy.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119021524_totustpv_original_refund_payments.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119010349_totustpv_document_signatures.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119020406_totustpv_billing_signature_archive.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261118121439_totustpv_offline_inbox.sql',import.meta.url),'utf8'));
@@ -261,16 +262,31 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
     loseBaseReply:()=>{dropProductReply=true;},loseStageAck:key=>{dropProductAck=key;}});
    await exerciseNativeProductBrowser({handle,actor,fixture,preferences});return productResult;
   }
-  if(focus==='return-policy'){
+  if(['return-policy','original-refund'].includes(focus)){
    const saleId=randomUUID(),prepared=await call({action:'prepare',selection,operationId:saleId,lines:[{productId:fixture.productId,attributeId:0,qty:2}]});
    assert.equal(prepared.expected.totalCents,1602);
-   const sold=await call({action:'submit',selection,operationId:saleId,payments:{allocations:[{id:'policy-cash',method:'cash',amountCents:1602,receivedCents:2000}],confirmation:{operationId:saleId,totalCents:1602,currency:'EUR',accepted:true}}});
+   const sold=await call({action:'submit',selection,operationId:saleId,payments:{allocations:focus==='original-refund'?[{id:'policy-cash',method:'cash',amountCents:600,receivedCents:1000},{id:'policy-card',method:'card',amountCents:1002}]:[{id:'policy-cash',method:'cash',amountCents:1602,receivedCents:2000}],confirmation:{operationId:saleId,totalCents:1602,currency:'EUR',accepted:true}}});
    assert.equal(sold.status,'confirmed');
    const available=await call({action:'returnable',selection,operationId:randomUUID(),saleId}),detailId=available.items[0].detail_id;
-   const policy=async allowPartial=>{const reply=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_return_policy',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:{allowPartial}});assert.deepEqual(reply,{data:{allowPartial}});};
+   if(focus==='original-refund'){
+    const policy=async required=>{const reply=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_return_policy',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:{allowPartial:true,requireOriginalPayment:required}});assert.deepEqual(reply,{data:{allowPartial:true,requireOriginalPayment:required}});};
+    const args={saleId,items:[{detailId,qty:1,restock:false}]},posts=nativePosts;await policy(true);
+    assert.equal((await call({action:'returnable',selection,operationId:randomUUID(),saleId})).returnPolicy.requireOriginalPayment,true);
+    await assert.rejects(call({action:'prepare-refund',selection,operationId:randomUUID(),...args,payments:[{method:'card',amountCents:801}]}),/ORIGINAL_PAYMENT_REQUIRED/);assert.equal(nativePosts,posts);
+    await policy(false);const oldId=randomUUID();await call({action:'prepare-refund',selection,operationId:oldId,...args,payments:[{method:'card',amountCents:801}]});await policy(true);
+    await assert.rejects(call({action:'submit-refund',selection,operationId:oldId,confirmation:{accepted:true,operationId:oldId,totalCents:801,currency:'EUR'}}),/ORIGINAL_PAYMENT_REQUIRED/);assert.equal(nativePosts,posts);
+    await call({action:'cancel-refund',selection,operationId:oldId});
+    const refundId=randomUUID(),ready=await call({action:'prepare-refund',selection,operationId:refundId,...args,payments:[{method:'cash',amountCents:300},{method:'card',amountCents:501}]});assert.equal(ready.totalCents,801);
+    const done=await call({action:'submit-refund',selection,operationId:refundId,confirmation:{accepted:true,operationId:refundId,totalCents:801,currency:'EUR'}});assert.equal(done.status,'confirmed');
+    const remaining=await call({action:'returnable',selection,operationId:randomUUID(),saleId});assert.equal(remaining.remaining_payments.cash,300);assert.equal(remaining.remaining_payments.card,501);const writes=nativePosts;
+    await policy(false);assert.equal((await call({action:'recover-refund',selection,operationId:refundId})).status,'confirmed');assert.equal(nativePosts,writes);
+    assert.equal((await call({action:'cash-summary',selection,operationId:randomUUID()})).expectedCashCents,10300);
+    console.log('PASS native original-payment refund: mixed 6.00/10.02 sale, partial 8.01 refund split 3.00/5.01, shifted preparation/dispatch denied, policy-change recovery without another refund and exact cash balance. Local only.');return {focus,saleId,refundId};
+   }
+   const policy=async allowPartial=>{const reply=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_return_policy',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:{allowPartial}});assert.deepEqual(reply,{data:{allowPartial,requireOriginalPayment:false}});};
    await policy(false);const posts=nativePosts;
    assert.equal(available.items[0].remaining_quantity,2,JSON.stringify(available));
-   const policyRead=await factory('https://local-edge.invalid','fixture-secret').rpc('totus_tpv_return_policy_for_scope',{p_scope:{actorId:actor,connectionId:connection,connectionRevision:5,shopId:1,drawerId:drawer,sessionId:session,storeId:store,currency:'EUR',environment:'qa'}});assert.deepEqual(policyRead,{data:{allowPartial:false}});
+   const policyRead=await factory('https://local-edge.invalid','fixture-secret').rpc('totus_tpv_return_policy_for_scope',{p_scope:{actorId:actor,connectionId:connection,connectionRevision:5,shopId:1,drawerId:drawer,sessionId:session,storeId:store,currency:'EUR',environment:'qa'}});assert.deepEqual(policyRead,{data:{allowPartial:false,requireOriginalPayment:false}});
    await assert.rejects(call({action:'prepare-refund',selection,operationId:randomUUID(),saleId,items:[{detailId,qty:1,restock:false}],payments:[{method:'cash',amountCents:801}]}),/PARTIAL_REFUND_FORBIDDEN/);
    assert.equal(nativePosts,posts,'Rejected partial selection creates no native refund');
    await policy(true);const refundId=randomUUID();

@@ -25,14 +25,14 @@ try{const context=await browser.newContext();await context.route('**/*',route=>{
  await page.getByRole('button',{name:'Guardar firma de facturas',exact:true}).click();await page.getByText('Configuración de firma guardada para esta caja.',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>menuFixture.signaturePolicy.enabled),true);
  assert.equal(await page.locator('[name=allowPartial]').isChecked(),true);
- await page.locator('[name=allowPartial]').uncheck();await page.evaluate(()=>menuFixture.losePolicy=true);
+ await page.locator('[name=allowPartial]').uncheck();await page.locator('[name=requireOriginalPayment]').check();await page.evaluate(()=>menuFixture.losePolicy=true);
  await page.getByRole('button',{name:'Guardar devoluciones',exact:true}).click();await page.getByRole('alert').filter({hasText:'Respuesta de devoluciones perdida'}).waitFor();
  assert.equal(await page.locator('[name=allowPartial]').isChecked(),false);
  await page.getByRole('button',{name:'Guardar devoluciones',exact:true}).click();await page.getByText('Configuración de devoluciones guardada para esta caja.',{exact:true}).waitFor();
- assert.equal(await page.evaluate(()=>menuFixture.returnPolicy.allowPartial),false);
+ assert.equal(await page.evaluate(()=>menuFixture.returnPolicy.allowPartial),false);assert.equal(await page.evaluate(()=>menuFixture.returnPolicy.requireOriginalPayment),true);
  await page.evaluate(()=>menuFixture.editReturns=false);
  await page.getByRole('button',{name:'Venta',exact:true}).click();await page.getByText('Más acciones',{exact:true}).click();await page.getByRole('button',{name:'Configuración',exact:true}).click();
- assert.equal(await page.locator('[name=allowPartial]').isDisabled(),true);
+ assert.equal(await page.locator('[name=allowPartial]').isDisabled(),true);assert.equal(await page.locator('[name=requireOriginalPayment]').isDisabled(),true);
  assert.equal(await page.locator('[name=signatureEnabled]').isDisabled(),true);assert.equal(await page.getByRole('button',{name:'Guardar firma de facturas',exact:true}).count(),0);
  assert.equal(await page.getByRole('button',{name:'Guardar devoluciones',exact:true}).count(),0);
  await page.evaluate(()=>menuFixture.editReturns=true);

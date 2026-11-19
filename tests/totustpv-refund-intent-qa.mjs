@@ -47,3 +47,13 @@ test('disabled partial return is rejected before a journal preparation or native
  await assert.rejects(service.prepare({operationId:saleId,saleId,items:f.items,payments:f.payments,reason:f.reason}),/PARTIAL_REFUND_FORBIDDEN/);
  assert.equal(writes,0);
 });
+
+
+test('mandatory original allocation rejects a shifted payout before prepare and before dispatch',async()=>{
+ const f=fixture();f.available.remaining_payments={cash:400,card:401};const policy={allowPartial:true,requireOriginalPayment:true},calls=[];
+ const record={id:'refund',saleId,status:'ready',totalCents:401,intent:{items:[{detail_id:42,quantity:1}],payments:[{method:'card',amount_cents:401}]}};
+ const service=createRefundService({scope:f.scope,readPolicy:async()=>policy,rpc:async(name,args)=>{calls.push({name,args});if(name==='totus_tpv_sale_for_return')return {data:f.sale};if(name==='totus_tpv_refund_journal'&&args.p_action==='get')return {data:record};if(name==='totus_tpv_refund_journal'&&args.p_action==='prepare')return {data:{...record,intent:args.p_data.intent,totalCents:args.p_data.totalCents}};throw Error('Unexpected write');},transport:{readNativeReturnable:async()=>f.available,nativeCommand:()=>assert.fail('No native write'),readNativeOperation:()=>assert.fail('No native read')}});
+ await assert.rejects(service.prepare({operationId:'refund',saleId,items:f.items,payments:[{method:'card',amountCents:401}]}),/ORIGINAL_PAYMENT_REQUIRED/);assert.ok(!calls.some(c=>c.name==='totus_tpv_refund_journal'));
+ const ready=await service.prepare({operationId:'refund',saleId,items:f.items,payments:[{method:'cash',amountCents:200},{method:'card',amountCents:201}]});assert.equal(ready.status,'ready');
+ await assert.rejects(service.submit({operationId:'refund',confirmation:{operationId:'refund',accepted:true,totalCents:401,currency:'EUR'}}),/ORIGINAL_PAYMENT_REQUIRED/);assert.ok(!calls.some(c=>c.args?.p_action==='claim'));
+});

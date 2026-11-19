@@ -1,3 +1,4 @@
+import {originalRefundPayments} from './refund-payments.js';
 import {createOfflineWorkstationCache} from './offline-workstation-cache.js';
 import {offlineBasketCommercial} from './offline-basket-commercial.js';
 import {cataloguePricingContext} from './catalogue-pricing-context.js';
@@ -388,7 +389,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
   async returnable({saleId}){const source=await call('returnable',{saleId});returnSources.set(saleId,source);
    const references=source.originalPaymentReferences;
    const payment_intent=references&&typeof references==='object'&&!Array.isArray(references)?Object.entries(references).map(([method,external_reference])=>({method,external_reference})):null;
-   return {saleId,reference:'Pedido #'+source.orderId,pendingRefund:source.pendingRefund,availablePayments:clone(source.remaining_payments),
+   return {saleId,reference:'Pedido #'+source.orderId,pendingRefund:source.pendingRefund,availablePayments:clone(source.remaining_payments),requireOriginalPayment:source.returnPolicy?.requireOriginalPayment===true,
     originalPaymentReferences:documentPaymentReferences({kind:'receipt',payment_intent}),
     lines:source.items.map(line=>({productId:String(line.detail_id),name:line.name,remainingQty:line.remaining_quantity}))};},
   async prepareRefund({operationId,saleId,items,reason,refundMethod='original'}){const source=returnSources.get(saleId);need(source,'Vuelve a consultar la venta.');
@@ -398,7 +399,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     total+=Number((BigInt(row.allocated_cents)*BigInt(row.returned_quantity+item.qty)*2n+BigInt(row.sold_quantity))/(2n*BigInt(row.sold_quantity)))-row.refunded_cents;}
    need(refundMethod==='original'||['cash','card','bizum','transfer'].includes(refundMethod)&&source.remaining_payments[refundMethod]>=total,
     'El medio elegido no tiene saldo suficiente de la venta original para este reintegro. Selecciona el reparto original.');
-   let remaining=total;const payments=[];for(const method of refundMethod==='original'?['cash','card','bizum','transfer']:[refundMethod]){const amount=Math.min(remaining,source.remaining_payments[method]||0);
+   need(source.returnPolicy?.requireOriginalPayment!==true||refundMethod==='original','Esta caja exige repartir el reintegro entre los medios originales. Vuelve a consultar la venta.');
+   let remaining=total;let payments=[];if(source.returnPolicy?.requireOriginalPayment===true){payments=originalRefundPayments(total,source.remaining_payments);remaining=0;}else for(const method of refundMethod==='original'?['cash','card','bizum','transfer']:[refundMethod]){const amount=Math.min(remaining,source.remaining_payments[method]||0);
     if(amount>0){payments.push({method,amountCents:amount});remaining-=amount;}}
    need(remaining===0,'No se puede distribuir este reintegro con los pagos originales.');
    return {...await call('prepare-refund',{saleId,items:chosen,payments,...(reason?{reason}:{})},operationId),payments};},

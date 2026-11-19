@@ -234,7 +234,8 @@
         "src/totustpv/signature-capture.js",
         "src/totustpv/server/signature-pdf.js",
         "src/totustpv/server/signature-service.js",
-        "src/totustpv/signature-document.js"
+        "src/totustpv/signature-document.js",
+        "src/totustpv/refund-payments.js"
       ]
     }
   ]
