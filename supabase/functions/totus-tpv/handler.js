@@ -1,3 +1,4 @@
+import {listWebOrders,readWebOrderReceipt,webOrderQuery} from '../../../src/totustpv/server/web-order-receipt.js';
 import {readHistoricalGroupRates} from '../../../src/totustpv/server/receipt-group-rates.js';
 import {createSignatureService} from '../../../src/totustpv/server/signature-service.js';
 import {commercialFromExpected} from '../../../src/totustpv/offline-commercial.js';
@@ -87,7 +88,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
    const rawInput=await boundedText(req,6291456),input=JSON.parse(rawInput);
    need(input?.action==='product-intake-prepare'||new TextEncoder().encode(rawInput).byteLength<=65536,'TPV_REQUEST_INVALID');
    need(input&&typeof input==='object'&&!Array.isArray(input)&&
-    ['offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','access-batch-get','access-batch-save','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
+    ['offline-sync','offline-recover','offline-receive','offline-get','context','configure','workstations','update-workstation-access','access-batch-get','access-batch-save','open','catalogue','categories','resolve-incident','customers','customer-metadata','customer-write','drafts','get-draft','park','claim-draft','release-draft','archive-draft','history','orders','web-orders','web-receipt','sale-status','document','prepare','submit','recover','cash-summary','cash-reports','cash-movement','close','stock-receive',
      'stock-receipts','stock-receipt-create','stock-receipt-get','stock-receipt-step','stock-receipt-cancel',
      'payment-options','barcode-labels','barcode-options','barcodes','barcode-create','barcode-get','barcode-capture','barcode-confirm','barcode-step','barcode-pause','barcode-resume','barcode-cancel',
      'product-profile','product-metadata','product-intakes','product-intake-prepare','product-intake-get','product-intake-step','product-intake-cancel',
@@ -103,7 +104,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
     'access-batch-get':['action','selection','operationId','revision'],'access-batch-save':['action','selection','operationId','revision','group','targets','permissions','active'],
     open:['action','selection','operationId','openingCents'],catalogue:['pricingQuantity','action','selection','operationId','search','page','productId','customerId','addressId','categoryId','sortField','sortDirection','searchFields','catalogueFilters','variantGroupId','inventoryOnly'],
     categories:['action','selection','operationId'],'resolve-incident':['action','selection','operationId','reason','settlementReview'],
-    history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
+    'web-orders':['action','selection','operationId','query'],'web-receipt':['action','selection','operationId','orderId'],history:['action','selection','operationId','before'],orders:['action','selection','operationId','orderId','reference'],'sale-status':['action','selection','operationId'],document:['action','selection','operationId','kind','refundId'],
     customers:['action','selection','operationId','search','page','customerId'],'customer-metadata':['action','selection','operationId','countryId'],
     'customer-write':['action','selection','operationId','resource','operation','recordId','fields'],
     budgets:['action','selection','operationId','query'],'budget-get':['action','selection','operationId'],
@@ -358,7 +359,7 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      await cash.close({...common,countedCents:input.countedCents,note:input.note}):
      await cash.movement({...common,kind:input.kind,amountCents:input.amountCents,reason:input.reason}));
    }
-   if(input.action!=='categories')await authorize({action:barcodeAction?'read':['budget-create','orders','catalogue','customers','customer-metadata','document',
+   if(input.action!=='categories')await authorize({action:barcodeAction?'read':['budget-create','orders','web-orders','web-receipt','catalogue','customers','customer-metadata','document',
     'product-profile','product-metadata','product-intakes','product-intake-get','product-categories','product-category-get'].includes(input.action)?'read':
     ['offline-recover','resolve-incident','stock-receipts','stock-receipt-get','stock-receipt-cancel','recover','recover-refund','cancel-refund'].includes(input.action)?'reconcile':'sell'});
    if(input.action==='resolve-incident')check(await scoped.rpc('totus_api_manager'));
@@ -421,6 +422,15 @@ export function createCentralTpvHandler({factory,env,request=fetch,resolve,onErr
      need(directory.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision),'TPV_CUSTOMER_CONTEXT_INVALID');
     }});
     return respond(await budgets.create(input.operationId,input.payload));
+   }
+   if(['web-orders','web-receipt'].includes(input.action)){
+    const webAllowed=async()=>{await authorize({action:'read'});const preferences=check(await scoped.rpc('totus_tpv_workspace_preferences',{p_connection:scope.connectionId,p_shop:scope.shopId,p_drawer:scope.drawerId,p_preferences:null}));need(preferences?.receipt?.showOnlineTickets===true,'TPV_WEB_TICKETS_DISABLED');return preferences.receipt;};
+    const webOptions=await webAllowed();if(input.action==='web-orders')webOrderQuery(input.query??{});else need(positive(input.orderId),'TPV_WEB_ORDER_QUERY_INVALID');
+    const customerAllowed=async()=>{const directory=await scoped.rpc('totus_directory_context',{p_kind:'clientes',p_action:'view'});return !directory.error&&directory.data?.connections?.some(c=>c.id===scope.connectionId&&c.revision===scope.connectionRevision)===true;};
+    const webRead=async(...args)=>{await authorize({action:'read'});if(['addresses','customers'].includes(args[0]))need(await customerAllowed(),'TPV_WEB_CUSTOMER_FORBIDDEN');return transport.read(...args);};
+    const customerAccess=input.action==='web-receipt'&&webOptions.showCustomer?await customerAllowed():false;
+    const result=input.action==='web-orders'?await listWebOrders({read:webRead,shopId:scope.shopId,query:input.query??{}}):await readWebOrderReceipt({read:webRead,shopId:scope.shopId,orderId:input.orderId,origin:TOTUS_QA_POLICY.origin,customerOptions:webOptions,customerAccess});
+    await webAllowed();if(result?.customer)need(await customerAllowed(),'TPV_WEB_CUSTOMER_FORBIDDEN');return respond(result);
    }
    if(input.action==='categories')return respond(await transport.readNativeCategories());
    if(input.action==='orders'){

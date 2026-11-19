@@ -75,6 +75,11 @@ try{
   const group=JSON.parse(execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','set',String(configured.result.counter_customer_id)],{encoding:'utf8',env,maxBuffer:1024*1024}).trim().split(/\r?\n/).at(-1));
   try{await exerciseCentralEdge({fixture:{...fixture,changeGroup:async()=>execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','change',String(group.groupId)],{encoding:'utf8',env,maxBuffer:1024*1024})},profile:configured.result,base,focus:'receipt-discount-display'});}
   finally{execFileSync(php,['-c',ini,'tests/native-lab/group-receipt-fixture.php','restore',JSON.stringify(group)],{encoding:'utf8',env,maxBuffer:1024*1024});}
+ }else if(process.argv.includes('--web-tickets-only')){
+  const cart=await api('totus_tpv_carts',{method:'POST',body:command('cart.prepare',{session_id:session,drawer_id:drawer,customer_id:customerId,invoice_address_id:addressId,delivery_address_id:addressId,lines:[{product_id:fixture.productId,attribute_id:0,quantity:1}]})});assert.equal(cart.result.verified,true);
+  const quoted=command('cart.quote',{cart_id:cart.result.cart_id}),quote=await api('totus_tpv_quotes',{method:'POST',body:quoted});assert.equal(quote.result.verified,true);
+  const sale=await api('totus_tpv_sales',{method:'POST',body:command('sale.commit',{cart_id:cart.result.cart_id,quote_operation_id:quoted.operation_id,quote_fingerprint:quote.result.quote_fingerprint,payments:[{method:'cash',amount_cents:quote.result.quote.total_cents,received_cents:1000}]})});assert.equal(sale.result.verified,true,JSON.stringify(sale.result));
+  await exerciseCentralEdge({fixture:{...fixture,externalOrderId:sale.result.order_id},profile:configured.result,base,focus:'web-tickets'});
  }else if(process.argv.includes('--gift-discounts-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'gift-discounts'});
  }else if(process.argv.includes('--receipt-variants-only')){

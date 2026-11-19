@@ -711,7 +711,8 @@
         "src/components.js",
         "supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql",
         "supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql",
-        "supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql"
+        "supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql",
+        "supabase/migrations/20261119065725_totustpv_web_order_tickets.sql"
       ],
       "tests": [
         "tests/totustpv-model-qa.mjs",
@@ -805,7 +806,10 @@
         "tests/totustpv-receipt-group-rates-qa.mjs",
         "tests/totustpv-gift-discounts-qa.mjs",
         "tests/totustpv-gift-discounts-browser-qa.mjs",
-        "tests/totustpv-gift-discounts-native-qa.mjs"
+        "tests/totustpv-gift-discounts-native-qa.mjs",
+        "tests/totustpv-web-order-receipt-qa.mjs",
+        "tests/totustpv-web-order-tickets-browser-qa.mjs",
+        "tests/totustpv-web-order-tickets-native-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",

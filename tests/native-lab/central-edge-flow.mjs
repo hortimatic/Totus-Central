@@ -1,3 +1,4 @@
+import {exerciseWebOrderTickets} from './web-order-ticket-flow.mjs';
 import {exerciseNativeGiftDiscounts} from './gift-discounts-flow.mjs';
 import {exerciseReceiptDiscountDisplay} from './receipt-discount-display-flow.mjs';
 import {exerciseNativeOperatorCheckout} from './operator-checkout-flow.mjs';
@@ -111,6 +112,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119044913_totustpv_operator_checkout_confirmation.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119053252_totustpv_receipt_discount_display.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../../supabase/migrations/20261119062541_totustpv_gift_receipt_discounts.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../supabase/migrations/20261119065725_totustpv_web_order_tickets.sql',import.meta.url),'utf8'));
  if(focus==='products')await loadProductJournal(db);
   await db.exec('set role service_role');
   await db.query('select public.totus_tpv_configure($1,$1,$2,5,$3,$4,$5,$6::jsonb,$7::jsonb)',
@@ -128,6 +130,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    totus_prestashop_product_create_journal:['p_action','p_request_id','p_data'],
    totus_prestashop_product_step:['p_action','p_request_id','p_stage','p_data'],
    totus_tpv_return_policy_for_scope:['p_scope'],totus_tpv_return_policy:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_series:['p_connection','p_shop','p_drawer','p_settings'],totus_tpv_receipt_number:['p_scope','p_operation','p_kind'],totus_tpv_workspace_preferences:['p_connection','p_shop','p_drawer','p_preferences']};
+  let denyWebCustomers=false;
   const factory=(url,key,options)=>({auth:{getUser:async()=>({data:{user:{id:actor}}})},rpc:async(name,args={})=>{
    if(name==='totus_tpv_payment_options'){
     assert.equal(key,'fixture-public');await db.exec('reset role;set role authenticated');
@@ -135,7 +138,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
    }
    if(name==='totus_products_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}],websites:[{key:'qa-shop',connection_id:connection,origin:'https://preproduccion.hortimatic.com',status:'active',name:'QA local'}]}};}
    if(name==='totus_tpv_product_intake'&&args.p_action==='verified'&&args.p_data.stepKey===dropProductAck){dropProductAck=null;return {error:{message:'TPV_STORAGE_UNAVAILABLE'}};}
-   if(name==='totus_directory_context'){assert.equal(key,'fixture-public');return {data:{connections:[{id:connection,revision:5}]}};}
+   if(name==='totus_directory_context'){assert.equal(key,'fixture-public');if(denyWebCustomers)return {error:{message:'TPV_CUSTOMER_FORBIDDEN'}};return {data:{connections:[{id:connection,revision:5}]}};}
    if(name==='totus_api_server')return {data:{id:connection,revision:5,verified_revision:5,enabled:true,real_data_authorized:true,
     protocol:'prestashop',endpoint:'https://preproduccion.hortimatic.com/api',auth_kind:'basic',secret:fixture.key}};
    if(name==='totus_api_call')return {data:{ok:true}};
@@ -205,6 +208,7 @@ export async function exerciseCentralEdge({fixture,profile,base,focus='complete'
   await call({action:'open',selection:{connectionId:connection,shopId:1,drawerId:drawer},operationId:session,openingCents:10000});
   if(focus==='operator-checkout')return await exerciseNativeOperatorCheckout({call,handle,selection,fixture,db,paths,actor,saleReplyWasLost:()=>dropReferenceSaleReply===false,loseSaleReply:()=>{dropReferenceSaleReply=true;},configure:async settings=>{const result=await factory('https://local-edge.invalid','fixture-public').rpc('totus_tpv_operator_settings',{p_connection:connection,p_shop:1,p_drawer:drawer,p_settings:settings});assert.equal(result.error,undefined,result.error?.message);return result.data;}});
   if(focus==='receipt-discount-display')return await exerciseReceiptDiscountDisplay({call,selection,fixture,preferences,changeGroup:fixture.changeGroup,nativePosts:()=>nativePosts});
+  if(focus==='web-tickets')return await exerciseWebOrderTickets({call,selection,fixture,preferences,paths,db,setCustomerAccess:allowed=>{denyWebCustomers=!allowed;}});
   if(focus==='gift-discounts')return await exerciseNativeGiftDiscounts({call,selection,fixture,preferences,paths});
   if(focus==='offline')return await exerciseOfflineCheckout({call,handle,selection,fixture,paths,actor,db,loseSaleReply:()=>{dropReferenceSaleReply=true;}});
   if(focus==='payment-reference'){

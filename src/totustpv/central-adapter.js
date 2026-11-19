@@ -376,6 +376,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(reference===undefined||typeof reference==='string'&&/^[A-Za-z0-9-]{1,10}$/.test(reference),'Escribe una referencia válida.');
    need(orderId===undefined||reference===undefined,'Busca por número o por referencia.');
    return (await call('orders',reference!==undefined?{reference:reference.toUpperCase()}:orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
+  async webOrders(query={}){const rows=await call('web-orders',{query});need(Array.isArray(rows),'No se pudieron consultar los pedidos de la web.');return rows;},
+  async webReceipt(orderId){need(Number.isSafeInteger(orderId)&&orderId>0,'Selecciona un pedido válido.');return call('web-receipt',{orderId});},
   async document({saleId,kind,refundId}){return call('document',{kind,...(refundId?{refundId}:{})},saleId);},
   async searchCustomers({search='',page=0,customerId=0}={}){const data=await call('customers',{search,page,customerId});
    need(data?.shop_id===selected.shopId&&Array.isArray(data.items)&&Array.isArray(data.addresses)&&data.defaults?.guest_group_id>0,'No se ha podido verificar el directorio de esta tienda.');return data;},

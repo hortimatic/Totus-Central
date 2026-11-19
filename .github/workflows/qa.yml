@@ -38,7 +38,7 @@ jobs:
       - run: node --test tests/totustpv-setup-qa.mjs tests/totustpv-qa-policy-qa.mjs
       - run: node tests/totustpv-php-boundary-qa.mjs
       - run: node tests/totustpv-package-qa.mjs
-      - run: node --test tests/totustpv-gift-discounts-qa.mjs tests/totustpv-receipt-group-rates-qa.mjs tests/totustpv-receipt-discount-display-qa.mjs tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs tests/totustpv-receipt-vouchers-qa.mjs
+      - run: node --test tests/totustpv-web-order-receipt-qa.mjs tests/totustpv-gift-discounts-qa.mjs tests/totustpv-receipt-group-rates-qa.mjs tests/totustpv-receipt-discount-display-qa.mjs tests/totustpv-receipt-variants-qa.mjs tests/totustpv-payment-reference-qa.mjs tests/totustpv-receipt-vouchers-qa.mjs
       - run: node --test tests/totustpv-offline-edge-qa.mjs tests/totustpv-offline-price-comparison-qa.mjs tests/totustpv-offline-sync-qa.mjs tests/totustpv-offline-catalogue-adapter-qa.mjs tests/totustpv-catalogue-background-qa.mjs tests/totustpv-offline-rounding-qa.mjs tests/totustpv-native-subtotal-qa.mjs tests/totustpv-offline-basket-prices-qa.mjs tests/totustpv-offline-basket-commercial-qa.mjs tests/totustpv-offline-new-basket-adapter-qa.mjs tests/totustpv-offline-workstation-cache-qa.mjs
       - run: npx playwright install --with-deps chromium
       - run: node tests/totustpv-offline-journal-browser-qa.mjs
@@ -89,6 +89,7 @@ jobs:
       - run: node tests/totustpv-printed-documents-qa.mjs
       - run: node tests/totustpv-receipt-discount-display-browser-qa.mjs
       - run: node tests/totustpv-gift-discounts-browser-qa.mjs
+      - run: node tests/totustpv-web-order-tickets-browser-qa.mjs
       - run: node tests/totustpv-receipt-barcode-browser-qa.mjs
       - run: node tests/totustpv-central-browser-qa.mjs
       - run: node tests/totustpv-setup-browser-qa.mjs
