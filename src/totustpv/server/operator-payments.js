@@ -21,9 +21,10 @@ export function createOperatorPaymentVerifier({authorize,readPolicy}) {
   scope=structuredClone(scope);expected=structuredClone(expected);requested=structuredClone(requested);
   need(uuid(operationId)&&uuid(scope?.actorId),'TPV_PAYMENT_IDENTITY_INVALID');
   need(keys(requested,['allocations','confirmation'])&&keys(requested.confirmation,
-   ['operationId','totalCents','currency','accepted','operatorAcknowledgement'])&&requested.confirmation.accepted===true&&
+   ['operationId','totalCents','currency','accepted','operatorAcknowledgement','approvalId'])&&requested.confirmation.accepted===true&&
    requested.confirmation.operationId===operationId&&requested.confirmation.totalCents===expected?.totalCents&&
    requested.confirmation.currency===scope.currency,'TPV_OPERATOR_CONFIRMATION_REQUIRED');
+  need(requested.confirmation.approvalId===undefined||uuid(requested.confirmation.approvalId),'TPV_APPROVAL_INVALID');
   need(Array.isArray(requested.allocations)&&requested.allocations.length>0&&requested.allocations.length<=4,
    'TPV_PAYMENT_ALLOCATIONS_INVALID');
   const fresh=await authorize({scope:structuredClone(scope),action:'sell'});

@@ -128,6 +128,8 @@ try{
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'original-refund'});
  }else if(process.argv.includes('--return-policy-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'return-policy'});
+ }else if(process.argv.includes('--sensitive-actions-only')){
+  await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'sensitive-actions'});
  }else if(process.argv.includes('--operator-checkout-only')){
   await exerciseCentralEdge({fixture,profile:configured.result,base,focus:'operator-checkout'});
  }else if(process.argv.includes('--cash-counting-only')){

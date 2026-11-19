@@ -4,7 +4,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const money=value=>new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(value/100);
 import {offlineDevice} from './offline-device.js';
 export {offlineDevice} from './offline-device.js';
-export function createOfflinePanel({getScope,getAdapter,isCurrent,storage,getOperatorAcknowledgement=async()=>undefined}){
+export function createOfflinePanel({getScope,getAdapter,isCurrent,storage,getOperatorAcknowledgement=async()=>undefined,getActionApproval=null}){
  let rows=[],journal=null,sync=null,scope=null,version=0;
  const current=()=>scope&&isCurrent()&&JSON.stringify(getScope())===JSON.stringify(scope);
  async function refresh(){
@@ -16,7 +16,7 @@ export function createOfflinePanel({getScope,getAdapter,isCurrent,storage,getOpe
  }
  async function bindSync(acknowledgement){
   const run=version,boundScope=scope,boundJournal=journal;
-  const delivery=await getAdapter().offlineDelivery({deviceId:offlineDevice(storage),...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})});
+  const delivery=await getAdapter().offlineDelivery({deviceId:offlineDevice(storage),...(getActionApproval?{authorizeAction:getActionApproval}:{}),...(acknowledgement?{operatorAcknowledgement:acknowledgement}:{})});
   if(run!==version||!current())throw Error('La sesión ha cambiado.');
   const scopedJournal={...boundJournal,get:async id=>{const row=await boundJournal.get(id);if(row&&row.ticket.cashSessionId!==boundScope.cashSessionId)throw Error('Esta venta pertenece a otra sesión de caja.');return row;},list:options=>boundJournal.list(options)};
   sync=createOfflineSync({journal:scopedJournal,adapter:delivery,isCurrent:()=>run===version&&current(),shouldSynchronize:row=>row.ticket.cashSessionId===boundScope.cashSessionId});

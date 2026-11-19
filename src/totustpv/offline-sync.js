@@ -20,12 +20,12 @@ export function createOfflineSync({journal,adapter,isCurrent=()=>true,shouldSync
   let observed;
   try{
    observed=dispatch?await adapter.dispatch({operationId:row.id,ticket:structuredClone(row.ticket)}):await adapter.recover({operationId:row.id,ticket:structuredClone(row.ticket)});
-  }catch{observed=null;}
+  }catch(error){observed=error?.code==='TPV_ACTION_APPROVAL_REQUIRED'?{operationId:row.id,authorizationRequired:true}:null;}
   guard();
   const matches=observed?.operationId===row.id;
   const status=matches&&observed.status==='confirmed'&&observed.verified===true?'synced':
    matches&&observed.status==='conflict'&&observed.verified===true?'conflict':'uncertain';
-  const saved=await journal.settle(row.id,row.revision,{status,remoteOperationId:row.id});guard();return saved.record;
+  const saved=await journal.settle(row.id,row.revision,{status,remoteOperationId:row.id});guard();return observed?.authorizationRequired?{...saved.record,authorizationRequired:true}:saved.record;
  }
  // Manual and connection-restored triggers share a single sweep in this tab.
  // The journal's transactional claim still arbitrates between different tabs.
@@ -41,6 +41,7 @@ export function createOfflineSync({journal,adapter,isCurrent=()=>true,shouldSync
      if(['synced','conflict'].includes(row.status)||!shouldSynchronize(row))continue;
      const result=await synchronize(row.id);guard();
      summary[result.status==='synced'?'synced':result.status==='conflict'?'conflict':'pending']++;
+     if(result.authorizationRequired)summary.authorizationRequired=true;
      // An inconclusive delivery often means the connection is still down.
      // Stop here; the next sweep recovers this ID before attempting new work.
      if(!['synced','conflict'].includes(result.status))return summary;

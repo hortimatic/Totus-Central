@@ -110,13 +110,15 @@ export function createRefundService({rpc,transport,scope,readPolicy=async()=>({a
    need(record.status!=='cancelled','TPV_REFUND_CANCELLED');
    if(record.status==='confirmed')return result(record);
    if(record.status!=='ready')return reconcile(record);
-   need(fields(confirmation,['operationId','totalCents','currency','accepted'])&&confirmation.accepted===true&&
+   need(fields(confirmation,['operationId','totalCents','currency','accepted','approvalId'])&&confirmation.accepted===true&&
     confirmation.operationId===operationId&&confirmation.totalCents===record.totalCents&&confirmation.currency===scope.currency,
     'TPV_REFUND_CONFIRMATION_REQUIRED');
+   need(confirmation.approvalId===undefined||typeof confirmation.approvalId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(confirmation.approvalId),'TPV_APPROVAL_INVALID');
    const policy=await readPolicy();
    if(policy?.allowPartial===false||policy?.requireOriginalPayment===true){const data=await available(record.saleId);requireCompleteReturn(policy,data.snapshot,record.intent.items.map(item=>({detailId:item.detail_id,qty:item.quantity})));requireOriginalRefundPayments(policy,record.intent.payments.map(p=>({method:p.method,amountCents:p.amount_cents})),record.totalCents,data.snapshot.remaining_payments);}
    else need(policy?.allowPartial===true,'TPV_REFUND_POLICY_UNAVAILABLE');
-   const claimed=await journal('claim',operationId,{confirmation});
+   const {approvalId,...accepted}=confirmation;
+   const claimed=await journal('claim',operationId,{confirmation:accepted,...(approvalId?{approvalId}:{})});
    if(claimed?.won===true){try{await transport.nativeCommand({operationId,command:'return.commit',
     payload:{...record.intent,operator_confirmed:true}});}catch{}}
    return reconcile(claimed);

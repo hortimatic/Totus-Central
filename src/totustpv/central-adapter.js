@@ -188,7 +188,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     return rows;
    }});
   },
-  offlineDelivery({deviceId,operatorAcknowledgement:manualAcknowledgement}){
+  offlineDelivery({deviceId,operatorAcknowledgement:manualAcknowledgement,authorizeAction}){
    const manualAck=operatorAcknowledgement(manualAcknowledgement,actorId);
    need(typeof deviceId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(deviceId)&&session&&selected,'Abre la caja y prepara este dispositivo antes de sincronizar.');
    const original=canonical(selection());
@@ -196,7 +196,13 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const send=async(action,operationId,values={})=>{guard();const result=await call(action,values,operationId);guard();return result;};
    const receive=async(operationId,ticket)=>{const saved=await send('offline-receive',operationId,{deviceId,ticket});
     need(saved?.id===operationId&&saved.deviceId===deviceId&&canonical(saved.ticket)===canonical(ticket),'No se ha podido verificar el ticket pendiente guardado en Central.');return saved;};
-   const result=async(action,operationId,ticket)=>{const ack=operatorAcknowledgement(manualAck??ticket?.operatorAcknowledgement,actorId);const observed=await send(action,operationId,ack?{operatorAcknowledgement:ack}:{});
+   const result=async(action,operationId,ticket)=>{const ack=operatorAcknowledgement(manualAck??ticket?.operatorAcknowledgement,actorId);const metadata=ack?{operatorAcknowledgement:ack}:{};let observed;
+    try{observed=await send(action,operationId,metadata);}catch(error){
+     if(error.code!=='TPV_ACTION_APPROVAL_REQUIRED'||typeof authorizeAction!=='function')throw error;
+     const approvalId=await authorizeAction({kind:'price',operationId,totalCents:ticket?.totalCents});guard();
+     if(!approvalId)throw error;
+     observed=await send(action,operationId,{...metadata,approvalId});
+    }
     need(observed?.operationId===operationId,'La respuesta no corresponde a esta venta pendiente.');if(observed.status==='confirmed'&&observed.verified===true){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}return observed;};
    return Object.freeze({
     async dispatch({operationId,ticket}){await receive(operationId,ticket);return result('offline-sync',operationId,ticket);},
@@ -272,7 +278,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    taxSummary(record.expected);
    if(record.quoteExpiresAt<=Date.now()){forget('prepare',id);throw new Error('El cálculo ha caducado. Pulsa de nuevo Calcular y cobrar para obtener uno actualizado.');}
    if(activeDraft)activeDraft={...activeDraft,version:record.expected.draftVersion,status:'checkout',checkoutId:id};
-   const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,
+   const quote={id,totalCents:record.expected.totalCents,...(record.expected.totalTaxExclCents!==undefined?{totalTaxExclCents:record.expected.totalTaxExclCents}:{}),currency:record.scope.currency,quoteExpiresAt:record.quoteExpiresAt,hasPriceOverride:record.expected.hasPriceOverride===true,
     paymentMethods:quotePaymentMethods(record.expected),
     paymentLabels:clone(record.expected.operatorPaymentPolicy?.labels||{}),
     requireOperatorAtCheckout:record.expected.operatorPaymentPolicy?.requireOperatorAtCheckout===true,referencePolicy:clone(record.expected.operatorPaymentPolicy?.referencePolicy||{}),
@@ -302,7 +308,7 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    await releaseDraft();forget('prepare',id);forget('submitted-sale',id);prepared.delete(id);localSnapshots.delete(id);},
   async pendingSale(){const data=saved(),scope=scopeKey();for(const kind of ['submitted-sale','prepare'])if(data[kind]?.scope===scope)return data[kind].id;
    let rows;try{rows=await call('history');}catch(error){if(error?.code==='TPV_CONNECTION_UNAVAILABLE')return null;throw error;}return rows.find(row=>['dispatched','uncertain'].includes(row.status))?.id||null;},
-  async submit({operationId,payments,operatorAcknowledgement:acknowledgement}){const ack=operatorAcknowledgement(acknowledgement,actorId);const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
+  async submit({operationId,payments,approvalId,operatorAcknowledgement:acknowledgement}){const ack=operatorAcknowledgement(acknowledgement,actorId);const quote=prepared.get(operationId);need(quote,'Vuelve a preparar el cobro.');
    need(payments.every(row=>row.method==='cash'||['card','bizum','transfer'].includes(row.method)&&row.simulatedAccepted===true),'Confirma que has recibido el cobro externo.');
    const allocations=payments.map(row=>({id:row.method,method:row.method,amountCents:row.amountCents,
     ...(row.reference===undefined?{}:{reference:paymentReference(row.reference)}),
@@ -310,9 +316,9 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    const request={allocations,confirmation:{operationId,totalCents:quote.totalCents,currency:quote.currency,accepted:true,...(ack?{operatorAcknowledgement:ack}:{})}};
    need(await operation('submitted-sale',request,operationId)===operationId,'Hay otro cobro pendiente de recuperar.');
    const change=payments.filter(row=>row.method==='cash').reduce((n,row)=>n+row.receivedCents-row.amountCents,0);
-   try{const result=await call('submit',{payments:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}
+   try{const result=await call('submit',{payments:approvalId?{...request,confirmation:{...request.confirmation,approvalId}}:request},operationId);if(result.status==='confirmed'){forget('prepare',operationId);forget('submitted-sale',operationId);localSnapshots.delete(operationId);activeDraft=null;}
     return receipt(result,{totalCents:quote.totalCents,changeCents:change});
-   }catch{ return receipt({id:operationId,status:'uncertain',totalCents:quote.totalCents},{changeCents:change}); }
+   }catch(error){if(['TPV_ACTION_APPROVAL_REQUIRED','TPV_APPROVAL_INVALID'].includes(error.code))throw error;return receipt({id:operationId,status:'uncertain',totalCents:quote.totalCents},{changeCents:change}); }
   },
   async recover({operationId}){const status=await call('sale-status',{},operationId);
    if(status.status==='ready'){
@@ -376,6 +382,8 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
    need(reference===undefined||typeof reference==='string'&&/^[A-Za-z0-9-]{1,10}$/.test(reference),'Escribe una referencia válida.');
    need(orderId===undefined||reference===undefined,'Busca por número o por referencia.');
    return (await call('orders',reference!==undefined?{reference:reference.toUpperCase()}:orderId?{orderId}:{})).map(row=>receipt(row,{...row,reference:'Pedido #'+row.orderId}));},
+  async actionPolicy(settings){return call('action-policy',settings===undefined?{}:{settings});},
+  async approveAction({requestId,targetId,kind,proofJwt}){return call('action-approval',{targetId,kind,proofJwt},requestId);},
   async webOrders(query={}){const rows=await call('web-orders',{query});need(Array.isArray(rows),'No se pudieron consultar los pedidos de la web.');return rows;},
   async webReceipt(orderId){need(Number.isSafeInteger(orderId)&&orderId>0,'Selecciona un pedido válido.');return call('web-receipt',{orderId});},
   async document({saleId,kind,refundId}){return call('document',{kind,...(refundId?{refundId}:{})},saleId);},
@@ -408,9 +416,9 @@ export function createCentralTpvAdapter({invoke,actorId,storage,uuid=()=>crypto.
     if(amount>0){payments.push({method,amountCents:amount});remaining-=amount;}}
    need(remaining===0,'No se puede distribuir este reintegro con los pagos originales.');
    return {...await call('prepare-refund',{saleId,items:chosen,payments,...(reason?{reason}:{})},operationId),payments};},
-  async submitRefund({operationId,totalCents,refundConfirmed}){need(refundConfirmed===true,'Confirma el reintegro al cliente.');
-   try{return await call('submit-refund',{confirmation:{operationId,totalCents,currency:'EUR',accepted:true}},operationId);}
-   catch{return {id:operationId,status:'uncertain',totalCents,retryRefundForbidden:true};}},
+  async submitRefund({operationId,totalCents,refundConfirmed,approvalId}){need(refundConfirmed===true,'Confirma el reintegro al cliente.');
+   try{return await call('submit-refund',{confirmation:{operationId,totalCents,currency:'EUR',accepted:true,...(approvalId?{approvalId}:{})}},operationId);}
+   catch(error){if(['TPV_ACTION_APPROVAL_REQUIRED','TPV_APPROVAL_INVALID'].includes(error.code))throw error;return {id:operationId,status:'uncertain',totalCents,retryRefundForbidden:true};}},
   async cancelRefund(id){return call('cancel-refund',{},id);},async recoverRefund(id){return call('recover-refund',{},id);},
   async sessionSummary(){return summary(await call('cash-summary'));},
   async cashReports({sessionId}={}){return call('cash-reports',sessionId?{reportSessionId:sessionId}:{});},

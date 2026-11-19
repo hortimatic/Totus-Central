@@ -809,7 +809,13 @@
         "tests/totustpv-gift-discounts-native-qa.mjs",
         "tests/totustpv-web-order-receipt-qa.mjs",
         "tests/totustpv-web-order-tickets-browser-qa.mjs",
-        "tests/totustpv-web-order-tickets-native-qa.mjs"
+        "tests/totustpv-web-order-tickets-native-qa.mjs",
+        "tests/totustpv-password-proof-qa.mjs",
+        "tests/totustpv-password-client-qa.mjs",
+        "tests/totustpv-action-approval-edge-qa.mjs",
+        "tests/totustpv-sensitive-offline-qa.mjs",
+        "tests/totustpv-sensitive-actions-browser-qa.mjs",
+        "tests/totustpv-sensitive-actions-native-qa.mjs"
       ],
       "invariants": [
         "Totus Central module without POSTPV or parallel authentication dependency",
@@ -825,7 +831,8 @@
         "Private sale notes are sealed with the owned cart, required by server policy when configured, read back from a single private native Message, and excluded from customer documents and display",
         "Receipt original prices and item reductions use historical native order snapshots, preserve recorded tax and rounding and keep cart reductions separate; gift documents hide all monetary data by default, with only validated recorded discount amounts allowed by the explicit gift-discount preference, never prices, paid totals, taxes, payments or customer data.",
         "La confirmación de operador vincula la cuenta autenticada y el importe al único claim; tickets offline antiguos conservan identidad y datos al confirmar su sincronización.",
-        "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo; el regalo oculta grupos, precios, cobros, total pagado y clientes, y sólo presenta descuentos monetarios comprobados con su opción explícita activada."
+        "Los porcentajes de grupo proceden del OrderDetail histórico, no de grupos actuales; ocultar precios rebajados conserva el total nativo; el regalo oculta grupos, precios, cobros, total pagado y clientes, y sólo presenta descuentos monetarios comprobados con su opción explícita activada.",
+        "Sensitive refund and explicit price overrides use verified recent same-account password proof, immutable scoped single-use approvals and current policy at atomic dispatch; no password/JWT enters financial or offline journals, ordinary sales and idempotent recovery remain compatible."
       ]
     },
     {

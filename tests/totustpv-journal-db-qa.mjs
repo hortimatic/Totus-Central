@@ -1,3 +1,4 @@
+import {exerciseSensitiveApprovals} from './native-lab/sensitive-action-assertions.mjs';
 import {exerciseWebTicketSettings} from './native-lab/web-ticket-settings-assertions.mjs';
 import {exerciseGiftDiscountSettings} from './native-lab/gift-discount-settings-assertions.mjs';
 import {exerciseReceiptDiscountDisplay} from './native-lab/receipt-discount-display-assertions.mjs';
@@ -822,5 +823,8 @@ try {
  await exerciseGiftDiscountSettings({db,id,scope:qaScope});
  await db.exec(await readFile('supabase/migrations/20261119065725_totustpv_web_order_tickets.sql','utf8'));
  await exerciseWebTicketSettings({db,id,scope:qaScope});
+ await db.exec('reset role;create table if not exists auth.sessions(id uuid primary key,user_id uuid not null)');
+ await db.exec(await readFile('supabase/migrations/20261119095638_totustpv_sensitive_action_approvals.sql','utf8'));
+ await exerciseSensitiveApprovals({db,id,scope:qaScope,expected,payments});
  await exerciseCentralCashLedger({db,id,scope:draftScope,closedSession:draftScope.sessionId,otherSession:qaScope.sessionId});
 } finally {await db.close();}
