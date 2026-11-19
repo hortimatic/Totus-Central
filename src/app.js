@@ -94,6 +94,16 @@ const centralCashUI=createCentralCashUI({actor:()=>state.user?.id,client:tpvClie
 const totusTpvSetup=createTpvSetupReader({actor:()=>state.user,can:action=>can('totustpv',action),rpc,
  readDrawers:()=>select('ops_cash_drawers',{columns:'id,store_id,name,active',order:'name',ascending:true,limit:1000,filter:q=>q.eq('active',true)})});
 const totusTpvUI=createTpvWorkspace({actor:()=>state.user,can:action=>can('totustpv',action),autoOpen:true,
+ onChangeOperator:async()=>{
+  const owner=state.user?.id,previousSession=state.session;
+  $('#loginEmail').value='';$('#loginPassword').value='';
+  const {error}=await sb.auth.signOut({scope:'local'});
+  if(state.user&&(state.user.id!==owner||state.session!==previousSession))return;
+  if(state.user)throw Error('No se ha podido cerrar tu sesión. Reintenta el cambio de operador.');
+  if(signingIn||state.session?.user||$('#loginEmail').value||$('#loginPassword').value)return;
+  $('#loginMessage').textContent=error?'Sesión cerrada en este equipo. No se pudo confirmar el cierre con el servidor. Entra con tu propia cuenta para continuar.':'Entra con tu propia cuenta para continuar en TotusTPV.';
+  $('#loginEmail').focus();
+ },
  onOnlineOrders:()=>headerTools.openOnlineOrders(),canOnlineOrders:()=>can('ventas','view'),
  createLiveAdapter:()=>{const actorId=state.user.id;return createCentralTpvAdapter({actorId,storage:localStorage,invoke:tpvClient(actorId),canReadCentralCatalogue:()=>state.user?.id===actorId&&can('totustpv','view')&&can('productos','view'),centralCatalogueSource:selection=>{if(state.user?.id!==actorId||!can('totustpv','view'))throw Error('La sesión del TPV ha cambiado.');return productosUI.catalogueSnapshot(selection);}});},
  readConfiguration:createTpvConfigurationReader({actor:()=>state.user,rpc,

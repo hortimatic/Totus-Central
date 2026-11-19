@@ -197,3 +197,6 @@
 .tpv-access-batch .tpv-access-list{max-height:22rem;overflow:auto;overscroll-behavior:contain}
 .tpv-access-batch fieldset{min-width:0;border:1px solid var(--border,#dce3ed);border-radius:.75rem}
 .tpv-access-batch .inline-actions{flex-wrap:wrap}
+
+.tpv-entry-operator{margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--line)}
+.tpv-entry-operator p{margin-bottom:.65rem}
